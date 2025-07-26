@@ -153,7 +153,7 @@ impl Reporter {
         
         println!("   {}: {:.1}/100 {}", 
             score_label,
-            score_color,
+            quality_score.total_score,
             quality_score.quality_level.emoji()
         );
         println!("   {}: {}", 
@@ -307,49 +307,184 @@ impl Reporter {
         for (file_name, file_issues) in file_groups {
             println!("{} {}", "📁".bright_blue(), file_name.bright_blue().bold());
 
-            let issues_to_show = if self.max_issues_per_file > 0 {
-                file_issues
-                    .into_iter()
-                    .take(self.max_issues_per_file)
-                    .collect::<Vec<_>>()
-            } else {
-                file_issues
+            // Group issues by rule type
+            let mut rule_groups: HashMap<String, Vec<&CodeIssue>> = HashMap::new();
+            for issue in &file_issues {
+                rule_groups.entry(issue.rule_name.clone()).or_default().push(issue);
+            }
+
+            // Show limited number of issues per rule type
+            let max_per_rule = 5;
+            let mut total_shown = 0;
+            let max_total = if self.max_issues_per_file > 0 { 
+                self.max_issues_per_file 
+            } else { 
+                usize::MAX 
             };
 
-            for issue in issues_to_show {
-                self.print_issue(issue);
+            // Sort rule groups by severity (most severe first)
+            let mut sorted_rules: Vec<_> = rule_groups.into_iter().collect();
+            sorted_rules.sort_by(|a, b| {
+                let severity_order = |s: &Severity| match s {
+                    Severity::Nuclear => 3,
+                    Severity::Spicy => 2,
+                    Severity::Mild => 1,
+                };
+                let max_severity_a = a.1.iter().map(|i| severity_order(&i.severity)).max().unwrap_or(1);
+                let max_severity_b = b.1.iter().map(|i| severity_order(&i.severity)).max().unwrap_or(1);
+                max_severity_b.cmp(&max_severity_a)
+            });
+
+            for (rule_name, rule_issues) in sorted_rules {
+                if total_shown >= max_total {
+                    break;
+                }
+
+                let rule_issues_len = rule_issues.len();
+                
+                // For naming issues, show a summary instead of individual cases
+                if rule_name.contains("naming") || rule_name.contains("single-letter") {
+                    if total_shown < max_total {
+                        // Collect all variable names for summary
+                        let bad_names: Vec<String> = rule_issues.iter()
+                            .filter_map(|issue| {
+                                // Extract variable name from message
+                                if let Some(start) = issue.message.find("'") {
+                                    if let Some(end) = issue.message[start+1..].find("'") {
+                                        Some(issue.message[start+1..start+1+end].to_string())
+                                    } else { None }
+                                } else { None }
+                            })
+                            .collect();
+                        
+                        let names_display = if bad_names.len() <= 5 {
+                            bad_names.join(", ")
+                        } else {
+                            format!("{}, ... and {} more", 
+                                bad_names[..3].join(", "), 
+                                bad_names.len() - 3)
+                        };
+                        
+                        let summary_message = if self.i18n.lang == "zh-CN" {
+                            format!("发现 {} 个糟糕的变量/函数命名: {}", rule_issues_len, names_display)
+                        } else {
+                            format!("Found {} terrible variable/function names: {}", rule_issues_len, names_display)
+                        };
+                        
+                        println!("  {} {} {}", 
+                            "🏷️".bright_yellow(), 
+                            "naming".bright_black(), 
+                            summary_message.bright_red().bold());
+                        total_shown += 1;
+                    }
+                } else {
+                    // For code duplication, show only one summary message
+                    if rule_name.contains("duplication") {
+                        if total_shown < max_total {
+                            // Show just the first/best duplication message
+                            if let Some(first_issue) = rule_issues.first() {
+                                self.print_issue(first_issue);
+                                total_shown += 1;
+                            }
+                        }
+                    } else {
+                        // For other types of issues, show up to max_per_rule
+                        let issues_to_show = if rule_issues_len > max_per_rule {
+                            rule_issues.iter().take(max_per_rule).collect::<Vec<_>>()
+                        } else {
+                            rule_issues.iter().collect::<Vec<_>>()
+                        };
+
+                        for issue in &issues_to_show {
+                            if total_shown >= max_total {
+                                break;
+                            }
+                            self.print_issue(issue);
+                            total_shown += 1;
+                        }
+
+                        // Show summary if there are more issues of this type
+                        if rule_issues_len > issues_to_show.len() {
+                            let remaining = rule_issues_len - issues_to_show.len();
+                            if total_shown < max_total {
+                                println!("  💭 {} ... and {} more {} issues", 
+                                    "".bright_black(), 
+                                    remaining.to_string().yellow(),
+                                    rule_name.replace("-", " "));
+                                total_shown += 1;
+                            }
+                        }
+                    }
+                }
             }
             println!();
         }
     }
 
     fn print_issue(&self, issue: &CodeIssue) {
-        let severity_icon = match issue.severity {
-            Severity::Nuclear => "💥",
-            Severity::Spicy => "🌶️",
-            Severity::Mild => "😐",
-        };
-
-        let line_info = format!("{}:{}", issue.line, issue.column).bright_black();
-
-        
-        // 直接使用规则生成的消息，因为它们已经包含了具体的变量名
-        let message = issue.message.clone();
-
-     
-        let final_message = if self.savage_mode {
-            self.make_message_savage(&message)
+        // Choose icon and color based on rule type
+        if issue.rule_name.contains("duplication") {
+            let message = if self.i18n.lang == "zh-CN" {
+                &issue.message
+            } else {
+                // Translate common duplication messages to English
+                if issue.message.contains("相似代码块") {
+                    "Found similar code blocks, consider refactoring into functions"
+                } else if issue.message.contains("DRY原则哭了") {
+                    "Code duplication detected, DRY principle violated"
+                } else {
+                    &issue.message
+                }
+            };
+            println!("  {} {} {}", 
+                "🔄".bright_cyan(), 
+                "duplicate".bright_black(), 
+                message.bright_cyan().bold());
+        } else if issue.rule_name.contains("nesting") {
+            let message = if self.i18n.lang == "zh-CN" {
+                &issue.message
+            } else {
+                // Translate common nesting messages to English
+                if issue.message.contains("俄罗斯套娃") {
+                    "Nesting deeper than Russian dolls, are you writing a maze?"
+                } else if issue.message.contains("挖到地心") {
+                    "Nesting so deep, trying to dig to the Earth's core?"
+                } else if issue.message.contains("像洋葱一样") {
+                    "Code nested like an onion, makes me want to cry"
+                } else {
+                    &issue.message
+                }
+            };
+            println!("  {} {} {}", 
+                "📦".bright_magenta(), 
+                "nesting".bright_black(), 
+                message.bright_magenta());
         } else {
-            message
-        };
+            // Default based on severity
+            let severity_icon = match issue.severity {
+                Severity::Nuclear => "💥",
+                Severity::Spicy => "🌶️", 
+                Severity::Mild => "😐",
+            };
+            
+            let line_info = format!("{}:{}", issue.line, issue.column);
+            let colored_message = match issue.severity {
+                Severity::Nuclear => issue.message.red().bold(),
+                Severity::Spicy => issue.message.yellow(),
+                Severity::Mild => issue.message.blue(),
+            };
+            
+            let final_message = if self.savage_mode {
+                self.make_message_savage(&issue.message)
+            } else {
+                issue.message.clone()
+            };
 
-        let colored_message = match issue.severity {
-            Severity::Nuclear => final_message.red().bold(),
-            Severity::Spicy => final_message.yellow(),
-            Severity::Mild => final_message.blue(),
-        };
-
-        println!("  {} {} {}", severity_icon, line_info, colored_message);
+            println!("  {} {} {}", 
+                severity_icon.bright_yellow(), 
+                line_info.bright_black(), 
+                colored_message);
+        }
     }
 
     fn make_message_savage(&self, message: &str) -> String {
