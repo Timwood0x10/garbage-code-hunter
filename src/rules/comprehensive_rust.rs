@@ -24,7 +24,7 @@ impl Rule for ChannelAbuseRule {
         "channel-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = ChannelVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         
@@ -45,7 +45,7 @@ impl Rule for AsyncAbuseRule {
         "async-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = AsyncVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -57,7 +57,7 @@ impl Rule for DynTraitAbuseRule {
         "dyn-trait-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = DynTraitVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -69,7 +69,7 @@ impl Rule for UnsafeAbuseRule {
         "unsafe-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = UnsafeVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         
@@ -84,7 +84,7 @@ impl Rule for FFIAbuseRule {
         "ffi-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = FFIVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         
@@ -99,7 +99,7 @@ impl Rule for MacroAbuseRule {
         "macro-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = MacroVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -111,7 +111,7 @@ impl Rule for ModuleComplexityRule {
         "module-complexity"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = ModuleVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -123,7 +123,7 @@ impl Rule for PatternMatchingAbuseRule {
         "pattern-matching-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = PatternVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -135,7 +135,7 @@ impl Rule for ReferenceAbuseRule {
         "reference-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = ReferenceVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -147,7 +147,7 @@ impl Rule for BoxAbuseRule {
         "box-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = BoxVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         
@@ -182,7 +182,7 @@ impl Rule for SliceAbuseRule {
         "slice-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = SliceVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues

@@ -11,7 +11,7 @@ impl Rule for UnwrapAbuseRule {
         "unwrap-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = UnwrapVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -25,7 +25,7 @@ impl Rule for UnnecessaryCloneRule {
         "unnecessary-clone"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = CloneVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use crate::analyzer::{CodeIssue, Severity};
 
-/// 代码质量评分系统
-/// 分数范围：0-100分，分数越低代码质量越好
-/// 0-20: 优秀 (Excellent)
-/// 21-40: 良好 (Good) 
-/// 41-60: 一般 (Average)
-/// 61-80: 较差 (Poor)
-/// 81-100: 糟糕 (Terrible)
+/// Code quality rating system
+/// Score range: 0-100, the higher the score, the worse the code quality
+/// 0-20: Excellent
+/// 21-40: Good 
+/// 41-60: Average
+/// 61-80: Poor
+/// 81-100: Terrible
 #[derive(Debug, Clone)]
 pub struct CodeQualityScore {
     pub total_score: f64,
@@ -73,9 +73,9 @@ impl QualityLevel {
 }
 
 pub struct CodeScorer {
-    /// 权重配置：不同规则类型的权重
+    /// rule weights
     rule_weights: HashMap<String, f64>,
-    /// 严重程度权重
+    /// severity weights
     severity_weights: HashMap<Severity, f64>,
 }
 
@@ -83,30 +83,32 @@ impl CodeScorer {
     pub fn new() -> Self {
         let mut rule_weights = HashMap::new();
         
-        // 基础代码质量问题权重
+        // Basic code quality issues
         rule_weights.insert("terrible-naming".to_string(), 2.0);
         rule_weights.insert("single-letter-variable".to_string(), 1.5);
         
-        // 复杂度问题权重（影响较大）
+        // Complexity issues
         rule_weights.insert("deep-nesting".to_string(), 3.0);
         rule_weights.insert("long-function".to_string(), 2.5);
+        rule_weights.insert("cyclomatic-complexity".to_string(), 3.5);
+        rule_weights.insert("code-duplication".to_string(), 4.0);
         
-        // Rust特定问题权重
-        rule_weights.insert("unwrap-abuse".to_string(), 4.0);  // 高权重，因为可能导致panic
+        // Rust specific issues
+        rule_weights.insert("unwrap-abuse".to_string(), 4.0);  // high weight, because it may cause panic
         rule_weights.insert("unnecessary-clone".to_string(), 2.0);
         
-        // 高级Rust特性滥用权重
+        // Advanced Rust features abuse
         rule_weights.insert("complex-closure".to_string(), 2.5);
         rule_weights.insert("lifetime-abuse".to_string(), 3.5);
         rule_weights.insert("trait-complexity".to_string(), 3.0);
         rule_weights.insert("generic-abuse".to_string(), 2.5);
         
-        // 综合Rust特性问题权重
+        // Rust features abuse
         rule_weights.insert("channel-abuse".to_string(), 3.0);
         rule_weights.insert("async-abuse".to_string(), 3.5);
         rule_weights.insert("dyn-trait-abuse".to_string(), 2.5);
-        rule_weights.insert("unsafe-abuse".to_string(), 5.0);  // 最高权重，安全问题
-        rule_weights.insert("ffi-abuse".to_string(), 4.5);     // 高权重，FFI安全问题
+        rule_weights.insert("unsafe-abuse".to_string(), 5.0);  // highest weight, because it's a safety issue
+        rule_weights.insert("ffi-abuse".to_string(), 4.5);     // high weight, because it's a safety issue
         rule_weights.insert("macro-abuse".to_string(), 3.0);
         rule_weights.insert("module-complexity".to_string(), 2.0);
         rule_weights.insert("pattern-matching-abuse".to_string(), 2.0);
@@ -115,9 +117,9 @@ impl CodeScorer {
         rule_weights.insert("slice-abuse".to_string(), 1.5);
 
         let mut severity_weights = HashMap::new();
-        severity_weights.insert(Severity::Nuclear, 10.0);  // 核弹级问题权重最高
-        severity_weights.insert(Severity::Spicy, 5.0);     // 中等问题
-        severity_weights.insert(Severity::Mild, 2.0);      // 轻微问题
+        severity_weights.insert(Severity::Nuclear, 10.0);  // nuclear penalty: first nuclear +20, each subsequent +5
+        severity_weights.insert(Severity::Spicy, 5.0);     // spicy penalty: first 5 spicy +2, each subsequent +2
+        severity_weights.insert(Severity::Mild, 2.0);      // mild penalty: first 20 mild +0.5, each subsequent +0.5
 
         Self {
             rule_weights,
@@ -125,7 +127,7 @@ impl CodeScorer {
         }
     }
 
-    /// 计算代码质量评分
+    /// calculate code quality score
     pub fn calculate_score(&self, issues: &[CodeIssue], file_count: usize, total_lines: usize) -> CodeQualityScore {
         if issues.is_empty() {
             return CodeQualityScore {
@@ -139,26 +141,26 @@ impl CodeScorer {
             };
         }
 
-        // 统计严重程度分布
+        // calculate severity distribution
         let severity_distribution = self.calculate_severity_distribution(issues);
         
-        // 计算基础分数
+        // calculate base score
         let base_score = self.calculate_base_score(issues);
         
-        // 计算密度惩罚
+        // calculate density penalty
         let density_penalty = self.calculate_density_penalty(issues.len(), file_count, total_lines);
         
-        // 计算严重程度惩罚
+        // calculate severity penalty
         let severity_penalty = self.calculate_severity_penalty(&severity_distribution);
         
-        // 计算分类分数
+        // calculate category scores
         let category_scores = self.calculate_category_scores(issues);
         
-        // 计算最终分数
+        // calculate final score (higher score = worse code)
         let total_score = (base_score + density_penalty + severity_penalty).min(100.0);
         
         let issue_density = if total_lines > 0 {
-            issues.len() as f64 / total_lines as f64 * 1000.0  // 每千行代码的问题数
+            issues.len() as f64 / total_lines as f64 * 1000.0  // issues per 1000 lines
         } else {
             0.0
         };
@@ -197,7 +199,7 @@ impl CodeScorer {
             let rule_weight = self.rule_weights.get(&issue.rule_name).unwrap_or(&1.0);
             let severity_weight = self.severity_weights.get(&issue.severity).unwrap_or(&1.0);
             
-            // 基础分数 = 规则权重 × 严重程度权重
+            // calculate base score
             score += rule_weight * severity_weight;
         }
 
@@ -209,22 +211,22 @@ impl CodeScorer {
             return 0.0;
         }
 
-        // 计算问题密度（每千行代码的问题数）
+        // calculate issues density (issues per 1000 lines)
         let issues_per_1000_lines = (issue_count as f64 / total_lines as f64) * 1000.0;
         
-        // 计算文件平均问题数
+        // calculate average issues per file
         let issues_per_file = issue_count as f64 / file_count as f64;
 
-        // 密度惩罚：问题密度越高，惩罚越重
+        // calculate density penalty
         let density_penalty = match issues_per_1000_lines {
-            x if x > 50.0 => 25.0,   // 极高密度
-            x if x > 30.0 => 15.0,   // 高密度
-            x if x > 20.0 => 10.0,   // 中等密度
-            x if x > 10.0 => 5.0,    // 低密度
-            _ => 0.0,                // 很低密度
+            x if x > 50.0 => 25.0,   // high density
+            x if x > 30.0 => 15.0,   // medium density
+            x if x > 20.0 => 10.0,   // low density
+            x if x > 10.0 => 5.0,    // very low density
+            _ => 0.0,                // very low density
         };
 
-        // 文件问题数惩罚
+        // calculate file penalty
         let file_penalty = match issues_per_file {
             x if x > 20.0 => 15.0,
             x if x > 10.0 => 10.0,
@@ -238,19 +240,19 @@ impl CodeScorer {
     fn calculate_severity_penalty(&self, distribution: &SeverityDistribution) -> f64 {
         let mut penalty = 0.0;
 
-        // 核弹级问题的额外惩罚
+        // calculate nuclear penalty
         if distribution.nuclear > 0 {
-            penalty += 20.0 + (distribution.nuclear as f64 - 1.0) * 5.0;  // 第一个核弹级+20，后续每个+5
+            penalty += 20.0 + (distribution.nuclear as f64 - 1.0) * 5.0;  // nuclear penalty: first nuclear +20, each subsequent +5
         }
 
-        // 严重问题的额外惩罚
+        // calculate spicy penalty
         if distribution.spicy > 5 {
-            penalty += (distribution.spicy as f64 - 5.0) * 2.0;  // 超过5个严重问题后，每个+2
+            penalty += (distribution.spicy as f64 - 5.0) * 2.0;  // spicy penalty: first 5 spicy +2, each subsequent +2
         }
 
-        // 轻微问题的累积惩罚
+        // calculate mild penalty
         if distribution.mild > 20 {
-            penalty += (distribution.mild as f64 - 20.0) * 0.5;  // 超过20个轻微问题后，每个+0.5
+            penalty += (distribution.mild as f64 - 20.0) * 0.5;  // mild penalty: first 20 mild +0.5, each subsequent +0.5
         }
 
         penalty
@@ -260,17 +262,18 @@ impl CodeScorer {
         let mut category_scores = HashMap::new();
         let mut category_counts: HashMap<String, usize> = HashMap::new();
 
-        // 定义问题分类
+        // define issue categories
         let categories = [
             ("naming", vec!["terrible-naming", "single-letter-variable"]),
-            ("complexity", vec!["deep-nesting", "long-function"]),
+            ("complexity", vec!["deep-nesting", "long-function", "cyclomatic-complexity"]),
+            ("duplication", vec!["code-duplication"]),
             ("rust-basics", vec!["unwrap-abuse", "unnecessary-clone"]),
             ("advanced-rust", vec!["complex-closure", "lifetime-abuse", "trait-complexity", "generic-abuse"]),
             ("rust-features", vec!["channel-abuse", "async-abuse", "dyn-trait-abuse", "unsafe-abuse", "ffi-abuse", "macro-abuse"]),
             ("structure", vec!["module-complexity", "pattern-matching-abuse", "reference-abuse", "box-abuse", "slice-abuse"]),
         ];
 
-        // 统计每个分类的问题
+        // calculate category scores
         for issue in issues {
             for (category_name, rules) in &categories {
                 if rules.contains(&issue.rule_name.as_str()) {

@@ -11,7 +11,7 @@ impl Rule for DeepNestingRule {
         "deep-nesting"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = NestingVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -25,7 +25,7 @@ impl Rule for LongFunctionRule {
         "long-function"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = FunctionLengthVisitor::new(file_path.to_path_buf(), content);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -48,7 +48,7 @@ impl NestingVisitor {
     }
 
     fn check_nesting_depth(&mut self, _block: &Block) {
-        if self.current_depth > 5 {
+        if self.current_depth > 3 {
             let messages = vec![
                 "这嵌套层数比俄罗斯套娃还要深，你确定不是在写迷宫？",
                 "嵌套这么深，是想挖到地心吗？",

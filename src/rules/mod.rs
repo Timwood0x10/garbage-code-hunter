@@ -8,11 +8,12 @@ pub mod naming;
 pub mod rust_specific;
 pub mod advanced_rust;
 pub mod comprehensive_rust;
+pub mod duplication;
 
 pub trait Rule {
     #[allow(dead_code)]
     fn name(&self) -> &'static str;
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue>;
+    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str, lang: &str) -> Vec<CodeIssue>;
 }
 
 pub struct RuleEngine {
@@ -28,6 +29,7 @@ impl RuleEngine {
         rules.push(Box::new(naming::SingleLetterVariableRule));
         rules.push(Box::new(complexity::DeepNestingRule));
         rules.push(Box::new(complexity::LongFunctionRule));
+        rules.push(Box::new(duplication::CodeDuplicationRule));
         rules.push(Box::new(rust_specific::UnwrapAbuseRule));
         rules.push(Box::new(rust_specific::UnnecessaryCloneRule));
         
@@ -58,11 +60,12 @@ impl RuleEngine {
         file_path: &Path,
         syntax_tree: &File,
         content: &str,
+        lang: &str,
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
 
         for rule in &self.rules {
-            issues.extend(rule.check(file_path, syntax_tree, content));
+            issues.extend(rule.check(file_path, syntax_tree, content, lang));
         }
 
         issues

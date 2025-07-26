@@ -49,7 +49,7 @@ struct Args {
     markdown: bool,
 
     /// Output language (zh-CN, en-US)
-    #[arg(short, long, default_value = "zh-CN")]
+    #[arg(short, long, default_value = "en-US")]
     lang: String,
 
     /// Exclude file/directory patterns (can be used multiple times)
@@ -60,7 +60,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let analyzer = CodeAnalyzer::new(&args.exclude);
+    let analyzer = CodeAnalyzer::new(&args.exclude, &args.lang);
     let issues = analyzer.analyze_path(&args.path);
     
     // Calculate metrics for scoring

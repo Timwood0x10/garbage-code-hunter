@@ -131,7 +131,11 @@ impl Reporter {
     }
 
     fn print_quality_score(&self, quality_score: &CodeQualityScore) {
-        println!("{}", "🏆 代码质量评分".bright_yellow().bold());
+        let title = match self.i18n.lang.as_str() {
+            "zh-CN" => "🏆 代码质量评分",
+            _ => "🏆 Code Quality Score",
+        };
+        println!("{}", title.bright_yellow().bold());
         println!("{}", "─".repeat(50).bright_black());
         
         let score_color = match quality_score.quality_level {
@@ -142,18 +146,34 @@ impl Reporter {
             crate::scoring::QualityLevel::Terrible => quality_score.total_score.to_string().bright_red().bold(),
         };
 
-        println!("   📊 总分: {:.1}/100 {}", 
+        let (score_label, level_label) = match self.i18n.lang.as_str() {
+            "zh-CN" => ("📊 总分", "🎯 等级"),
+            _ => ("📊 Score", "🎯 Level"),
+        };
+        
+        println!("   {}: {:.1}/100 {}", 
+            score_label,
             score_color,
             quality_score.quality_level.emoji()
         );
-        println!("   🎯 等级: {}", 
+        println!("   {}: {}", 
+            level_label,
             quality_score.quality_level.description(&self.i18n.lang).bright_white().bold()
         );
         
         if quality_score.total_lines > 0 {
-            println!("   📏 代码行数: {}", quality_score.total_lines.to_string().cyan());
-            println!("   📁 文件数量: {}", quality_score.file_count.to_string().cyan());
-            println!("   🔍 问题密度: {:.2} 问题/千行", quality_score.issue_density.to_string().cyan());
+            let (lines_label, files_label, density_label) = match self.i18n.lang.as_str() {
+                "zh-CN" => ("📏 代码行数", "📁 文件数量", "🔍 问题密度"),
+                _ => ("📏 Lines of Code", "📁 Files", "🔍 Issue Density"),
+            };
+            let density_unit = match self.i18n.lang.as_str() {
+                "zh-CN" => "问题/千行",
+                _ => "issues/1k lines",
+            };
+            
+            println!("   {}: {}", lines_label, quality_score.total_lines.to_string().cyan());
+            println!("   {}: {}", files_label, quality_score.file_count.to_string().cyan());
+            println!("   {}: {:.2} {}", density_label, quality_score.issue_density.to_string().cyan(), density_unit);
         }
 
         // 显示严重程度分布
@@ -161,33 +181,54 @@ impl Reporter {
            quality_score.severity_distribution.spicy > 0 || 
            quality_score.severity_distribution.mild > 0 {
             println!();
-            println!("   🎭 问题分布:");
+            let distribution_title = match self.i18n.lang.as_str() {
+                "zh-CN" => "🎭 问题分布:",
+                _ => "🎭 Issue Distribution:",
+            };
+            let (nuclear_label, spicy_label, mild_label) = match self.i18n.lang.as_str() {
+                "zh-CN" => ("💥 核弹级", "🌶️  严重", "😐 轻微"),
+                _ => ("💥 Nuclear", "🌶️  Spicy", "😐 Mild"),
+            };
+            
+            println!("   {}", distribution_title);
             if quality_score.severity_distribution.nuclear > 0 {
-                println!("      💥 核弹级: {}", quality_score.severity_distribution.nuclear.to_string().red().bold());
+                println!("      {}: {}", nuclear_label, quality_score.severity_distribution.nuclear.to_string().red().bold());
             }
             if quality_score.severity_distribution.spicy > 0 {
-                println!("      🌶️  严重: {}", quality_score.severity_distribution.spicy.to_string().yellow());
+                println!("      {}: {}", spicy_label, quality_score.severity_distribution.spicy.to_string().yellow());
             }
             if quality_score.severity_distribution.mild > 0 {
-                println!("      😐 轻微: {}", quality_score.severity_distribution.mild.to_string().blue());
+                println!("      {}: {}", mild_label, quality_score.severity_distribution.mild.to_string().blue());
             }
         }
 
         // 显示分类得分（如果有的话）
         if !quality_score.category_scores.is_empty() && self.verbose {
             println!();
-            println!("   📋 分类得分:");
+            let category_title = match self.i18n.lang.as_str() {
+                "zh-CN" => "📋 分类得分:",
+                _ => "📋 Category Scores:",
+            };
+            println!("   {}", category_title);
             let mut sorted_categories: Vec<_> = quality_score.category_scores.iter().collect();
             sorted_categories.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
             
             for (category, score) in sorted_categories.iter().take(5) {
-                let category_name = match category.as_str() {
-                    "naming" => "命名规范",
-                    "complexity" => "复杂度",
-                    "rust-basics" => "Rust基础",
-                    "advanced-rust" => "高级特性",
-                    "rust-features" => "Rust功能",
-                    "structure" => "代码结构",
+                let category_name = match (self.i18n.lang.as_str(), category.as_str()) {
+                    ("zh-CN", "naming") => "命名规范",
+                    ("zh-CN", "complexity") => "复杂度",
+                    ("zh-CN", "rust-basics") => "Rust基础",
+                    ("zh-CN", "advanced-rust") => "高级特性",
+                    ("zh-CN", "rust-features") => "Rust功能",
+                    ("zh-CN", "structure") => "代码结构",
+                    ("zh-CN", "duplication") => "重复代码",
+                    (_, "naming") => "Naming",
+                    (_, "complexity") => "Complexity",
+                    (_, "rust-basics") => "Rust Basics",
+                    (_, "advanced-rust") => "Advanced Rust",
+                    (_, "rust-features") => "Rust Features",
+                    (_, "structure") => "Code Structure",
+                    (_, "duplication") => "Code Duplication",
                     _ => category,
                 };
                 println!("      {} {:.1}", category_name.cyan(), score.to_string().yellow());
@@ -292,12 +333,8 @@ impl Reporter {
         let line_info = format!("{}:{}", issue.line, issue.column).bright_black();
 
         
-        let messages = self.i18n.get_roast_messages(&issue.rule_name);
-        let message = if !messages.is_empty() {
-            messages[issue.line % messages.len()].clone()
-        } else {
-            issue.message.clone()
-        };
+        // 直接使用规则生成的消息，因为它们已经包含了具体的变量名
+        let message = issue.message.clone();
 
      
         let final_message = if self.savage_mode {
@@ -383,17 +420,13 @@ impl Reporter {
         println!("{}", score_color);
         println!();
 
-        // 原有的总结逻辑
-        let _nuclear_count = issues
+        let nuclear_count = issues
             .iter()
             .filter(|i| matches!(i.severity, Severity::Nuclear))
             .count();
-        let _total_count = issues.len();
+        let total_count = issues.len();
 
-        println!("{}", self.i18n.get("summary").bright_white().bold());
-        println!("{}", "─".repeat(50).bright_black());
-
-        let summary_message = if _nuclear_count > 0 {
+        let summary_message = if nuclear_count > 0 {
             if self.savage_mode {
                 match self.i18n.lang.as_str() {
                     "zh-CN" => "你的代码质量堪忧，建议重新学习编程基础 💀".to_string(),
@@ -418,9 +451,9 @@ impl Reporter {
             }
         };
 
-        let color = if _nuclear_count > 0 {
+        let color = if nuclear_count > 0 {
             summary_message.red().bold()
-        } else if _total_count > 10 {
+        } else if total_count > 10 {
             summary_message.yellow()
         } else {
             summary_message.green()

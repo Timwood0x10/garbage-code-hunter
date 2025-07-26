@@ -7,6 +7,13 @@ pub struct I18n {
 
 impl I18n {
     pub fn new(lang: &str) -> Self {
+        // 标准化语言代码
+        let normalized_lang = match lang.to_lowercase().as_str() {
+            "en" | "en-us" | "english" => "en-US",
+            "zh" | "zh-cn" | "chinese" => "zh-CN",
+            _ => lang,
+        };
+        
         let mut messages = HashMap::new();
 
         // chinese messages
@@ -115,7 +122,7 @@ impl I18n {
         messages.insert("en-US".to_string(), en_us);
 
         Self {
-            lang: lang.to_string(),
+            lang: normalized_lang.to_string(),
             messages,
         }
     }
@@ -314,6 +321,18 @@ impl I18n {
                 "切片过多，数组都被你切碎了".to_string(),
                 "Slice 滥用，建议使用 Vec".to_string(),
             ],
+            ("zh-CN", "code-duplication") => vec![
+                "检测到重复代码！你是复制粘贴大师吗？".to_string(),
+                "这些重复代码比双胞胎还像".to_string(),
+                "DRY原则哭了，你的代码湿得像雨季".to_string(),
+                "重复代码这么多，建议改名为copy-paste.rs".to_string(),
+            ],
+            ("zh-CN", "cyclomatic-complexity") => vec![
+                "圈复杂度爆表！这代码比迷宫还复杂".to_string(),
+                "复杂度这么高，连AI都看不懂".to_string(),
+                "这函数的复杂度已经超越人类理解范围".to_string(),
+                "建议拆分函数，或者直接重写".to_string(),
+            ],
             // 英文版本
             ("en-US", "terrible-naming") => vec![
                 "This variable name is more abstract than my programming skills, and I can't even write Hello World correctly".to_string(),
@@ -492,6 +511,13 @@ impl I18n {
                 "Too many slices, you've chopped the arrays to pieces".to_string(),
                 "Slice abuse, suggest using Vec instead".to_string(),
             ],
+            ("en-US", "code-duplication") => vec![
+                "Copy-paste ninja detected! 🥷 Your code has more duplicates than a hall of mirrors".to_string(),
+                "DRY principle is crying in the corner while your code is drowning in repetition".to_string(),
+                "This much duplication suggests you should rename your file to 'ctrl-c-ctrl-v.rs'".to_string(),
+                "Duplicate code alert! Even my copy machine is jealous of your efficiency".to_string(),
+                "Your code has more clones than a sci-fi movie, time for some refactoring!".to_string(),
+            ],
             _ => vec!["Unknown issue detected".to_string()],
         }
     }
@@ -568,6 +594,14 @@ impl I18n {
                             .to_string(),
                     );
                     suggestions.push("🔄 Consider using references (&) or redesigning data structures to avoid cloning".to_string());
+                }
+                if rule_names.contains(&"code-duplication".to_string()) {
+                    suggestions.push("🔄 Extract common code into functions to follow the DRY principle".to_string());
+                    suggestions.push("🏗️ Consider creating utility functions or modules for repeated logic".to_string());
+                }
+                if rule_names.contains(&"cyclomatic-complexity".to_string()) {
+                    suggestions.push("🧩 Break complex functions into smaller, single-purpose functions".to_string());
+                    suggestions.push("🎯 Use early returns and guard clauses to reduce complexity".to_string());
                 }
                 if suggestions.is_empty() {
                     suggestions.push(

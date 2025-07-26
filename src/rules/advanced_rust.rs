@@ -11,7 +11,7 @@ impl Rule for ComplexClosureRule {
         "complex-closure"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = ClosureVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -25,7 +25,7 @@ impl Rule for LifetimeAbuseRule {
         "lifetime-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = LifetimeVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -39,7 +39,7 @@ impl Rule for TraitComplexityRule {
         "trait-complexity"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = TraitVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -53,7 +53,7 @@ impl Rule for GenericAbuseRule {
         "generic-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, _lang: &str) -> Vec<CodeIssue> {
         let mut visitor = GenericVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues

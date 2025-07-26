@@ -35,10 +35,11 @@ pub enum RoastLevel {
 pub struct CodeAnalyzer {
     rule_engine: RuleEngine,
     exclude_patterns: Vec<Regex>,
+    lang: String,
 }
 
 impl CodeAnalyzer {
-    pub fn new(exclude_patterns: &[String]) -> Self {
+    pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
         let patterns = exclude_patterns
             .iter()
             .filter_map(|pattern| {
@@ -54,6 +55,7 @@ impl CodeAnalyzer {
         Self {
             rule_engine: RuleEngine::new(),
             exclude_patterns: patterns,
+            lang: lang.to_string(),
         }
     }
 
@@ -101,6 +103,6 @@ impl CodeAnalyzer {
         };
 
         self.rule_engine
-            .check_file(file_path, &syntax_tree, &content)
+            .check_file(file_path, &syntax_tree, &content, &self.lang)
     }
 }
