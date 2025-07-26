@@ -4,7 +4,7 @@ name = "garbage-code-hunter"
 version = "0.1.1"
 edition = "2021"
 description = "A humorous Rust code quality detector that roasts your garbage code"
-repository = "https://github.com/TimWood/garbage-code-hunter"
+repository = "https://github.com/TimWood0x10/garbage-code-hunter"
 license = "MIT"
 
 

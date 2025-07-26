@@ -8,6 +8,7 @@ mod i18n;
 mod reporter;
 mod rules;
 mod scoring;
+mod utils;
 
 use analyzer::CodeAnalyzer;
 use reporter::Reporter;

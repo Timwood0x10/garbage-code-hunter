@@ -1,6 +1,6 @@
 #[allow(dead_code)]
 use colored::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::i18n::I18n;
@@ -379,7 +379,7 @@ impl Reporter {
             println!("{} {}", "📁".bright_blue(), file_name.bright_blue().bold());
 
             // Group issues by rule type
-            let mut rule_groups: HashMap<String, Vec<&CodeIssue>> = HashMap::new();
+            let mut rule_groups: BTreeMap<String, Vec<&CodeIssue>> = BTreeMap::new();
             for issue in &file_issues {
                 rule_groups
                     .entry(issue.rule_name.clone())
@@ -476,13 +476,25 @@ impl Reporter {
                                     "multiple instances".to_string()
                                 }
                             } else {
+                                if self.i18n.lang == "zh-CN" {
+                                    "多个代码块".to_string()
+                                } else {
+                                    "multiple blocks".to_string()
+                                }
+                            }
+                        } else {
+                            if self.i18n.lang == "zh-CN" {
+                                "多个代码块".to_string()
+                            } else {
                                 "multiple blocks".to_string()
                             }
+                        }
+                    } else {
+                        if self.i18n.lang == "zh-CN" {
+                            "多个代码块".to_string()
                         } else {
                             "multiple blocks".to_string()
                         }
-                    } else {
-                        "multiple blocks".to_string()
                     };
 
                     println!(
@@ -532,7 +544,11 @@ impl Reporter {
                             format!("depth {min_depth}-{max_depth}")
                         }
                     } else {
-                        "deep nesting".to_string()
+                        if self.i18n.lang == "zh-CN" {
+                            "深度嵌套".to_string()
+                        } else {
+                            "deep nesting".to_string()
+                        }
                     };
 
                     println!(
@@ -543,11 +559,27 @@ impl Reporter {
                     );
                     total_shown += 1;
                 } else {
-                    // For other types, show a generic summary
-                    let clean_rule_name = rule_name.replace("-", " ");
+                    // For other types, show a generic summary with proper translation
+                    let display_name = match (self.i18n.lang.as_str(), rule_name.as_str()) {
+                        ("zh-CN", "panic-abuse") => "panic 滥用",
+                        ("zh-CN", "god-function") => "上帝函数",
+                        ("zh-CN", "magic-number") => "魔法数字",
+                        ("zh-CN", "todo-comment") => "TODO 注释",
+                        ("zh-CN", "println-debugging") => "println 调试",
+                        ("zh-CN", "string-abuse") => "String 滥用",
+                        ("zh-CN", "vec-abuse") => "Vec 滥用",
+                        ("zh-CN", "iterator-abuse") => "迭代器滥用",
+                        ("zh-CN", "match-abuse") => "Match 滥用",
+                        ("zh-CN", "hungarian-notation") => "匈牙利命名法",
+                        ("zh-CN", "abbreviation-abuse") => "过度缩写",
+                        ("zh-CN", "meaningless-naming") => "无意义命名",
+                        ("zh-CN", "commented-code") => "被注释代码",
+                        ("zh-CN", "dead-code") => "死代码",
+                        _ => &rule_name.replace("-", " "),
+                    };
                     println!(
                         "  ⚠️ {}: {}",
-                        clean_rule_name.bright_yellow().bold(),
+                        display_name.bright_yellow().bold(),
                         rule_issues_len.to_string().bright_yellow().bold()
                     );
                     total_shown += 1;
@@ -1266,13 +1298,51 @@ impl Reporter {
 
         for (rule_name, count) in rule_stats {
             let rule_name_str = rule_name.as_str();
-            let description = rule_descriptions
-                .get(rule_name_str)
-                .unwrap_or(&rule_name_str);
+            
+            // 获取规则的中文显示名称
+            let display_name = if self.i18n.lang == "zh-CN" {
+                match rule_name_str {
+                    "terrible-naming" => "糟糕的变量命名",
+                    "single-letter-variable" => "单字母变量",
+                    "deep-nesting" => "过度嵌套",
+                    "long-function" => "超长函数",
+                    "unwrap-abuse" => "unwrap() 滥用",
+                    "unnecessary-clone" => "不必要的 clone()",
+                    "panic-abuse" => "panic 滥用",
+                    "god-function" => "上帝函数",
+                    "magic-number" => "魔法数字",
+                    "todo-comment" => "TODO 注释",
+                    "println-debugging" => "println 调试",
+                    "string-abuse" => "String 滥用",
+                    "vec-abuse" => "Vec 滥用",
+                    "iterator-abuse" => "迭代器滥用",
+                    "match-abuse" => "Match 滥用",
+                    "hungarian-notation" => "匈牙利命名法",
+                    "abbreviation-abuse" => "过度缩写",
+                    "meaningless-naming" => "无意义命名",
+                    "commented-code" => "被注释代码",
+                    "dead-code" => "死代码",
+                    "code-duplication" => "代码重复",
+                    "macro-abuse" => "宏滥用",
+                    _ => rule_name_str,
+                }
+            } else {
+                rule_descriptions
+                    .get(rule_name_str)
+                    .unwrap_or(&rule_name_str)
+            };
+
+            let issues_text = if self.i18n.lang == "zh-CN" {
+                "个问题"
+            } else {
+                "issues"
+            };
+
             println!(
-                "   📌 {}: {} issues",
-                description.cyan(),
-                count.to_string().yellow()
+                "   📌 {}: {} {}",
+                display_name.cyan(),
+                count.to_string().yellow(),
+                issues_text
             );
         }
         println!();
@@ -1335,7 +1405,7 @@ impl Reporter {
         println!("## Issues by File");
         println!();
 
-        let mut file_groups: HashMap<String, Vec<&CodeIssue>> = HashMap::new();
+        let mut file_groups: BTreeMap<String, Vec<&CodeIssue>> = BTreeMap::new();
         for issue in issues {
             let file_name = issue
                 .file_path

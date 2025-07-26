@@ -6,6 +6,7 @@ pub mod i18n;
 pub mod reporter;
 pub mod rules;
 pub mod scoring;
+pub mod utils;
 
 pub use analyzer::{CodeAnalyzer, CodeIssue, RoastLevel, Severity};
 pub use i18n::I18n;

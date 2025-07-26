@@ -8,7 +8,7 @@ pub struct I18n {
 impl I18n {
     pub fn new(lang: &str) -> Self {
         // 标准化语言代码
-        let normalized_lang = match lang.to_lowercase().as_str() {
+        let normalized_lang = match lang.to_lowercase().replace("_", "-").as_str() {
             "en" | "en-us" | "english" => "en-US",
             "zh" | "zh-cn" | "chinese" => "zh-CN",
             _ => lang,
