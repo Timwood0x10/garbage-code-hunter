@@ -7,6 +7,8 @@
 
 A humorous Rust code quality detector that roasts your garbage code with style! 🔥
 
+*The most sarcastic Rust static analysis assistant you'll ever meet* 🎭
+
 ```
 Inspiration from https://github.com/Done-0/fuck-u-code.git
 ```
@@ -16,8 +18,10 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 ## ✨ Features
 
 - 🎭 **Humorous Code Analysis**: Get roasted with style while learning better coding practices
+- 🗣️ **Sarcastic Commentary**: Witty and educational feedback that makes code review fun
 - 🌍 **Multi-language Support**: Available in English and Chinese (more languages coming soon!)
 - 🎯 **Smart Detection**: Identifies common code smells and anti-patterns
+- 🎲 **Randomized Roasts**: Different witty comments every time you run it
 - 📊 **Professional Reports**: Generate detailed analysis reports in multiple formats
 - 🔧 **Highly Configurable**: Customize output, filtering, and analysis depth
 - 📝 **Markdown Export**: Perfect for documentation and CI/CD integration
