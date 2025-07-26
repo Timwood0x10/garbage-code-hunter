@@ -27,7 +27,7 @@ fn test_cli_version_info() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("garbage-code-hunter") && stdout.contains("0.1.0"));
+    assert!(stdout.contains("garbage-code-hunter") && stdout.contains("0.1.1"));
 }
 
 #[test]
