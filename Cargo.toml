@@ -4,6 +4,7 @@ name = "garbage-code-hunter"
 version = "0.1.0"
 edition = "2021"
 description = "A humorous Rust code quality detector that roasts your garbage code"
+repository = "https://github.com/TimWood/garbage-code-hunter"
 
 [dependencies]
 syn = { version = "2.0", features = ["full", "parsing", "extra-traits", "visit"] }

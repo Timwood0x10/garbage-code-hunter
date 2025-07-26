@@ -6,6 +6,10 @@
 
 A humorous Rust code quality detector that roasts your garbage code with style! 🔥
 
+```
+Inspiration from https://github.com/Done-0/fuck-u-code.git
+```
+
 Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunter delivers **sarcastic, witty, and brutally honest** feedback about your code quality. It's like having a sassy code reviewer who isn't afraid to hurt your feelings (in a good way).
 
 ## ✨ Features
@@ -27,12 +31,12 @@ Garbage Code Hunter includes a comprehensive **scientific scoring system** that 
 
 ### 📊 Score Ranges & Quality Levels
 
-| Score Range | Quality Level | Emoji | Description |
-|-------------|---------------|-------|-------------|
-| 0-20        | Excellent     | 🏆    | Outstanding code quality with minimal issues |
-| 21-40       | Good          | 👍    | Good code quality with minor improvements needed |
-| 41-60       | Average       | 😐    | Average code quality with room for improvement |
-| 61-80       | Poor          | 😟    | Poor code quality, refactoring recommended |
+| Score Range | Quality Level | Emoji | Description                                           |
+| ----------- | ------------- | ----- | ----------------------------------------------------- |
+| 0-20        | Excellent     | 🏆    | Outstanding code quality with minimal issues          |
+| 21-40       | Good          | 👍    | Good code quality with minor improvements needed      |
+| 41-60       | Average       | 😐    | Average code quality with room for improvement        |
+| 61-80       | Poor          | 😟    | Poor code quality, refactoring recommended            |
 | 81-100      | Terrible      | 💀    | Critical code quality issues, rewrite urgently needed |
 
 ### 🧮 Scoring Algorithm
@@ -40,47 +44,54 @@ Garbage Code Hunter includes a comprehensive **scientific scoring system** that 
 The scoring system uses a **multi-factor algorithm** that considers:
 
 #### 1. **Base Score Calculation**
+
 Each detected issue contributes to the base score using:
+
 ```
 Issue Score = Rule Weight × Severity Weight
 ```
 
 #### 2. **Rule Weights** (Impact Factor)
+
 Different types of issues have different weights based on their impact:
 
-| Category | Rule | Weight | Rationale |
-|----------|------|--------|-----------|
-| **Safety Critical** | `unsafe-abuse` | 5.0 | Memory safety violations |
-| **FFI Critical** | `ffi-abuse` | 4.5 | Foreign function interface risks |
-| **Runtime Critical** | `unwrap-abuse` | 4.0 | Potential panic sources |
-| **Architecture** | `lifetime-abuse` | 3.5 | Complex lifetime management |
-| **Async/Concurrency** | `async-abuse` | 3.5 | Async pattern misuse |
-| **Complexity** | `deep-nesting` | 3.0 | Code maintainability |
-| **Performance** | `unnecessary-clone` | 2.0 | Runtime efficiency |
-| **Readability** | `terrible-naming` | 2.0 | Code comprehension |
+| Category                    | Rule                  | Weight | Rationale                        |
+| --------------------------- | --------------------- | ------ | -------------------------------- |
+| **Safety Critical**   | `unsafe-abuse`      | 5.0    | Memory safety violations         |
+| **FFI Critical**      | `ffi-abuse`         | 4.5    | Foreign function interface risks |
+| **Runtime Critical**  | `unwrap-abuse`      | 4.0    | Potential panic sources          |
+| **Architecture**      | `lifetime-abuse`    | 3.5    | Complex lifetime management      |
+| **Async/Concurrency** | `async-abuse`       | 3.5    | Async pattern misuse             |
+| **Complexity**        | `deep-nesting`      | 3.0    | Code maintainability             |
+| **Performance**       | `unnecessary-clone` | 2.0    | Runtime efficiency               |
+| **Readability**       | `terrible-naming`   | 2.0    | Code comprehension               |
 
 #### 3. **Severity Weights**
+
 Issues are classified by severity with corresponding multipliers:
 
 - **Nuclear** (💥): 10.0× - Critical issues that can cause crashes or security vulnerabilities
-- **Spicy** (🌶️): 5.0× - Serious issues affecting maintainability or performance  
+- **Spicy** (🌶️): 5.0× - Serious issues affecting maintainability or performance
 - **Mild** (😐): 2.0× - Minor issues with style or best practices
 
 #### 4. **Density Penalties**
+
 Additional penalties based on issue concentration:
 
 - **Issue Density**: Problems per 1000 lines of code
+
   - \>50 issues/1000 lines: +25 penalty
   - \>30 issues/1000 lines: +15 penalty
   - \>20 issues/1000 lines: +10 penalty
   - \>10 issues/1000 lines: +5 penalty
-
 - **File Complexity**: Average issues per file
+
   - \>20 issues/file: +15 penalty
   - \>10 issues/file: +10 penalty
   - \>5 issues/file: +5 penalty
 
 #### 5. **Severity Distribution Penalties**
+
 Extra penalties for problematic patterns:
 
 - **Nuclear Issues**: First nuclear issue +20, each additional +5
@@ -101,26 +112,31 @@ The scoring system provides detailed metrics:
 ### 🎯 Interpretation Guide
 
 **For Excellent Code (0-20):**
+
 - Minimal issues detected
 - Strong adherence to Rust best practices
 - Good architecture and safety patterns
 
 **For Good Code (21-40):**
+
 - Few minor issues
 - Generally well-structured
 - Minor optimizations possible
 
 **For Average Code (41-60):**
+
 - Moderate number of issues
 - Some refactoring beneficial
 - Focus on complexity reduction
 
 **For Poor Code (61-80):**
+
 - Significant issues present
 - Refactoring strongly recommended
 - Address safety and complexity concerns
 
 **For Terrible Code (81-100):**
+
 - Critical issues requiring immediate attention
 - Consider rewriting problematic sections
 - Focus on safety, correctness, and maintainability
@@ -138,16 +154,19 @@ The scoring system is designed to be:
 ## 🎪 What It Detects
 
 ### Naming Disasters
+
 - Terrible variable names (`data`, `temp`, `info`, `obj`)
 - Single-letter variables (except common loop counters)
 - Generic meaningless identifiers
 
 ### Code Structure Issues
+
 - Deep nesting (Russian doll syndrome)
 - Overly long functions
 - Complex conditional logic
 
 ### Rust-Specific Anti-patterns
+
 - `unwrap()` abuse (panic bombs 💣)
 - Unnecessary `clone()` calls (memory waste)
 - Poor error handling patterns
@@ -155,6 +174,7 @@ The scoring system is designed to be:
 ## 🚀 Installation
 
 ### From Source
+
 ```bash
 git clone https://github.com/yourusername/garbage-code-hunter.git
 cd garbage-code-hunter
@@ -162,6 +182,7 @@ make install
 ```
 
 ### Using Cargo
+
 ```bash
 cargo install garbage-code-hunter
 ```
@@ -169,6 +190,7 @@ cargo install garbage-code-hunter
 ## 📖 Usage
 
 ### Basic Usage
+
 ```bash
 # Analyze current directory
 garbage-code-hunter
@@ -179,6 +201,7 @@ garbage-code-hunter src/
 ```
 
 ### Language Options
+
 ```bash
 # Chinese output (default)
 garbage-code-hunter --lang zh-CN src/
@@ -188,6 +211,7 @@ garbage-code-hunter --lang en-US src/
 ```
 
 ### Advanced Options
+
 ```bash
 # Verbose analysis with top 3 problematic files
 garbage-code-hunter --verbose --top 3 --issues 5 src/
@@ -208,6 +232,7 @@ garbage-code-hunter --harsh src/
 ## 🎨 Sample Output
 
 ### English Mode
+
 ```
 🗑️  Garbage Code Hunter 🗑️
 Preparing to roast your code...
@@ -229,6 +254,7 @@ Found some areas for improvement:
 ```
 
 ### Chinese Mode
+
 ```
 🗑️  垃圾代码猎人 🗑️
 正在准备吐槽你的代码...
@@ -251,25 +277,27 @@ Found some areas for improvement:
 
 ## 🛠️ Command Line Options
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--help` | `-h` | Show help message |
-| `--verbose` | `-v` | Show detailed analysis report |
-| `--top N` | `-t N` | Show top N files with most issues (default: 5) |
-| `--issues N` | `-i N` | Show N issues per file (default: 5) |
-| `--summary` | `-s` | Only show summary conclusion |
-| `--markdown` | `-m` | Output Markdown format report |
-| `--lang LANG` | `-l LANG` | Output language (zh-CN, en-US) |
-| `--exclude PATTERN` | `-e PATTERN` | Exclude file/directory patterns |
-| `--harsh` | | Show only the worst offenders |
+| Option                | Short          | Description                                    |
+| --------------------- | -------------- | ---------------------------------------------- |
+| `--help`            | `-h`         | Show help message                              |
+| `--verbose`         | `-v`         | Show detailed analysis report                  |
+| `--top N`           | `-t N`       | Show top N files with most issues (default: 5) |
+| `--issues N`        | `-i N`       | Show N issues per file (default: 5)            |
+| `--summary`         | `-s`         | Only show summary conclusion                   |
+| `--markdown`        | `-m`         | Output Markdown format report                  |
+| `--lang LANG`       | `-l LANG`    | Output language (zh-CN, en-US)                 |
+| `--exclude PATTERN` | `-e PATTERN` | Exclude file/directory patterns                |
+| `--harsh`           |                | Show only the worst offenders                  |
 
 ## 🔧 Development
 
 ### Prerequisites
+
 - Rust 1.70 or later
 - Cargo
 
 ### Building
+
 ```bash
 # Debug build
 make build
@@ -288,6 +316,7 @@ make clippy
 ```
 
 ### Running Demo
+
 ```bash
 make demo
 ```
@@ -297,6 +326,7 @@ This creates a sample file with intentionally bad code and runs the analyzer on 
 ## 🎯 Examples
 
 ### CI/CD Integration
+
 ```yaml
 # GitHub Actions example
 - name: Code Quality Check
@@ -307,6 +337,7 @@ This creates a sample file with intentionally bad code and runs the analyzer on 
 ```
 
 ### Pre-commit Hook
+
 ```bash
 #!/bin/bash
 # .git/hooks/pre-commit
