@@ -1,10 +1,11 @@
 use std::path::Path;
-use syn::{File, visit::Visit, TypeReference, TypeSlice, 
-          TypePath, TypeTraitObject, ExprAsync, ExprAwait, ItemMod, 
-          Macro, PatSlice, PatTuple, ExprUnsafe, ExprMatch, 
-          ItemForeignMod, ForeignItem, ItemFn};
+use syn::{
+    visit::Visit, ExprAsync, ExprAwait, ExprMatch, ExprUnsafe, File, ForeignItem, ItemFn,
+    ItemForeignMod, ItemMod, Macro, PatSlice, PatTuple, TypePath, TypeReference, TypeSlice,
+    TypeTraitObject,
+};
 
-use crate::analyzer::{CodeIssue, Severity, RoastLevel};
+use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
 
 pub struct ChannelAbuseRule;
@@ -24,17 +25,23 @@ impl Rule for ChannelAbuseRule {
         "channel-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = ChannelVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
-        
+
         // Also check for channel-related imports and usage in content
         if content.contains("std::sync::mpsc") || content.contains("tokio::sync") {
             visitor.channel_count += content.matches("channel").count();
             visitor.channel_count += content.matches("Sender").count();
             visitor.channel_count += content.matches("Receiver").count();
         }
-        
+
         visitor.check_channel_overuse();
         visitor.issues
     }
@@ -45,7 +52,13 @@ impl Rule for AsyncAbuseRule {
         "async-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = AsyncVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -57,7 +70,13 @@ impl Rule for DynTraitAbuseRule {
         "dyn-trait-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = DynTraitVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -69,10 +88,16 @@ impl Rule for UnsafeAbuseRule {
         "unsafe-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = UnsafeVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
-        
+
         // 检查内容中的 unsafe 关键字使用
         visitor.check_unsafe_in_content(content);
         visitor.issues
@@ -84,10 +109,16 @@ impl Rule for FFIAbuseRule {
         "ffi-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = FFIVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
-        
+
         // 检查内容中的 FFI 相关模式
         visitor.check_ffi_patterns_in_content(content);
         visitor.issues
@@ -99,7 +130,13 @@ impl Rule for MacroAbuseRule {
         "macro-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = MacroVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -111,7 +148,13 @@ impl Rule for ModuleComplexityRule {
         "module-complexity"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = ModuleVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -123,7 +166,13 @@ impl Rule for PatternMatchingAbuseRule {
         "pattern-matching-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = PatternVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -135,7 +184,13 @@ impl Rule for ReferenceAbuseRule {
         "reference-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = ReferenceVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -147,10 +202,16 @@ impl Rule for BoxAbuseRule {
         "box-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = BoxVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
-        
+
         // Check for Box usage in content since ExprBox doesn't exist in syn 2.0
         let box_count = content.matches("Box::new").count() + content.matches("Box<").count();
         if box_count > 8 {
@@ -172,7 +233,7 @@ impl Rule for BoxAbuseRule {
                 roast_level: RoastLevel::Sarcastic,
             });
         }
-        
+
         visitor.issues
     }
 }
@@ -182,7 +243,13 @@ impl Rule for SliceAbuseRule {
         "slice-abuse"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        _lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = SliceVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -231,7 +298,10 @@ impl ChannelVisitor {
 impl<'ast> Visit<'ast> for ChannelVisitor {
     fn visit_type_path(&mut self, type_path: &'ast TypePath) {
         let path_str = quote::quote!(#type_path).to_string();
-        if path_str.contains("Sender") || path_str.contains("Receiver") || path_str.contains("channel") {
+        if path_str.contains("Sender")
+            || path_str.contains("Receiver")
+            || path_str.contains("channel")
+        {
             self.channel_count += 1;
         }
         syn::visit::visit_type_path(self, type_path);
@@ -331,7 +401,7 @@ impl DynTraitVisitor {
 impl<'ast> Visit<'ast> for DynTraitVisitor {
     fn visit_type_trait_object(&mut self, trait_object: &'ast TypeTraitObject) {
         self.dyn_count += 1;
-        
+
         if self.dyn_count > 5 {
             let messages = vec![
                 "Dyn trait 用得比我换工作还频繁",
@@ -351,7 +421,7 @@ impl<'ast> Visit<'ast> for DynTraitVisitor {
                 roast_level: RoastLevel::Sarcastic,
             });
         }
-        
+
         syn::visit::visit_type_trait_object(self, trait_object);
     }
 }
@@ -377,39 +447,46 @@ impl UnsafeVisitor {
             unsafe_trait_count: 0,
         }
     }
-    
+
     fn check_unsafe_in_content(&mut self, content: &str) {
         // 检查 unsafe 函数
         let unsafe_fn_matches = content.matches("unsafe fn").count();
         self.unsafe_fn_count += unsafe_fn_matches;
-        
+
         // 检查 unsafe impl
         let unsafe_impl_matches = content.matches("unsafe impl").count();
         self.unsafe_impl_count += unsafe_impl_matches;
-        
+
         // 检查 unsafe trait
         let unsafe_trait_matches = content.matches("unsafe trait").count();
         self.unsafe_trait_count += unsafe_trait_matches;
-        
+
         // 检查原始指针操作
         let raw_ptr_count = content.matches("*const").count() + content.matches("*mut").count();
-        
+
         // 检查内存操作函数
         let dangerous_ops = [
-            "std::ptr::write", "std::ptr::read", "std::ptr::copy",
-            "std::mem::transmute", "std::mem::forget", "std::mem::uninitialized",
-            "std::slice::from_raw_parts", "std::str::from_utf8_unchecked",
-            "Box::from_raw", "Vec::from_raw_parts", "String::from_raw_parts"
+            "std::ptr::write",
+            "std::ptr::read",
+            "std::ptr::copy",
+            "std::mem::transmute",
+            "std::mem::forget",
+            "std::mem::uninitialized",
+            "std::slice::from_raw_parts",
+            "std::str::from_utf8_unchecked",
+            "Box::from_raw",
+            "Vec::from_raw_parts",
+            "String::from_raw_parts",
         ];
-        
+
         let mut dangerous_op_count = 0;
         for op in &dangerous_ops {
             dangerous_op_count += content.matches(op).count();
         }
-        
+
         self.generate_unsafe_issues(raw_ptr_count, dangerous_op_count);
     }
-    
+
     fn generate_unsafe_issues(&mut self, raw_ptr_count: usize, dangerous_op_count: usize) {
         // 检查 unsafe 函数过多
         if self.unsafe_fn_count > 2 {
@@ -419,7 +496,7 @@ impl UnsafeVisitor {
                 "Unsafe 函数过多，建议重新考虑设计架构",
                 "你的 unsafe 函数让 Rust 编译器都开始怀疑人生了",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -430,7 +507,7 @@ impl UnsafeVisitor {
                 roast_level: RoastLevel::Savage,
             });
         }
-        
+
         // 检查原始指针过多
         if raw_ptr_count > 5 {
             let messages = vec![
@@ -439,7 +516,7 @@ impl UnsafeVisitor {
                 "原始指针过多，建议使用安全的 Rust 抽象",
                 "你的指针操作让 Valgrind 都要加班了",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -450,7 +527,7 @@ impl UnsafeVisitor {
                 roast_level: RoastLevel::Savage,
             });
         }
-        
+
         // 检查危险操作过多
         if dangerous_op_count > 3 {
             let messages = vec![
@@ -459,7 +536,7 @@ impl UnsafeVisitor {
                 "内存操作过于危险，建议使用安全替代方案",
                 "你的代码比走钢丝还危险，小心内存泄漏！",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -476,7 +553,7 @@ impl UnsafeVisitor {
 impl<'ast> Visit<'ast> for UnsafeVisitor {
     fn visit_expr_unsafe(&mut self, _unsafe_expr: &'ast ExprUnsafe) {
         self.unsafe_count += 1;
-        
+
         let messages = vec![
             "Unsafe 代码！你这是在玩火还是在挑战 Rust 的底线？",
             "又见 unsafe！安全性是什么？能吃吗？",
@@ -500,10 +577,10 @@ impl<'ast> Visit<'ast> for UnsafeVisitor {
             severity,
             roast_level: RoastLevel::Savage,
         });
-        
+
         syn::visit::visit_expr_unsafe(self, _unsafe_expr);
     }
-    
+
     fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
         if item_fn.sig.unsafety.is_some() {
             self.unsafe_fn_count += 1;
@@ -531,32 +608,39 @@ impl FFIVisitor {
             c_repr_count: 0,
         }
     }
-    
+
     fn check_ffi_patterns_in_content(&mut self, content: &str) {
         // 检查 C 表示法
         self.c_repr_count += content.matches("#[repr(C)]").count();
-        
+
         // 检查 C 字符串操作
         let c_string_ops = [
-            "CString", "CStr", "c_char", "c_void", "c_int", "c_long",
-            "std::ffi::", "libc::", "std::os::raw::"
+            "CString",
+            "CStr",
+            "c_char",
+            "c_void",
+            "c_int",
+            "c_long",
+            "std::ffi::",
+            "libc::",
+            "std::os::raw::",
         ];
-        
+
         let mut c_ops_count = 0;
         for op in &c_string_ops {
             c_ops_count += content.matches(op).count();
         }
-        
+
         // 检查动态库加载
         let dll_ops = ["libloading", "dlopen", "LoadLibrary", "GetProcAddress"];
         let mut dll_count = 0;
         for op in &dll_ops {
             dll_count += content.matches(op).count();
         }
-        
+
         self.generate_ffi_issues(c_ops_count, dll_count);
     }
-    
+
     fn generate_ffi_issues(&mut self, c_ops_count: usize, dll_count: usize) {
         // 检查 extern 块过多
         if self.extern_block_count > 2 {
@@ -566,7 +650,7 @@ impl FFIVisitor {
                 "FFI 接口过多，建议封装成统一的抽象层",
                 "外部接口比我的社交关系还复杂！",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -577,7 +661,7 @@ impl FFIVisitor {
                 roast_level: RoastLevel::Sarcastic,
             });
         }
-        
+
         // 检查 C 操作过多
         if c_ops_count > 10 {
             let messages = vec![
@@ -586,7 +670,7 @@ impl FFIVisitor {
                 "C 接口过多，建议使用更安全的 Rust 绑定",
                 "你的 FFI 代码让我想起了指针地狱的恐怖",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -597,7 +681,7 @@ impl FFIVisitor {
                 roast_level: RoastLevel::Savage,
             });
         }
-        
+
         // 检查动态库加载
         if dll_count > 0 {
             let messages = vec![
@@ -606,7 +690,7 @@ impl FFIVisitor {
                 "运行时库加载，调试的时候准备哭吧",
                 "动态库操作，你的程序比变形金刚还会变身",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -617,7 +701,7 @@ impl FFIVisitor {
                 roast_level: RoastLevel::Sarcastic,
             });
         }
-        
+
         // 检查 repr(C) 过多
         if self.c_repr_count > 5 {
             let messages = vec![
@@ -626,7 +710,7 @@ impl FFIVisitor {
                 "C 表示法过多，内存布局都要乱套了",
                 "repr(C) 滥用，Rust 的零成本抽象在哭泣",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -643,14 +727,14 @@ impl FFIVisitor {
 impl<'ast> Visit<'ast> for FFIVisitor {
     fn visit_item_foreign_mod(&mut self, foreign_mod: &'ast ItemForeignMod) {
         self.extern_block_count += 1;
-        
+
         // 统计外部函数数量
         for item in &foreign_mod.items {
             if matches!(item, ForeignItem::Fn(_)) {
                 self.extern_fn_count += 1;
             }
         }
-        
+
         // 检查 extern 函数过多
         if self.extern_fn_count > 10 {
             let messages = vec![
@@ -659,7 +743,7 @@ impl<'ast> Visit<'ast> for FFIVisitor {
                 "外部接口过多，建议分模块管理",
                 "FFI 函数数量超标，小心接口管理混乱",
             ];
-            
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1,
@@ -670,10 +754,10 @@ impl<'ast> Visit<'ast> for FFIVisitor {
                 roast_level: RoastLevel::Sarcastic,
             });
         }
-        
+
         syn::visit::visit_item_foreign_mod(self, foreign_mod);
     }
-    
+
     fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
         // 检查是否是 extern "C" 函数
         if let Some(abi) = &item_fn.sig.abi {
@@ -707,7 +791,7 @@ impl MacroVisitor {
 impl<'ast> Visit<'ast> for MacroVisitor {
     fn visit_macro(&mut self, _macro: &'ast Macro) {
         self.macro_count += 1;
-        
+
         if self.macro_count > 10 {
             let messages = vec![
                 "宏定义比我的借口还多",
@@ -727,7 +811,7 @@ impl<'ast> Visit<'ast> for MacroVisitor {
                 roast_level: RoastLevel::Gentle,
             });
         }
-        
+
         syn::visit::visit_macro(self, _macro);
     }
 }
@@ -755,7 +839,7 @@ impl<'ast> Visit<'ast> for ModuleVisitor {
     fn visit_item_mod(&mut self, _module: &'ast ItemMod) {
         self.module_depth += 1;
         self.max_depth = self.max_depth.max(self.module_depth);
-        
+
         if self.module_depth > 5 {
             let messages = vec![
                 "模块嵌套比俄罗斯套娃还深",
@@ -774,7 +858,7 @@ impl<'ast> Visit<'ast> for ModuleVisitor {
                 roast_level: RoastLevel::Sarcastic,
             });
         }
-        
+
         syn::visit::visit_item_mod(self, _module);
         self.module_depth -= 1;
     }
@@ -798,7 +882,7 @@ impl PatternVisitor {
 
     fn check_pattern_complexity(&mut self, pattern_type: &str) {
         self.complex_pattern_count += 1;
-        
+
         if self.complex_pattern_count > 15 {
             let messages = vec![
                 format!("{}模式匹配比我的感情生活还复杂", pattern_type),
@@ -874,7 +958,7 @@ impl ReferenceVisitor {
 impl<'ast> Visit<'ast> for ReferenceVisitor {
     fn visit_type_reference(&mut self, _ref_type: &'ast TypeReference) {
         self.reference_count += 1;
-        
+
         if self.reference_count > 20 {
             let messages = vec![
                 "引用比我的社交关系还复杂",
@@ -893,7 +977,7 @@ impl<'ast> Visit<'ast> for ReferenceVisitor {
                 roast_level: RoastLevel::Gentle,
             });
         }
-        
+
         syn::visit::visit_type_reference(self, _ref_type);
     }
 }
@@ -938,7 +1022,7 @@ impl SliceVisitor {
 impl<'ast> Visit<'ast> for SliceVisitor {
     fn visit_type_slice(&mut self, _slice_type: &'ast TypeSlice) {
         self.slice_count += 1;
-        
+
         if self.slice_count > 15 {
             let messages = vec![
                 "切片比我切菜还频繁",
@@ -957,7 +1041,7 @@ impl<'ast> Visit<'ast> for SliceVisitor {
                 roast_level: RoastLevel::Gentle,
             });
         }
-        
+
         syn::visit::visit_type_slice(self, _slice_type);
     }
 }

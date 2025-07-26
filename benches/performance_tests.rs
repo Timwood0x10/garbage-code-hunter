@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use garbage_code_hunter::CodeAnalyzer;
 use std::fs;
+use std::hint::black_box;
 use tempfile::TempDir;
 
 fn create_large_garbage_file() -> (TempDir, std::path::PathBuf) {
@@ -178,7 +178,7 @@ mod tests {
 
 fn bench_analyze_garbage_file(c: &mut Criterion) {
     let (_temp_dir, file_path) = create_large_garbage_file();
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
 
     c.bench_function("analyze_large_garbage_file", |b| {
         b.iter(|| {
@@ -190,7 +190,7 @@ fn bench_analyze_garbage_file(c: &mut Criterion) {
 
 fn bench_analyze_clean_file(c: &mut Criterion) {
     let (_temp_dir, file_path) = create_clean_file();
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
 
     c.bench_function("analyze_clean_file", |b| {
         b.iter(|| {
@@ -203,7 +203,7 @@ fn bench_analyze_clean_file(c: &mut Criterion) {
 fn bench_analyzer_creation(c: &mut Criterion) {
     c.bench_function("create_analyzer", |b| {
         b.iter(|| {
-            let analyzer = CodeAnalyzer::new(black_box(&[]));
+            let analyzer = CodeAnalyzer::new(black_box(&[]), "en-US");
             black_box(analyzer);
         })
     });
@@ -220,7 +220,7 @@ fn bench_analyzer_with_exclusions(c: &mut Criterion) {
 
     c.bench_function("create_analyzer_with_exclusions", |b| {
         b.iter(|| {
-            let analyzer = CodeAnalyzer::new(black_box(&exclusions));
+            let analyzer = CodeAnalyzer::new(black_box(&exclusions), "en-US");
             black_box(analyzer);
         })
     });

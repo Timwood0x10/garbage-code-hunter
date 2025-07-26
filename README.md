@@ -2,7 +2,8 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![Crates.io](https://img.shields.io/crates/v/garbage-code-hunter.svg)](https://crates.io/crates/garbage-code-hunter)
+[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen.svg)]()
 
 A humorous Rust code quality detector that roasts your garbage code with style! 🔥
 
@@ -193,11 +194,15 @@ cargo install garbage-code-hunter
 
 ```bash
 # Analyze current directory
-garbage-code-hunter
+cargo run
 
 # Analyze specific file or directory
-garbage-code-hunter src/main.rs
-garbage-code-hunter src/
+cargo run -- src/main.rs
+cargo run -- src/
+
+# Use make targets for convenience
+make run ARGS="src/ --verbose"
+make demo
 ```
 
 ### Language Options
@@ -242,15 +247,75 @@ Preparing to roast your code...
 Found some areas for improvement:
 
 📈 Issue Statistics:
-   2 🔥 Nuclear Issues (fix immediately)
-   5 🌶️  Spicy Issues (should fix)
-   3 😐 Mild Issues (can ignore)
-   10 📝 Total
+   1 🔥 Nuclear Issues (fix immediately)
+   138 🌶️  Spicy Issues (should fix)
+   34 😐 Mild Issues (can ignore)
+   173 📝 Total
 
-📁 main.rs
-  💥 Line 15:1 - This variable name is more abstract than my programming skills
-  🌶️ Line 23:5 - Another unwrap()! Are you trying to make the program explode in production?
-  😐 Line 8:9 - Single letter variable? Are you writing math formulas or torturing code readers?
+🏆 Code Quality Score
+──────────────────────────────────────────────────
+   📊 Score: 60.9/100 😐
+   🎯 Level: Average
+   📏 Lines of Code: 260
+   📁 Files: 1
+   🔍 Issue Density: 66 issues/1k lines
+
+   🎭 Issue Distribution:
+      💥 Nuclear: 1
+      🌶️  Spicy: 138
+      😐 Mild: 34
+
+🏆 Files with Most Issues
+──────────────────────────────────────────────────
+   1. func.rs (173 issues)
+
+📁 func.rs
+  📦 Nesting depth issues: 20 (depth 4-9)
+  🔄 Code duplication issues: 9 (6 instances)
+  🏷️ Variable naming issues: 128 (a, b, c, d, e, ...)
+  🏷️ Variable naming issues: 13 (a, b, c, d, e, ...)
+  ⚠️ long function: 1
+
+
+📊 Scoring Details
+──────────────────────────────────────────────────
+📋 Category Scores:
+  ⚠ 🏷️ Naming 90     Terrible, urgent fixes needed
+    💬 Congrats! Variables harder to understand than comments 🏆
+  ⚠ 🧩 Complexity 90     Terrible, urgent fixes needed
+    💬 Complexity off the charts! Even AI gave up 🤖
+  ⚠ 🔄 Duplication 90     Terrible, urgent fixes needed
+    💬 Suggest renaming to ctrl-c-ctrl-v.rs 📋
+  ✓✓ 🦀 Rust Basics 0     Excellent, keep it up
+  ✓✓ ⚡ Advanced Rust 0     Excellent, keep it up
+  • 🚀 Rust Features 69     Poor, refactoring recommended
+    💬 More macros than my excuses 🎭
+  ✓✓ 🏗️ Code Structure 0     Excellent, keep it up
+
+🧮 Weighted Calculation:
+  Score calculation: (90.0×0.25 + 90.0×0.20 + 90.0×0.15 + 0.0×0.15 + 0.0×0.10 + 69.4×0.10 + 0.0×0.05) ÷ 1.00 = 60.9
+
+📏 Scoring Scale (higher score = worse code):
+  💀 81-100: Terrible    🔥 61-80: Poor    ⚠️ 41-60: Average
+  ✅ 21-40: Good         🌟 0-20: Excellent
+📋 Summary
+──────────────────────────────────────────────────
+😐 Average code quality, Score: 60.9/100, room for improvement
+
+Found some serious issues, suggest fixing nuclear problems first 🔥
+
+💡 Suggestions
+──────────────────────────────────────────────────
+   💡 Use meaningful variable names that make code self-documenting (e.g., user_count instead of data)
+   🎯 Variable names should describe what they store, not the data type
+   🔧 Reduce nesting levels, consider extracting functions or using early returns (guard clauses)
+   🏗️ Complex conditional logic can be split into multiple small functions
+   ✂️ Split long functions into smaller ones, follow the single responsibility principle
+   📏 A function should ideally not exceed 20-30 lines for better understanding and testing
+   🔄 Extract common code into functions to follow the DRY principle
+   🏗️ Consider creating utility functions or modules for repeated logic
+
+Keep working hard to make your code better! 🚀
 ```
 
 ### Chinese Mode
@@ -264,15 +329,73 @@ Found some areas for improvement:
 发现了一些需要改进的地方：
 
 📈 问题统计:
-   2 🔥 核弹级问题 (需要立即修复)
-   5 🌶️  辣眼睛问题 (建议修复)
-   3 😐 轻微问题 (可以忽略)
-   10 📝 总计
+   1 🔥 核弹级问题 (需要立即修复)
+   138 🌶️  辣眼睛问题 (建议修复)
+   34 😐 轻微问题 (可以忽略)
+   173 📝 总计
 
-📁 main.rs
-  💥 15:1 这个变量名比我的编程技能还要抽象
-  🌶️ 23:5 又一个 unwrap()！你是想让程序在生产环境里爆炸吗？
-  😐 8:9 单字母变量？你是在写数学公式还是在折磨读代码的人？
+🏆 代码质量评分
+──────────────────────────────────────────────────
+   📊 总分: 60.9/100 😐
+   🎯 等级: 一般
+   📏 代码行数: 260
+   📁 文件数量: 1
+   🔍 问题密度: 66 问题/千行
+
+   🎭 问题分布:
+      💥 核弹级: 1
+      🌶️  严重: 138
+      😐 轻微: 34
+
+🏆 问题最多的文件
+──────────────────────────────────────────────────
+   1. func.rs (173 issues)
+
+📁 func.rs
+  📦 嵌套深度问题: 20 (deep nesting)
+  🔄 代码重复问题: 9 (20 instances)
+  🏷️ 变量命名问题: 128 (a, b, c, d, e, ...)
+  🏷️ 变量命名问题: 13 (a, b, c, d, e, ...)
+  ⚠️ long function: 1
+
+
+📊 评分详情
+──────────────────────────────────────────────────
+📋 分类评分详情:
+  ⚠ 🏷️ 命名规范 90分     糟糕，急需修复
+    💬 恭喜！你成功让变量名比注释还难懂 🏆
+  ⚠ 🧩 复杂度 90分     糟糕，急需修复
+    💬 复杂度爆表！连AI都看不懂了 🤖
+  ⚠ 🔄 代码重复 90分     糟糕，急需修复
+    💬 建议改名为copy-paste.rs 📋
+  ✓✓ 🦀 Rust基础 0分     优秀，继续保持
+  ✓✓ ⚡ 高级特性 0分     优秀，继续保持
+  • 🚀 Rust功能 69分     较差，建议重构
+    💬 宏定义比我的借口还多 🎭
+  ✓✓ 🏗️ 代码结构 0分     优秀，继续保持
+
+🧮 加权计算:
+  评分计算: (90.0×0.25 + 90.0×0.20 + 90.0×0.15 + 0.0×0.15 + 0.0×0.10 + 69.4×0.10 + 0.0×0.05) ÷ 1.00 = 60.9
+
+📏 评分标准 (分数越高代码越烂):
+  💀 81-100: 糟糕    🔥 61-80: 较差    ⚠️ 41-60: 一般
+  ✅ 21-40: 良好     🌟 0-20: 优秀
+📋 总结
+──────────────────────────────────────────────────
+😐 代码质量一般，评分: 60.9/100，还有改进空间
+
+发现了一些严重问题，建议优先修复核弹级问题 🔥
+
+💡 改进建议
+──────────────────────────────────────────────────
+   💡 使用有意义的变量名，让代码自解释（比如用 user_count 而不是 data）
+   🎯 变量名应该描述它存储的内容，而不是数据类型
+   🔧 减少嵌套层数，考虑提取函数或使用早期返回（guard clauses）
+   🏗️ 复杂的条件逻辑可以拆分成多个小函数
+   ✂️ 将长函数拆分成多个小函数，遵循单一职责原则
+   📏 一个函数最好不超过 20-30 行，这样更容易理解和测试
+
+继续努力，让代码变得更好！🚀
 ```
 
 ## 🛠️ Command Line Options
@@ -380,8 +503,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Documentation](https://docs.rs/garbage-code-hunter)
 - [Crates.io](https://crates.io/crates/garbage-code-hunter)
-- [GitHub Repository](https://github.com/yourusername/garbage-code-hunter)
-- [Issue Tracker](https://github.com/yourusername/garbage-code-hunter/issues)
+- [GitHub Repository](https://github.com/TimWood0x10/garbage-code-hunter)
+- [Issue Tracker](https://github.com/TimWood0x10/garbage-code-hunter/issues)
 
 ---
 

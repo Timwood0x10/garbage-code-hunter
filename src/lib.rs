@@ -10,4 +10,4 @@ pub mod scoring;
 pub use analyzer::{CodeAnalyzer, CodeIssue, RoastLevel, Severity};
 pub use i18n::I18n;
 pub use reporter::Reporter;
-pub use scoring::{CodeScorer, CodeQualityScore, QualityLevel};
+pub use scoring::{CodeQualityScore, CodeScorer, QualityLevel};

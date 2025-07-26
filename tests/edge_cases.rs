@@ -9,7 +9,7 @@ fn test_empty_file() {
 
     fs::write(&file_path, "").expect("Failed to write empty file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Empty file should have no issues
@@ -33,7 +33,7 @@ fn test_only_comments() {
 
     fs::write(&file_path, content).expect("Failed to write comments file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Comments-only file should have no issues
@@ -52,7 +52,7 @@ fn test_only_whitespace() {
 
     fs::write(&file_path, content).expect("Failed to write whitespace file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Whitespace-only file should have no issues
@@ -71,7 +71,7 @@ fn test_minimal_valid_rust() {
 
     fs::write(&file_path, content).expect("Failed to write minimal file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Minimal valid Rust should have no issues
@@ -99,7 +99,7 @@ fn main() {
 
     fs::write(&file_path, content).expect("Failed to write unicode file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let _issues = analyzer.analyze_file(&file_path);
 
     // Should handle Unicode variable names gracefully
@@ -125,7 +125,7 @@ fn main() {{
 
     fs::write(&file_path, content).expect("Failed to write long names file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Should handle very long variable names without crashing
@@ -169,7 +169,7 @@ fn main() {
 
     fs::write(&file_path, content).expect("Failed to write nested modules file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Should detect issues in nested modules
@@ -211,7 +211,7 @@ fn main() {
 
     fs::write(&file_path, content).expect("Failed to write generics file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Should detect terrible naming in generic functions
@@ -251,7 +251,7 @@ fn main() {
 
     fs::write(&file_path, content).expect("Failed to write macros file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let _issues = analyzer.analyze_file(&file_path);
 
     // Should handle macros gracefully and detect issues where possible
@@ -284,7 +284,7 @@ async fn main() {
 
     fs::write(&file_path, content).expect("Failed to write async file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Should detect issues in async functions
@@ -337,7 +337,7 @@ fn main() {
 
     fs::write(&file_path, content).expect("Failed to write traits file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Should detect issues in trait implementations
@@ -372,7 +372,7 @@ fn main() {
 
     fs::write(&file_path, content).expect("Failed to write closures file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Should detect issues inside closures

@@ -195,7 +195,7 @@ fn main() {
 
     fs::write(&file_path, code).expect("Failed to write test file");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Test different reporter configurations with real issues
