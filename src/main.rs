@@ -15,6 +15,7 @@ use reporter::Reporter;
 #[derive(Parser)]
 #[command(name = "garbage-code-hunter")]
 #[command(about = "A humorous Rust code quality detector that roasts your garbage code 🔥")]
+#[command(version)]
 struct Args {
     /// Path to analyze (file or directory)
     #[arg(default_value = ".")]

@@ -150,6 +150,7 @@ impl<'ast> Visit<'ast> for NamingVisitor {
     }
 }
 
+#[allow(dead_code)]
 struct SingleLetterVisitor {
     file_path: std::path::PathBuf,
     issues: Vec<CodeIssue>,
@@ -172,7 +173,7 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
 
         // Exclude common single-letter variables (like loop counters i, j, k)
         if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z") {
-            let messages = vec![
+            let messages = [
                 format!(
                     "单字母变量 '{}'？你是在写数学公式还是在折磨读代码的人？",
                     name

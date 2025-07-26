@@ -21,13 +21,13 @@ fn test_cli_help() {
 #[test]
 fn test_cli_version_info() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--help"])
+        .args(&["run", "--", "--version"])
         .output()
         .expect("Failed to execute command");
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("humorous Rust code quality detector"));
+    assert!(stdout.contains("garbage-code-hunter") && stdout.contains("0.1.0"));
 }
 
 #[test]

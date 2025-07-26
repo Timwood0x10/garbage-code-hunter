@@ -82,7 +82,7 @@ impl CodeAnalyzer {
                 .into_iter()
                 .filter_map(|e| e.ok())
                 .filter(|e| !self.should_exclude(e.path()))
-                .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+                .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
             {
                 issues.extend(self.analyze_file(entry.path()));
             }

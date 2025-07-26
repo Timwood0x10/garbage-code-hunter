@@ -138,7 +138,7 @@ impl I18n {
                     .get("en-US")
                     .and_then(|lang_map| lang_map.get(key))
                     .cloned()
-                    .unwrap_or_else(|| format!("Missing translation: {}", key))
+                    .unwrap_or_else(|| format!("Missing translation: {key}"))
             })
     }
 

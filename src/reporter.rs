@@ -17,7 +17,9 @@ pub struct Reporter {
     i18n: I18n,
 }
 
+#[allow(dead_code)]
 impl Reporter {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         harsh_mode: bool,
         savage_mode: bool,
@@ -233,7 +235,7 @@ impl Reporter {
                 _ => ("💥 Nuclear", "🌶️  Spicy", "😐 Mild"),
             };
 
-            println!("   {}", distribution_title);
+            println!("   {distribution_title}");
             if quality_score.severity_distribution.nuclear > 0 {
                 println!(
                     "      {}: {}",
@@ -273,7 +275,7 @@ impl Reporter {
                 "zh-CN" => "📋 分类得分:",
                 _ => "📋 Category Scores:",
             };
-            println!("   {}", category_title);
+            println!("   {category_title}");
             let mut sorted_categories: Vec<_> = quality_score.category_scores.iter().collect();
             sorted_categories
                 .sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -429,11 +431,7 @@ impl Reporter {
                         .iter()
                         .filter_map(|issue| {
                             if let Some(start) = issue.message.find("'") {
-                                if let Some(end) = issue.message[start + 1..].find("'") {
-                                    Some(issue.message[start + 1..start + 1 + end].to_string())
-                                } else {
-                                    None
-                                }
+                                issue.message[start + 1..].find("'").map(|end| issue.message[start + 1..start + 1 + end].to_string())
                             } else {
                                 None
                             }
@@ -529,9 +527,9 @@ impl Reporter {
                         let min_depth = depths.iter().min().unwrap_or(&4);
                         let max_depth = depths.iter().max().unwrap_or(&8);
                         if min_depth == max_depth {
-                            format!("depth {}", min_depth)
+                            format!("depth {min_depth}")
                         } else {
-                            format!("depth {}-{}", min_depth, max_depth)
+                            format!("depth {min_depth}-{max_depth}")
                         }
                     } else {
                         "deep nesting".to_string()
@@ -641,7 +639,7 @@ impl Reporter {
         ];
 
         let prefix = savage_prefixes[message.len() % savage_prefixes.len()];
-        format!("{} {}", prefix, message)
+        format!("{prefix} {message}")
     }
 
     fn print_summary_with_score(&self, issues: &[CodeIssue], quality_score: &CodeQualityScore) {
@@ -718,7 +716,7 @@ impl Reporter {
             crate::scoring::QualityLevel::Terrible => score_summary.bright_red().bold(),
         };
 
-        println!("{}", score_color);
+        println!("{score_color}");
         println!();
 
         let nuclear_count = issues
@@ -760,7 +758,7 @@ impl Reporter {
             summary_message.green()
         };
 
-        println!("{}", color);
+        println!("{color}");
     }
 
     fn print_scoring_breakdown(&self, _issues: &[CodeIssue], quality_score: &CodeQualityScore) {
@@ -899,8 +897,8 @@ impl Reporter {
                 println!(
                     "  {} {} {}分     {}",
                     status_icon,
-                    format!("{} {}", icon, display_name).bright_white(),
-                    format!("{:.0}", score).bright_cyan(),
+                    format!("{icon} {display_name}").bright_white(),
+                    format!("{score:.0}").bright_cyan(),
                     status_text.bright_black()
                 );
 
@@ -1056,7 +1054,7 @@ impl Reporter {
             if let Some(score) = category_scores.get(*category_key) {
                 let weighted_value = score * weight;
                 weighted_sum += weighted_value;
-                calculation_parts.push(format!("{:.1}×{:.2}", score, weight));
+                calculation_parts.push(format!("{score:.1}×{weight:.2}"));
             }
         }
 
@@ -1064,13 +1062,13 @@ impl Reporter {
             println!(
                 "  评分计算: ({}) ÷ 1.00 = {}",
                 calculation_parts.join(" + ").bright_white(),
-                format!("{:.1}", weighted_sum).bright_green().bold()
+                format!("{weighted_sum:.1}").bright_green().bold()
             );
         } else {
             println!(
                 "  Score calculation: ({}) ÷ 1.00 = {}",
                 calculation_parts.join(" + ").bright_white(),
-                format!("{:.1}", weighted_sum).bright_green().bold()
+                format!("{weighted_sum:.1}").bright_green().bold()
             );
         }
     }
@@ -1138,18 +1136,18 @@ impl Reporter {
             if self.i18n.lang == "zh-CN" {
                 println!(
                     "  • {} × {} (权重{:.1}) = {}",
-                    format!("{}", count).cyan(),
+                    format!("{count}").cyan(),
                     rule_display.bright_white(),
-                    format!("{:.1}", rule_weight).yellow(),
-                    format!("{:.1}", total_score).bright_red()
+                    format!("{rule_weight:.1}").yellow(),
+                    format!("{total_score:.1}").bright_red()
                 );
             } else {
                 println!(
                     "  • {} × {} (weight {:.1}) = {}",
-                    format!("{}", count).cyan(),
+                    format!("{count}").cyan(),
                     rule_display.bright_white(),
-                    format!("{:.1}", rule_weight).yellow(),
-                    format!("{:.1}", total_score).bright_red()
+                    format!("{rule_weight:.1}").yellow(),
+                    format!("{total_score:.1}").bright_red()
                 );
             }
         }
@@ -1190,7 +1188,7 @@ impl Reporter {
             footer_message.bright_green().bold()
         };
 
-        println!("{}", color);
+        println!("{color}");
     }
 
     fn print_top_files(&self, issues: &[CodeIssue]) {

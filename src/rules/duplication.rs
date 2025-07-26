@@ -74,15 +74,15 @@ impl DuplicationVisitor {
             let normalized = normalize_line(trimmed);
             self.line_hashes
                 .entry(normalized)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(line_num + 1);
         }
 
         // find duplicate lines
-        for (_line_content, line_numbers) in &self.line_hashes {
+        for line_numbers in self.line_hashes.values() {
             if line_numbers.len() >= 3 {
                 // 3 times or more duplicate
-                let messages = vec![
+                let messages = [
                     format!(
                         "检测到 {} 次重复代码！你是复制粘贴大师吗？",
                         line_numbers.len()
@@ -137,7 +137,7 @@ impl DuplicationVisitor {
 
         for (_, block_indices) in block_signatures {
             if block_indices.len() >= 2 {
-                let messages = vec![
+                let messages = [
                     format!("发现 {} 个相似代码块，考虑重构成函数", block_indices.len()),
                     format!("代码块重复度过高，DRY原则哭了",),
                     format!(

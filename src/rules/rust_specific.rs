@@ -62,10 +62,10 @@ impl UnwrapVisitor {
 
 impl<'ast> Visit<'ast> for UnwrapVisitor {
     fn visit_expr_method_call(&mut self, method_call: &'ast ExprMethodCall) {
-        if method_call.method.to_string() == "unwrap" {
+        if method_call.method == "unwrap" {
             self.unwrap_count += 1;
 
-            let messages = vec![
+            let messages = [
                 "又一个 unwrap()！你是想让程序在生产环境里爆炸吗？",
                 "unwrap() 大师！错误处理是什么？能吃吗？",
                 "看到这个 unwrap()，我仿佛听到了程序崩溃的声音",
@@ -121,12 +121,12 @@ impl CloneVisitor {
 
 impl<'ast> Visit<'ast> for CloneVisitor {
     fn visit_expr_method_call(&mut self, method_call: &'ast ExprMethodCall) {
-        if method_call.method.to_string() == "clone" {
+        if method_call.method == "clone" {
             self.clone_count += 1;
 
             // Simple heuristic detection: if there are multiple clones on the same line or nearby, they might be unnecessary
             if self.clone_count > 3 {
-                let messages = vec![
+                let messages = [
                     "clone() 狂魔！你是想把内存用完吗？",
                     "这么多 clone()，你确定不是在写 Java？",
                     "clone() 使用过度！Rust 的借用检查器在哭泣",
