@@ -24,7 +24,7 @@ fn main() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Should detect multiple terrible naming issues
@@ -63,7 +63,7 @@ fn main() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     let single_letter_issues: Vec<_> = issues
@@ -96,7 +96,7 @@ fn main() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     let unwrap_issues: Vec<_> = issues
@@ -127,7 +127,7 @@ fn main() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     let clone_issues: Vec<_> = issues
@@ -163,7 +163,7 @@ fn deeply_nested() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     let nesting_issues: Vec<_> = issues
@@ -184,7 +184,7 @@ fn test_long_function_detection() {
     code.push_str("}\n");
 
     let (_temp_dir, file_path) = create_temp_rust_file(&code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     let long_function_issues: Vec<_> = issues
@@ -219,7 +219,7 @@ fn main() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Clean code should have minimal or no issues
@@ -244,7 +244,7 @@ fn main() {
     fs::write(&file_path, code).expect("Failed to write test file");
 
     // Test without exclusion
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues_without_exclusion = analyzer.analyze_file(&file_path);
     assert!(
         !issues_without_exclusion.is_empty(),
@@ -252,7 +252,7 @@ fn main() {
     );
 
     // Test with exclusion - use analyze_path instead of analyze_file for exclusion to work
-    let analyzer_with_exclusion = CodeAnalyzer::new(&["test_*".to_string()]);
+    let analyzer_with_exclusion = CodeAnalyzer::new(&["test_*".to_string()], "en-US");
     let issues_with_exclusion = analyzer_with_exclusion.analyze_path(temp_dir.path());
     assert!(
         issues_with_exclusion.is_empty(),
@@ -271,7 +271,7 @@ fn main() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Check that we have different severity levels
@@ -298,7 +298,7 @@ fn main() {
 "#;
 
     let (_temp_dir, file_path) = create_temp_rust_file(code);
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
     // Check that issues have roast levels assigned
@@ -324,7 +324,7 @@ fn test_multiple_files_analysis() {
     fs::write(&file1_path, "fn main() { let data = \"test\"; }").expect("Failed to write file1");
     fs::write(&file2_path, "fn main() { let temp = 42; }").expect("Failed to write file2");
 
-    let analyzer = CodeAnalyzer::new(&[]);
+    let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_path(temp_dir.path());
 
     // Should find issues in both files

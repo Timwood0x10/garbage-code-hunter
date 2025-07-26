@@ -1,6 +1,6 @@
 use clap::Parser;
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 use walkdir::WalkDir;
 
 mod analyzer;
@@ -62,7 +62,7 @@ fn main() {
 
     let analyzer = CodeAnalyzer::new(&args.exclude, &args.lang);
     let issues = analyzer.analyze_path(&args.path);
-    
+
     // Calculate metrics for scoring
     let (file_count, total_lines) = calculate_metrics(&args.path, &args.exclude);
 
@@ -82,7 +82,7 @@ fn main() {
 fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usize) {
     let mut file_count = 0;
     let mut total_lines = 0;
-    
+
     // Convert exclude patterns to regex patterns
     let exclude_regexes: Vec<regex::Regex> = exclude_patterns
         .iter()
@@ -94,10 +94,12 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
             regex::Regex::new(&regex_pattern).ok()
         })
         .collect();
-    
+
     let should_exclude = |path: &std::path::Path| -> bool {
         let path_str = path.to_string_lossy();
-        exclude_regexes.iter().any(|pattern| pattern.is_match(&path_str))
+        exclude_regexes
+            .iter()
+            .any(|pattern| pattern.is_match(&path_str))
     };
 
     if path.is_file() {
@@ -124,6 +126,6 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
             }
         }
     }
-    
+
     (file_count, total_lines)
 }

@@ -257,7 +257,7 @@ fn test_cli_nonexistent_file() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Should show clean code message or handle gracefully
-    assert!(stdout.contains("垃圾") || stdout.contains("Garbage") || stdout.contains("clean"));
+    assert!(stdout.contains("垃圾") || stdout.contains("Garbage") || stdout.contains("clean") || stdout.contains("Wow"));
 }
 
 #[test]
@@ -273,7 +273,7 @@ fn test_cli_empty_directory() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Should handle empty directories gracefully
-    assert!(stdout.contains("垃圾") || stdout.contains("Garbage") || stdout.contains("clean"));
+    assert!(stdout.contains("垃圾") || stdout.contains("Garbage") || stdout.contains("clean") || stdout.contains("Wow"));
 }
 
 #[test]

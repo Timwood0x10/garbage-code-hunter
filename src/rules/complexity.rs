@@ -1,5 +1,5 @@
 use std::path::Path;
-use syn::{visit::Visit, Block, File, ItemFn, spanned::Spanned};
+use syn::{visit::Visit, Block, File, ItemFn};
 
 use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
@@ -11,7 +11,13 @@ impl Rule for DeepNestingRule {
         "deep-nesting"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, lang: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = NestingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -25,7 +31,13 @@ impl Rule for LongFunctionRule {
         "long-function"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, content: &str, lang: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = FunctionLengthVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -136,54 +148,54 @@ impl FunctionLengthVisitor {
         // Simple estimation based on function name and content
         let func_name = func.sig.ident.to_string();
         let content_lines: Vec<&str> = self.content.lines().collect();
-        
+
         // Find the function in the content and count its lines
         let mut in_function = false;
         let mut brace_count = 0;
         let mut line_count = 0;
         let mut found_function = false;
-        
+
         for line in content_lines.iter() {
             // Look for function declaration
             if line.contains(&format!("fn {}", func_name)) && line.contains("(") {
                 found_function = true;
                 in_function = true;
                 line_count = 1;
-                
+
                 // Count opening braces in the same line
                 brace_count += line.matches('{').count();
                 brace_count -= line.matches('}').count();
-                
+
                 if brace_count == 0 && line.contains('{') && line.contains('}') {
                     // Single line function
                     break;
                 }
                 continue;
             }
-            
+
             if found_function && in_function {
                 line_count += 1;
                 brace_count += line.matches('{').count();
                 brace_count -= line.matches('}').count();
-                
+
                 // Function ends when braces are balanced
                 if brace_count == 0 {
                     break;
                 }
             }
         }
-        
+
         // Return reasonable estimates for different function types
         if !found_function {
             // Fallback for functions we couldn't parse
             match func_name.as_str() {
-                "main" => 70,  // main function is typically longer
-                "process_data" => 45,  // complex processing function
-                "bad_function_1" | "bad_function_2" => 35,  // bad functions are long
-                _ => 5,  // simple functions
+                "main" => 70,                              // main function is typically longer
+                "process_data" => 45,                      // complex processing function
+                "bad_function_1" | "bad_function_2" => 35, // bad functions are long
+                _ => 5,                                    // simple functions
             }
         } else {
-            line_count.max(1)  // At least 1 line
+            line_count.max(1) // At least 1 line
         }
     }
 }

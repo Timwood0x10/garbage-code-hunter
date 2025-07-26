@@ -176,7 +176,7 @@ fn main() {
 
         let syntax_tree = parse_file(code).expect("Failed to parse code");
         let path = Path::new("test.rs");
-        let issues = rule.check(path, &syntax_tree, code);
+        let issues = rule.check(path, &syntax_tree, code, "en-US");
 
         // Should detect 'data' and 'temp' but not 'good_variable_name'
         assert!(!issues.is_empty(), "Should detect terrible naming");
@@ -198,7 +198,7 @@ fn main() {
 
         let syntax_tree = parse_file(code).expect("Failed to parse code");
         let path = Path::new("test.rs");
-        let issues = rule.check(path, &syntax_tree, code);
+        let issues = rule.check(path, &syntax_tree, code, "en-US");
 
         // Should detect 'a' and 'b' but not 'i', 'j', or 'good_name'
         assert!(!issues.is_empty(), "Should detect single letter variables");

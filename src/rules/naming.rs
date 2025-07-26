@@ -12,7 +12,13 @@ impl Rule for TerribleNamingRule {
         "terrible-naming"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, lang: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = NamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -26,7 +32,13 @@ impl Rule for SingleLetterVariableRule {
         "single-letter-variable"
     }
 
-    fn check(&self, file_path: &Path, syntax_tree: &File, _content: &str, lang: &str) -> Vec<CodeIssue> {
+    fn check(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        _content: &str,
+        lang: &str,
+    ) -> Vec<CodeIssue> {
         let mut visitor = SingleLetterVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -59,18 +71,35 @@ impl NamingVisitor {
             // 根据语言设置选择消息
             let messages = if self.lang == "zh-CN" {
                 // 中文消息
-                let ctx = if context == "函数名" { "函数名" } else { "变量名" };
+                let ctx = if context == "函数名" {
+                    "函数名"
+                } else {
+                    "变量名"
+                };
                 vec![
                     format!("{} '{}' - 比我的编程技能还要抽象", ctx, name),
-                    format!("{} '{}' - 这个名字告诉我你已经放弃治疗了，建议直接转行卖煎饼果子", ctx, name),
-                    format!("{} '{}' - 用这个做名字？你是想让维护代码的人哭着辞职吗？", ctx, name),
+                    format!(
+                        "{} '{}' - 这个名字告诉我你已经放弃治疗了，建议直接转行卖煎饼果子",
+                        ctx, name
+                    ),
+                    format!(
+                        "{} '{}' - 用这个做名字？你是想让维护代码的人哭着辞职吗？",
+                        ctx, name
+                    ),
                     format!("{} '{}' - 恭喜你发明了最没有意义的标识符", ctx, name),
                     format!("{} '{}' - 创意程度约等于给孩子起名叫'小明'", ctx, name),
-                    format!("{} '{}' - 看到这个名字，我的智商都下降了，现在只能数到3了", ctx, name),
+                    format!(
+                        "{} '{}' - 看到这个名字，我的智商都下降了，现在只能数到3了",
+                        ctx, name
+                    ),
                 ]
             } else {
                 // 英文消息
-                let ctx = if context == "Function" { "Function" } else { "Variable" };
+                let ctx = if context == "Function" {
+                    "Function"
+                } else {
+                    "Variable"
+                };
                 vec![
                     format!("{} '{}' - more abstract than my programming skills", ctx, name),
                     format!("{} '{}' - this name tells me you've given up on life and should sell hotdogs", ctx, name),
@@ -81,8 +110,10 @@ impl NamingVisitor {
                 ]
             };
 
-            let message_index = (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize) % messages.len();
-            
+            let message_index =
+                (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize)
+                    % messages.len();
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: self.issues.len() + 2, // 简单的行号估算，避免都是1:1
@@ -98,14 +129,22 @@ impl NamingVisitor {
 
 impl<'ast> Visit<'ast> for NamingVisitor {
     fn visit_ident(&mut self, ident: &'ast Ident) {
-        let context = if self.lang == "zh-CN" { "变量名" } else { "Variable" };
+        let context = if self.lang == "zh-CN" {
+            "变量名"
+        } else {
+            "Variable"
+        };
         self.check_name(ident, context);
         syn::visit::visit_ident(self, ident);
     }
-    
+
     // 添加函数名检测
     fn visit_item_fn(&mut self, func: &'ast syn::ItemFn) {
-        let context = if self.lang == "zh-CN" { "函数名" } else { "Function" };
+        let context = if self.lang == "zh-CN" {
+            "函数名"
+        } else {
+            "Function"
+        };
         self.check_name(&func.sig.ident, context);
         syn::visit::visit_item_fn(self, func);
     }
@@ -147,8 +186,10 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
                 format!("变量 '{}' 的信息量约等于一个句号", name),
             ];
 
-            let message_index = (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize) % messages.len();
-            
+            let message_index =
+                (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize)
+                    % messages.len();
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: self.issues.len() + 10, // 不同的行号范围

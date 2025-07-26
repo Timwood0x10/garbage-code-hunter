@@ -3,6 +3,7 @@
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen.svg)]()
 
 A humorous Rust code quality detector that roasts your garbage code with style! 🔥
 
@@ -193,11 +194,15 @@ cargo install garbage-code-hunter
 
 ```bash
 # Analyze current directory
-garbage-code-hunter
+cargo run
 
 # Analyze specific file or directory
-garbage-code-hunter src/main.rs
-garbage-code-hunter src/
+cargo run -- src/main.rs
+cargo run -- src/
+
+# Use make targets for convenience
+make run ARGS="src/ --verbose"
+make demo
 ```
 
 ### Language Options
@@ -256,23 +261,83 @@ Found some areas for improvement:
 ### Chinese Mode
 
 ```
-🗑️  垃圾代码猎人 🗑️
-正在准备吐槽你的代码...
+🗑️  Garbage Code Hunter 🗑️
+Preparing to roast your code...
 
-📊 垃圾代码检测报告
+📊 Code Quality Report
 ──────────────────────────────────────────────────
-发现了一些需要改进的地方：
+Found some areas for improvement:
 
-📈 问题统计:
-   2 🔥 核弹级问题 (需要立即修复)
-   5 🌶️  辣眼睛问题 (建议修复)
-   3 😐 轻微问题 (可以忽略)
-   10 📝 总计
+📈 Issue Statistics:
+   1 🔥 Nuclear Issues (fix immediately)
+   138 🌶️  Spicy Issues (should fix)
+   34 😐 Mild Issues (can ignore)
+   173 📝 Total
 
-📁 main.rs
-  💥 15:1 这个变量名比我的编程技能还要抽象
-  🌶️ 23:5 又一个 unwrap()！你是想让程序在生产环境里爆炸吗？
-  😐 8:9 单字母变量？你是在写数学公式还是在折磨读代码的人？
+🏆 Code Quality Score
+──────────────────────────────────────────────────
+   📊 Score: 60.9/100 😐
+   🎯 Level: Average
+   📏 Lines of Code: 260
+   📁 Files: 1
+   🔍 Issue Density: 66 issues/1k lines
+
+   🎭 Issue Distribution:
+      💥 Nuclear: 1
+      🌶️  Spicy: 138
+      😐 Mild: 34
+
+🏆 Files with Most Issues
+──────────────────────────────────────────────────
+   1. func.rs (173 issues)
+
+📁 func.rs
+  📦 Nesting depth issues: 20 (depth 4-9)
+  🔄 Code duplication issues: 9 (6 instances)
+  🏷️ Variable naming issues: 128 (a, b, c, d, e, ...)
+  🏷️ Variable naming issues: 13 (a, b, c, d, e, ...)
+  ⚠️ long function: 1
+
+
+📊 Scoring Details
+──────────────────────────────────────────────────
+📋 Category Scores:
+  ⚠ 🏷️ Naming 90分     Terrible, urgent fixes needed
+    💬 Congrats! Variables harder to understand than comments 🏆
+  ⚠ 🧩 Complexity 90分     Terrible, urgent fixes needed
+    💬 Complexity off the charts! Even AI gave up 🤖
+  ⚠ 🔄 Duplication 90分     Terrible, urgent fixes needed
+    💬 Suggest renaming to ctrl-c-ctrl-v.rs 📋
+  ✓✓ 🦀 Rust Basics 0分     Excellent, keep it up
+  ✓✓ ⚡ Advanced Rust 0分     Excellent, keep it up
+  • 🚀 Rust Features 69分     Poor, refactoring recommended
+    💬 More macros than my excuses 🎭
+  ✓✓ 🏗️ Code Structure 0分     Excellent, keep it up
+
+🧮 Weighted Calculation:
+  Score calculation: (90.0×0.25 + 90.0×0.20 + 90.0×0.15 + 0.0×0.15 + 0.0×0.10 + 69.4×0.10 + 0.0×0.05) ÷ 1.00 = 60.9
+
+📏 Scoring Scale (higher score = worse code):
+  💀 81-100: Terrible    🔥 61-80: Poor    ⚠️ 41-60: Average
+  ✅ 21-40: Good         🌟 0-20: Excellent
+📋 Summary
+──────────────────────────────────────────────────
+😐 Average code quality, Score: 60.9/100, room for improvement
+
+Found some serious issues, suggest fixing nuclear problems first 🔥
+
+💡 Suggestions
+──────────────────────────────────────────────────
+   💡 Use meaningful variable names that make code self-documenting (e.g., user_count instead of data)
+   🎯 Variable names should describe what they store, not the data type
+   🔧 Reduce nesting levels, consider extracting functions or using early returns (guard clauses)
+   🏗️ Complex conditional logic can be split into multiple small functions
+   ✂️ Split long functions into smaller ones, follow the single responsibility principle
+   📏 A function should ideally not exceed 20-30 lines for better understanding and testing
+   🔄 Extract common code into functions to follow the DRY principle
+   🏗️ Consider creating utility functions or modules for repeated logic
+
+Keep working hard to make your code better! 🚀
 ```
 
 ## 🛠️ Command Line Options
@@ -380,8 +445,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Documentation](https://docs.rs/garbage-code-hunter)
 - [Crates.io](https://crates.io/crates/garbage-code-hunter)
-- [GitHub Repository](https://github.com/yourusername/garbage-code-hunter)
-- [Issue Tracker](https://github.com/yourusername/garbage-code-hunter/issues)
+- [GitHub Repository](https://github.com/TimWood0x10/garbage-code-hunter)
+- [Issue Tracker](https://github.com/TimWood0x10/garbage-code-hunter/issues)
 
 ---
 

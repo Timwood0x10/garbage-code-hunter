@@ -13,7 +13,7 @@ impl I18n {
             "zh" | "zh-cn" | "chinese" => "zh-CN",
             _ => lang,
         };
-        
+
         let mut messages = HashMap::new();
 
         // chinese messages
@@ -596,12 +596,23 @@ impl I18n {
                     suggestions.push("🔄 Consider using references (&) or redesigning data structures to avoid cloning".to_string());
                 }
                 if rule_names.contains(&"code-duplication".to_string()) {
-                    suggestions.push("🔄 Extract common code into functions to follow the DRY principle".to_string());
-                    suggestions.push("🏗️ Consider creating utility functions or modules for repeated logic".to_string());
+                    suggestions.push(
+                        "🔄 Extract common code into functions to follow the DRY principle"
+                            .to_string(),
+                    );
+                    suggestions.push(
+                        "🏗️ Consider creating utility functions or modules for repeated logic"
+                            .to_string(),
+                    );
                 }
                 if rule_names.contains(&"cyclomatic-complexity".to_string()) {
-                    suggestions.push("🧩 Break complex functions into smaller, single-purpose functions".to_string());
-                    suggestions.push("🎯 Use early returns and guard clauses to reduce complexity".to_string());
+                    suggestions.push(
+                        "🧩 Break complex functions into smaller, single-purpose functions"
+                            .to_string(),
+                    );
+                    suggestions.push(
+                        "🎯 Use early returns and guard clauses to reduce complexity".to_string(),
+                    );
                 }
                 if suggestions.is_empty() {
                     suggestions.push(

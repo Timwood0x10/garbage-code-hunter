@@ -1,9 +1,10 @@
+#[allow(dead_code)]
 use colored::*;
 use std::collections::HashMap;
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::i18n::I18n;
-use crate::scoring::{CodeScorer, CodeQualityScore};
+use crate::scoring::{CodeQualityScore, CodeScorer};
 
 pub struct Reporter {
     harsh_mode: bool,
@@ -44,7 +45,12 @@ impl Reporter {
         self.report_with_metrics(issues, 1, 100);
     }
 
-    pub fn report_with_metrics(&self, mut issues: Vec<CodeIssue>, file_count: usize, total_lines: usize) {
+    pub fn report_with_metrics(
+        &self,
+        mut issues: Vec<CodeIssue>,
+        file_count: usize,
+        total_lines: usize,
+    ) {
         // 计算代码质量评分
         let scorer = CodeScorer::new();
         let quality_score = scorer.calculate_score(&issues, file_count, total_lines);
@@ -108,8 +114,15 @@ impl Reporter {
             println!();
             println!("## 🏆 代码质量评分");
             println!();
-            println!("**评分**: {:.1}/100 {}", quality_score.total_score, quality_score.quality_level.emoji());
-            println!("**等级**: {}", quality_score.quality_level.description(&self.i18n.lang));
+            println!(
+                "**评分**: {:.1}/100 {}",
+                quality_score.total_score,
+                quality_score.quality_level.emoji()
+            );
+            println!(
+                "**等级**: {}",
+                quality_score.quality_level.description(&self.i18n.lang)
+            );
             println!();
             println!("{}", self.i18n.get("clean_code"));
             println!();
@@ -117,14 +130,20 @@ impl Reporter {
         } else {
             println!("{}", self.i18n.get("clean_code").bright_green().bold());
             println!();
-            println!("{} 代码质量评分: {:.1}/100 {}", 
+            println!(
+                "{} 代码质量评分: {:.1}/100 {}",
                 "🏆".bright_yellow(),
                 quality_score.total_score.to_string().bright_green().bold(),
                 quality_score.quality_level.emoji()
             );
-            println!("{} 质量等级: {}", 
+            println!(
+                "{} 质量等级: {}",
                 "📊".bright_blue(),
-                quality_score.quality_level.description(&self.i18n.lang).bright_green().bold()
+                quality_score
+                    .quality_level
+                    .description(&self.i18n.lang)
+                    .bright_green()
+                    .bold()
             );
             println!("{}", self.i18n.get("clean_code_warning").yellow());
         }
@@ -137,30 +156,40 @@ impl Reporter {
         };
         println!("{}", title.bright_yellow().bold());
         println!("{}", "─".repeat(50).bright_black());
-        
-        let score_color = match quality_score.quality_level {
-            crate::scoring::QualityLevel::Excellent => quality_score.total_score.to_string().bright_green().bold(),
+
+        let _score_color = match quality_score.quality_level {
+            crate::scoring::QualityLevel::Excellent => {
+                quality_score.total_score.to_string().bright_green().bold()
+            }
             crate::scoring::QualityLevel::Good => quality_score.total_score.to_string().green(),
             crate::scoring::QualityLevel::Average => quality_score.total_score.to_string().yellow(),
             crate::scoring::QualityLevel::Poor => quality_score.total_score.to_string().red(),
-            crate::scoring::QualityLevel::Terrible => quality_score.total_score.to_string().bright_red().bold(),
+            crate::scoring::QualityLevel::Terrible => {
+                quality_score.total_score.to_string().bright_red().bold()
+            }
         };
 
         let (score_label, level_label) = match self.i18n.lang.as_str() {
             "zh-CN" => ("📊 总分", "🎯 等级"),
             _ => ("📊 Score", "🎯 Level"),
         };
-        
-        println!("   {}: {:.1}/100 {}", 
+
+        println!(
+            "   {}: {:.1}/100 {}",
             score_label,
             quality_score.total_score,
             quality_score.quality_level.emoji()
         );
-        println!("   {}: {}", 
+        println!(
+            "   {}: {}",
             level_label,
-            quality_score.quality_level.description(&self.i18n.lang).bright_white().bold()
+            quality_score
+                .quality_level
+                .description(&self.i18n.lang)
+                .bright_white()
+                .bold()
         );
-        
+
         if quality_score.total_lines > 0 {
             let (lines_label, files_label, density_label) = match self.i18n.lang.as_str() {
                 "zh-CN" => ("📏 代码行数", "📁 文件数量", "🔍 问题密度"),
@@ -170,16 +199,30 @@ impl Reporter {
                 "zh-CN" => "问题/千行",
                 _ => "issues/1k lines",
             };
-            
-            println!("   {}: {}", lines_label, quality_score.total_lines.to_string().cyan());
-            println!("   {}: {}", files_label, quality_score.file_count.to_string().cyan());
-            println!("   {}: {:.2} {}", density_label, quality_score.issue_density.to_string().cyan(), density_unit);
+
+            println!(
+                "   {}: {}",
+                lines_label,
+                quality_score.total_lines.to_string().cyan()
+            );
+            println!(
+                "   {}: {}",
+                files_label,
+                quality_score.file_count.to_string().cyan()
+            );
+            println!(
+                "   {}: {:.2} {}",
+                density_label,
+                quality_score.issue_density.to_string().cyan(),
+                density_unit
+            );
         }
 
         // 显示严重程度分布
-        if quality_score.severity_distribution.nuclear > 0 || 
-           quality_score.severity_distribution.spicy > 0 || 
-           quality_score.severity_distribution.mild > 0 {
+        if quality_score.severity_distribution.nuclear > 0
+            || quality_score.severity_distribution.spicy > 0
+            || quality_score.severity_distribution.mild > 0
+        {
             println!();
             let distribution_title = match self.i18n.lang.as_str() {
                 "zh-CN" => "🎭 问题分布:",
@@ -189,16 +232,37 @@ impl Reporter {
                 "zh-CN" => ("💥 核弹级", "🌶️  严重", "😐 轻微"),
                 _ => ("💥 Nuclear", "🌶️  Spicy", "😐 Mild"),
             };
-            
+
             println!("   {}", distribution_title);
             if quality_score.severity_distribution.nuclear > 0 {
-                println!("      {}: {}", nuclear_label, quality_score.severity_distribution.nuclear.to_string().red().bold());
+                println!(
+                    "      {}: {}",
+                    nuclear_label,
+                    quality_score
+                        .severity_distribution
+                        .nuclear
+                        .to_string()
+                        .red()
+                        .bold()
+                );
             }
             if quality_score.severity_distribution.spicy > 0 {
-                println!("      {}: {}", spicy_label, quality_score.severity_distribution.spicy.to_string().yellow());
+                println!(
+                    "      {}: {}",
+                    spicy_label,
+                    quality_score
+                        .severity_distribution
+                        .spicy
+                        .to_string()
+                        .yellow()
+                );
             }
             if quality_score.severity_distribution.mild > 0 {
-                println!("      {}: {}", mild_label, quality_score.severity_distribution.mild.to_string().blue());
+                println!(
+                    "      {}: {}",
+                    mild_label,
+                    quality_score.severity_distribution.mild.to_string().blue()
+                );
             }
         }
 
@@ -211,8 +275,9 @@ impl Reporter {
             };
             println!("   {}", category_title);
             let mut sorted_categories: Vec<_> = quality_score.category_scores.iter().collect();
-            sorted_categories.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
-            
+            sorted_categories
+                .sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+
             for (category, score) in sorted_categories.iter().take(5) {
                 let category_name = match (self.i18n.lang.as_str(), category.as_str()) {
                     ("zh-CN", "naming") => "命名规范",
@@ -231,10 +296,14 @@ impl Reporter {
                     (_, "duplication") => "Code Duplication",
                     _ => category,
                 };
-                println!("      {} {:.1}", category_name.cyan(), score.to_string().yellow());
+                println!(
+                    "      {} {:.1}",
+                    category_name.cyan(),
+                    score.to_string().yellow()
+                );
             }
         }
-        
+
         println!();
     }
 
@@ -310,16 +379,19 @@ impl Reporter {
             // Group issues by rule type
             let mut rule_groups: HashMap<String, Vec<&CodeIssue>> = HashMap::new();
             for issue in &file_issues {
-                rule_groups.entry(issue.rule_name.clone()).or_default().push(issue);
+                rule_groups
+                    .entry(issue.rule_name.clone())
+                    .or_default()
+                    .push(issue);
             }
 
             // Show limited number of issues per rule type
-            let max_per_rule = 5;
+            let _max_per_rule = 5;
             let mut total_shown = 0;
-            let max_total = if self.max_issues_per_file > 0 { 
-                self.max_issues_per_file 
-            } else { 
-                usize::MAX 
+            let max_total = if self.max_issues_per_file > 0 {
+                self.max_issues_per_file
+            } else {
+                usize::MAX
             };
 
             // Sort rule groups by severity (most severe first)
@@ -330,8 +402,16 @@ impl Reporter {
                     Severity::Spicy => 2,
                     Severity::Mild => 1,
                 };
-                let max_severity_a = a.1.iter().map(|i| severity_order(&i.severity)).max().unwrap_or(1);
-                let max_severity_b = b.1.iter().map(|i| severity_order(&i.severity)).max().unwrap_or(1);
+                let max_severity_a =
+                    a.1.iter()
+                        .map(|i| severity_order(&i.severity))
+                        .max()
+                        .unwrap_or(1);
+                let max_severity_b =
+                    b.1.iter()
+                        .map(|i| severity_order(&i.severity))
+                        .max()
+                        .unwrap_or(1);
                 max_severity_b.cmp(&max_severity_a)
             });
 
@@ -341,53 +421,59 @@ impl Reporter {
                 }
 
                 let rule_issues_len = rule_issues.len();
-                
+
                 // Create compact summary for each rule type
                 if rule_name.contains("naming") || rule_name.contains("single-letter") {
                     // Collect variable names for naming issues
-                    let bad_names: Vec<String> = rule_issues.iter()
+                    let bad_names: Vec<String> = rule_issues
+                        .iter()
                         .filter_map(|issue| {
                             if let Some(start) = issue.message.find("'") {
-                                if let Some(end) = issue.message[start+1..].find("'") {
-                                    Some(issue.message[start+1..start+1+end].to_string())
-                                } else { None }
-                            } else { None }
+                                if let Some(end) = issue.message[start + 1..].find("'") {
+                                    Some(issue.message[start + 1..start + 1 + end].to_string())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
                         })
                         .take(5)
                         .collect();
-                    
+
                     let names_display = if bad_names.len() < rule_issues_len {
                         format!("{}, ...", bad_names.join(", "))
                     } else {
                         bad_names.join(", ")
                     };
-                    
+
                     let label = if self.i18n.lang == "zh-CN" {
                         "变量命名问题"
                     } else {
                         "Variable naming issues"
                     };
-                    
-                    println!("  🏷️ {}: {} ({})", 
+
+                    println!(
+                        "  🏷️ {}: {} ({})",
                         label.bright_yellow().bold(),
                         rule_issues_len.to_string().bright_red().bold(),
-                        names_display.bright_black());
+                        names_display.bright_black()
+                    );
                     total_shown += 1;
-                    
                 } else if rule_name.contains("duplication") {
                     let label = if self.i18n.lang == "zh-CN" {
                         "代码重复问题"
                     } else {
                         "Code duplication issues"
                     };
-                    
+
                     // Extract instance count from message if available
                     let instance_info = if let Some(first_issue) = rule_issues.first() {
                         if first_issue.message.contains("instances") {
                             let parts: Vec<&str> = first_issue.message.split_whitespace().collect();
                             if let Some(pos) = parts.iter().position(|&x| x == "instances") {
                                 if pos > 0 {
-                                    format!("{} instances", parts[pos-1])
+                                    format!("{} instances", parts[pos - 1])
                                 } else {
                                     "multiple instances".to_string()
                                 }
@@ -400,32 +486,34 @@ impl Reporter {
                     } else {
                         "multiple blocks".to_string()
                     };
-                    
-                    println!("  🔄 {}: {} ({})", 
+
+                    println!(
+                        "  🔄 {}: {} ({})",
                         label.bright_cyan().bold(),
                         rule_issues_len.to_string().bright_cyan().bold(),
-                        instance_info.bright_black());
+                        instance_info.bright_black()
+                    );
                     total_shown += 1;
-                    
                 } else if rule_name.contains("nesting") {
                     let label = if self.i18n.lang == "zh-CN" {
                         "嵌套深度问题"
                     } else {
                         "Nesting depth issues"
                     };
-                    
+
                     // Extract depth range from messages
-                    let depths: Vec<usize> = rule_issues.iter()
+                    let depths: Vec<usize> = rule_issues
+                        .iter()
                         .filter_map(|issue| {
                             if let Some(start) = issue.message.find("depth: ") {
-                                let depth_str = &issue.message[start+7..];
+                                let depth_str = &issue.message[start + 7..];
                                 if let Some(end) = depth_str.find(')') {
                                     depth_str[..end].parse().ok()
                                 } else {
                                     None
                                 }
                             } else if let Some(start) = issue.message.find("深度: ") {
-                                let depth_str = &issue.message[start+6..];
+                                let depth_str = &issue.message[start + 6..];
                                 if let Some(end) = depth_str.find(')') {
                                     depth_str[..end].parse().ok()
                                 } else {
@@ -436,7 +524,7 @@ impl Reporter {
                             }
                         })
                         .collect();
-                    
+
                     let depth_info = if !depths.is_empty() {
                         let min_depth = depths.iter().min().unwrap_or(&4);
                         let max_depth = depths.iter().max().unwrap_or(&8);
@@ -448,19 +536,22 @@ impl Reporter {
                     } else {
                         "deep nesting".to_string()
                     };
-                    
-                    println!("  📦 {}: {} ({})", 
+
+                    println!(
+                        "  📦 {}: {} ({})",
                         label.bright_magenta().bold(),
                         rule_issues_len.to_string().bright_magenta().bold(),
-                        depth_info.bright_black());
+                        depth_info.bright_black()
+                    );
                     total_shown += 1;
-                    
                 } else {
                     // For other types, show a generic summary
                     let clean_rule_name = rule_name.replace("-", " ");
-                    println!("  ⚠️ {}: {}", 
+                    println!(
+                        "  ⚠️ {}: {}",
                         clean_rule_name.bright_yellow().bold(),
-                        rule_issues_len.to_string().bright_yellow().bold());
+                        rule_issues_len.to_string().bright_yellow().bold()
+                    );
                     total_shown += 1;
                 }
             }
@@ -483,10 +574,12 @@ impl Reporter {
                     &issue.message
                 }
             };
-            println!("  {} {} {}", 
-                "🔄".bright_cyan(), 
-                "duplicate".bright_black(), 
-                message.bright_cyan().bold());
+            println!(
+                "  {} {} {}",
+                "🔄".bright_cyan(),
+                "duplicate".bright_black(),
+                message.bright_cyan().bold()
+            );
         } else if issue.rule_name.contains("nesting") {
             let message = if self.i18n.lang == "zh-CN" {
                 &issue.message
@@ -502,35 +595,39 @@ impl Reporter {
                     &issue.message
                 }
             };
-            println!("  {} {} {}", 
-                "📦".bright_magenta(), 
-                "nesting".bright_black(), 
-                message.bright_magenta());
+            println!(
+                "  {} {} {}",
+                "📦".bright_magenta(),
+                "nesting".bright_black(),
+                message.bright_magenta()
+            );
         } else {
             // Default based on severity
             let severity_icon = match issue.severity {
                 Severity::Nuclear => "💥",
-                Severity::Spicy => "🌶️", 
+                Severity::Spicy => "🌶️",
                 Severity::Mild => "😐",
             };
-            
+
             let line_info = format!("{}:{}", issue.line, issue.column);
             let colored_message = match issue.severity {
                 Severity::Nuclear => issue.message.red().bold(),
                 Severity::Spicy => issue.message.yellow(),
                 Severity::Mild => issue.message.blue(),
             };
-            
-            let final_message = if self.savage_mode {
+
+            let _final_message = if self.savage_mode {
                 self.make_message_savage(&issue.message)
             } else {
                 issue.message.clone()
             };
 
-            println!("  {} {} {}", 
-                severity_icon.bright_yellow(), 
-                line_info.bright_black(), 
-                colored_message);
+            println!(
+                "  {} {} {}",
+                severity_icon.bright_yellow(),
+                line_info.bright_black(),
+                colored_message
+            );
         }
     }
 
@@ -554,42 +651,62 @@ impl Reporter {
             .iter()
             .filter(|i| matches!(i.severity, Severity::Nuclear))
             .count();
-        let total_count = issues.len();
+        let _total_count = issues.len();
 
         println!("{}", self.i18n.get("summary").bright_white().bold());
         println!("{}", "─".repeat(50).bright_black());
 
         // 显示评分总结
         let score_summary = match quality_score.quality_level {
-            crate::scoring::QualityLevel::Excellent => {
-                match self.i18n.lang.as_str() {
-                    "zh-CN" => format!("🏆 代码质量优秀！评分: {:.1}/100", quality_score.total_score),
-                    _ => format!("🏆 Excellent code quality! Score: {:.1}/100", quality_score.total_score),
-                }
+            crate::scoring::QualityLevel::Excellent => match self.i18n.lang.as_str() {
+                "zh-CN" => format!(
+                    "🏆 代码质量优秀！评分: {:.1}/100",
+                    quality_score.total_score
+                ),
+                _ => format!(
+                    "🏆 Excellent code quality! Score: {:.1}/100",
+                    quality_score.total_score
+                ),
             },
-            crate::scoring::QualityLevel::Good => {
-                match self.i18n.lang.as_str() {
-                    "zh-CN" => format!("👍 代码质量良好，评分: {:.1}/100", quality_score.total_score),
-                    _ => format!("👍 Good code quality, Score: {:.1}/100", quality_score.total_score),
-                }
+            crate::scoring::QualityLevel::Good => match self.i18n.lang.as_str() {
+                "zh-CN" => format!(
+                    "👍 代码质量良好，评分: {:.1}/100",
+                    quality_score.total_score
+                ),
+                _ => format!(
+                    "👍 Good code quality, Score: {:.1}/100",
+                    quality_score.total_score
+                ),
             },
-            crate::scoring::QualityLevel::Average => {
-                match self.i18n.lang.as_str() {
-                    "zh-CN" => format!("😐 代码质量一般，评分: {:.1}/100，还有改进空间", quality_score.total_score),
-                    _ => format!("😐 Average code quality, Score: {:.1}/100, room for improvement", quality_score.total_score),
-                }
+            crate::scoring::QualityLevel::Average => match self.i18n.lang.as_str() {
+                "zh-CN" => format!(
+                    "😐 代码质量一般，评分: {:.1}/100，还有改进空间",
+                    quality_score.total_score
+                ),
+                _ => format!(
+                    "😐 Average code quality, Score: {:.1}/100, room for improvement",
+                    quality_score.total_score
+                ),
             },
-            crate::scoring::QualityLevel::Poor => {
-                match self.i18n.lang.as_str() {
-                    "zh-CN" => format!("😟 代码质量较差，评分: {:.1}/100，建议重构", quality_score.total_score),
-                    _ => format!("😟 Poor code quality, Score: {:.1}/100, refactoring recommended", quality_score.total_score),
-                }
+            crate::scoring::QualityLevel::Poor => match self.i18n.lang.as_str() {
+                "zh-CN" => format!(
+                    "😟 代码质量较差，评分: {:.1}/100，建议重构",
+                    quality_score.total_score
+                ),
+                _ => format!(
+                    "😟 Poor code quality, Score: {:.1}/100, refactoring recommended",
+                    quality_score.total_score
+                ),
             },
-            crate::scoring::QualityLevel::Terrible => {
-                match self.i18n.lang.as_str() {
-                    "zh-CN" => format!("💀 代码质量糟糕，评分: {:.1}/100，急需重写", quality_score.total_score),
-                    _ => format!("💀 Terrible code quality, Score: {:.1}/100, rewrite urgently needed", quality_score.total_score),
-                }
+            crate::scoring::QualityLevel::Terrible => match self.i18n.lang.as_str() {
+                "zh-CN" => format!(
+                    "💀 代码质量糟糕，评分: {:.1}/100，急需重写",
+                    quality_score.total_score
+                ),
+                _ => format!(
+                    "💀 Terrible code quality, Score: {:.1}/100, rewrite urgently needed",
+                    quality_score.total_score
+                ),
             },
         };
 
@@ -646,29 +763,29 @@ impl Reporter {
         println!("{}", color);
     }
 
-    fn print_scoring_breakdown(&self, issues: &[CodeIssue], quality_score: &CodeQualityScore) {
+    fn print_scoring_breakdown(&self, _issues: &[CodeIssue], quality_score: &CodeQualityScore) {
         let title = if self.i18n.lang == "zh-CN" {
             "📊 评分详情"
         } else {
             "📊 Scoring Details"
         };
-        
+
         println!("\n{}", title.bright_cyan().bold());
         println!("{}", "─".repeat(50).bright_black());
-        
+
         // Show category scores
         self.print_category_scores(&quality_score.category_scores);
-        
+
         // Show weighted calculation
         self.print_weighted_calculation(&quality_score.category_scores, quality_score.total_score);
-        
+
         // Show scoring scale
         let scale_title = if self.i18n.lang == "zh-CN" {
             "\n📏 评分标准 (分数越高代码越烂):"
         } else {
             "\n📏 Scoring Scale (higher score = worse code):"
         };
-        
+
         println!("{}", scale_title.bright_yellow());
         if self.i18n.lang == "zh-CN" {
             println!("  💀 81-100: 糟糕    🔥 61-80: 较差    ⚠️ 41-60: 一般");
@@ -679,7 +796,11 @@ impl Reporter {
         }
     }
 
-    fn calculate_base_score_for_display(&self, issues: &[CodeIssue], scorer: &crate::scoring::CodeScorer) -> f64 {
+    fn calculate_base_score_for_display(
+        &self,
+        issues: &[CodeIssue],
+        scorer: &crate::scoring::CodeScorer,
+    ) -> f64 {
         let mut score = 0.0;
         for issue in issues {
             let rule_weight = scorer.rule_weights.get(&issue.rule_name).unwrap_or(&1.0);
@@ -693,7 +814,12 @@ impl Reporter {
         score
     }
 
-    fn calculate_density_penalty_for_display(&self, issue_count: usize, file_count: usize, total_lines: usize) -> f64 {
+    fn calculate_density_penalty_for_display(
+        &self,
+        issue_count: usize,
+        file_count: usize,
+        total_lines: usize,
+    ) -> f64 {
         if total_lines == 0 || file_count == 0 {
             return 0.0;
         }
@@ -719,7 +845,10 @@ impl Reporter {
         density_penalty + file_penalty
     }
 
-    fn calculate_severity_penalty_for_display(&self, distribution: &crate::scoring::SeverityDistribution) -> f64 {
+    fn calculate_severity_penalty_for_display(
+        &self,
+        distribution: &crate::scoring::SeverityDistribution,
+    ) -> f64 {
         let mut penalty = 0.0;
 
         if distribution.nuclear > 0 {
@@ -743,9 +872,9 @@ impl Reporter {
         } else {
             "📋 Category Scores:"
         };
-        
+
         println!("{}", title.bright_yellow());
-        
+
         // Define category display order and info
         let categories = [
             ("naming", "命名规范", "Naming", "🏷️"),
@@ -756,20 +885,26 @@ impl Reporter {
             ("rust-features", "Rust功能", "Rust Features", "🚀"),
             ("structure", "代码结构", "Code Structure", "🏗️"),
         ];
-        
+
         for (category_key, zh_name, en_name, icon) in &categories {
             if let Some(score) = category_scores.get(*category_key) {
-                let display_name = if self.i18n.lang == "zh-CN" { zh_name } else { en_name };
+                let display_name = if self.i18n.lang == "zh-CN" {
+                    zh_name
+                } else {
+                    en_name
+                };
                 let (status_icon, status_text) = self.get_score_status(*score);
-                
-                // 基础显示
-                println!("  {} {} {}分     {}", 
+
+                // basic display
+                println!(
+                    "  {} {} {}分     {}",
                     status_icon,
                     format!("{} {}", icon, display_name).bright_white(),
                     format!("{:.0}", score).bright_cyan(),
-                    status_text.bright_black());
-                
-                // 如果分数很高（代码很烂），添加吐槽
+                    status_text.bright_black()
+                );
+
+                // if score is high (code is bad), add a roast
                 if let Some(roast) = self.get_category_roast(category_key, *score) {
                     println!("    💬 {}", roast.bright_yellow().italic());
                 }
@@ -781,16 +916,51 @@ impl Reporter {
     fn get_score_status(&self, score: f64) -> (&str, &str) {
         // 注意：分数越高代码越烂
         match score as u32 {
-            81..=100 => ("⚠", if self.i18n.lang == "zh-CN" { "糟糕，急需修复" } else { "Terrible, urgent fixes needed" }),
-            61..=80 => ("•", if self.i18n.lang == "zh-CN" { "较差，建议重构" } else { "Poor, refactoring recommended" }),
-            41..=60 => ("○", if self.i18n.lang == "zh-CN" { "一般，需要改进" } else { "Average, needs improvement" }),
-            21..=40 => ("✓", if self.i18n.lang == "zh-CN" { "良好，还有提升空间" } else { "Good, room for improvement" }),
-            _ => ("✓✓", if self.i18n.lang == "zh-CN" { "优秀，继续保持" } else { "Excellent, keep it up" }),
+            81..=100 => (
+                "⚠",
+                if self.i18n.lang == "zh-CN" {
+                    "糟糕，急需修复"
+                } else {
+                    "Terrible, urgent fixes needed"
+                },
+            ),
+            61..=80 => (
+                "•",
+                if self.i18n.lang == "zh-CN" {
+                    "较差，建议重构"
+                } else {
+                    "Poor, refactoring recommended"
+                },
+            ),
+            41..=60 => (
+                "○",
+                if self.i18n.lang == "zh-CN" {
+                    "一般，需要改进"
+                } else {
+                    "Average, needs improvement"
+                },
+            ),
+            21..=40 => (
+                "✓",
+                if self.i18n.lang == "zh-CN" {
+                    "良好，还有提升空间"
+                } else {
+                    "Good, room for improvement"
+                },
+            ),
+            _ => (
+                "✓✓",
+                if self.i18n.lang == "zh-CN" {
+                    "优秀，继续保持"
+                } else {
+                    "Excellent, keep it up"
+                },
+            ),
         }
     }
 
     fn get_category_roast(&self, category: &str, score: f64) -> Option<String> {
-        // 只有分数比较高（代码比较烂）的时候才吐槽
+        // only roast if score is high (code is bad)
         if score < 60.0 {
             return None;
         }
@@ -848,22 +1018,26 @@ impl Reporter {
         if roasts.is_empty() {
             None
         } else {
-            // 根据分数选择吐槽（分数越高吐槽越狠）
+            // select roast based on score (the higher the score, the more severe the roast)
             let index = ((score - 60.0) / 10.0) as usize;
             let roast_index = index.min(roasts.len() - 1);
             Some(roasts[roast_index].to_string())
         }
     }
 
-    fn print_weighted_calculation(&self, category_scores: &std::collections::HashMap<String, f64>, total_score: f64) {
+    fn print_weighted_calculation(
+        &self,
+        category_scores: &std::collections::HashMap<String, f64>,
+        _total_score: f64,
+    ) {
         let calc_title = if self.i18n.lang == "zh-CN" {
             "🧮 加权计算:"
         } else {
             "🧮 Weighted Calculation:"
         };
-        
+
         println!("{}", calc_title.bright_yellow());
-        
+
         // Show the calculation formula
         let weights = [
             ("naming", 0.25, "命名规范", "Naming"),
@@ -874,33 +1048,42 @@ impl Reporter {
             ("rust-features", 0.10, "Rust功能", "Rust Features"),
             ("structure", 0.05, "代码结构", "Code Structure"),
         ];
-        
+
         let mut calculation_parts = Vec::new();
         let mut weighted_sum = 0.0;
-        
-        for (category_key, weight, zh_name, en_name) in &weights {
+
+        for (category_key, weight, _zh_name, _en_name) in &weights {
             if let Some(score) = category_scores.get(*category_key) {
                 let weighted_value = score * weight;
                 weighted_sum += weighted_value;
                 calculation_parts.push(format!("{:.1}×{:.2}", score, weight));
             }
         }
-        
+
         if self.i18n.lang == "zh-CN" {
-            println!("  评分计算: ({}) ÷ 1.00 = {}", 
+            println!(
+                "  评分计算: ({}) ÷ 1.00 = {}",
                 calculation_parts.join(" + ").bright_white(),
-                format!("{:.1}", weighted_sum).bright_green().bold());
+                format!("{:.1}", weighted_sum).bright_green().bold()
+            );
         } else {
-            println!("  Score calculation: ({}) ÷ 1.00 = {}", 
+            println!(
+                "  Score calculation: ({}) ÷ 1.00 = {}",
                 calculation_parts.join(" + ").bright_white(),
-                format!("{:.1}", weighted_sum).bright_green().bold());
+                format!("{:.1}", weighted_sum).bright_green().bold()
+            );
         }
     }
 
-    fn print_detailed_base_score_breakdown(&self, issues: &[CodeIssue], scorer: &crate::scoring::CodeScorer) {
+    fn print_detailed_base_score_breakdown(
+        &self,
+        issues: &[CodeIssue],
+        scorer: &crate::scoring::CodeScorer,
+    ) {
         // Group issues by rule type and calculate scores
-        let mut rule_scores: std::collections::HashMap<String, (usize, f64)> = std::collections::HashMap::new();
-        
+        let mut rule_scores: std::collections::HashMap<String, (usize, f64)> =
+            std::collections::HashMap::new();
+
         for issue in issues {
             let rule_weight = scorer.rule_weights.get(&issue.rule_name).unwrap_or(&1.0);
             let severity_weight = match issue.severity {
@@ -909,55 +1092,65 @@ impl Reporter {
                 crate::analyzer::Severity::Mild => 2.0,
             };
             let issue_score = rule_weight * severity_weight;
-            
-            let entry = rule_scores.entry(issue.rule_name.clone()).or_insert((0, 0.0));
+
+            let entry = rule_scores
+                .entry(issue.rule_name.clone())
+                .or_insert((0, 0.0));
             entry.0 += 1; // count
             entry.1 += issue_score; // total score
         }
-        
+
         // Sort by score (highest first)
         let mut sorted_rules: Vec<_> = rule_scores.into_iter().collect();
-        sorted_rules.sort_by(|a, b| b.1.1.partial_cmp(&a.1.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+        sorted_rules.sort_by(|a, b| {
+            b.1 .1
+                .partial_cmp(&a.1 .1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         let breakdown_title = if self.i18n.lang == "zh-CN" {
             "🔍 基础分数详细计算:"
         } else {
             "🔍 Base score detailed calculation:"
         };
-        
+
         println!("{}", breakdown_title.bright_yellow());
-        
+
         for (rule_name, (count, total_score)) in sorted_rules.iter().take(10) {
             let rule_weight = scorer.rule_weights.get(rule_name).unwrap_or(&1.0);
-            
+
             let rule_display = match (self.i18n.lang.as_str(), rule_name.as_str()) {
                 ("zh-CN", "terrible-naming") => "糟糕命名",
-                ("zh-CN", "single-letter-variable") => "单字母变量", 
+                ("zh-CN", "single-letter-variable") => "单字母变量",
                 ("zh-CN", "deep-nesting") => "深度嵌套",
                 ("zh-CN", "code-duplication") => "代码重复",
                 ("zh-CN", "long-function") => "超长函数",
                 ("zh-CN", "macro-abuse") => "宏滥用",
                 (_, "terrible-naming") => "Terrible naming",
                 (_, "single-letter-variable") => "Single letter vars",
-                (_, "deep-nesting") => "Deep nesting", 
+                (_, "deep-nesting") => "Deep nesting",
                 (_, "code-duplication") => "Code duplication",
                 (_, "long-function") => "Long function",
                 (_, "macro-abuse") => "Macro abuse",
                 _ => rule_name,
             };
-            
+
             if self.i18n.lang == "zh-CN" {
-                println!("  • {} × {} (权重{:.1}) = {}", 
+                println!(
+                    "  • {} × {} (权重{:.1}) = {}",
                     format!("{}", count).cyan(),
                     rule_display.bright_white(),
                     format!("{:.1}", rule_weight).yellow(),
-                    format!("{:.1}", total_score).bright_red());
+                    format!("{:.1}", total_score).bright_red()
+                );
             } else {
-                println!("  • {} × {} (weight {:.1}) = {}", 
+                println!(
+                    "  • {} × {} (weight {:.1}) = {}",
                     format!("{}", count).cyan(),
                     rule_display.bright_white(),
                     format!("{:.1}", rule_weight).yellow(),
-                    format!("{:.1}", total_score).bright_red());
+                    format!("{:.1}", total_score).bright_red()
+                );
             }
         }
         println!();
