@@ -394,8 +394,6 @@ impl Reporter {
             }
             self.print_summary_with_score(&issues, &quality_score);
             if !self.summary_only {
-                self.print_footer(&issues);
-                
                 // Print hall of shame if requested
                 if let Some(shame) = hall_of_shame {
                     self.print_hall_of_shame(shame);
@@ -406,6 +404,11 @@ impl Reporter {
                     if let Some(shame) = hall_of_shame {
                         self.print_improvement_suggestions(shame);
                     }
+                }
+                
+                // Always show footer for non-enhanced mode
+                if !show_suggestions {
+                    self.print_footer(&issues);
                 }
             }
         }
@@ -1039,6 +1042,223 @@ impl Reporter {
     }
 
     fn print_summary_with_score(&self, issues: &[CodeIssue], quality_score: &CodeQualityScore) {
+        // Print enhanced summary with better layout
+        self.print_enhanced_summary(issues, quality_score);
+    }
+
+    fn print_enhanced_summary(&self, issues: &[CodeIssue], quality_score: &CodeQualityScore) {
+        println!();
+        
+        // Header with decorative border
+        if self.i18n.lang == "zh-CN" {
+            println!("{}", "🏆 代码质量报告".bright_cyan().bold());
+            println!("{}", "═".repeat(60).bright_black());
+        } else {
+            println!("{}", "🏆 Code Quality Report".bright_cyan().bold());
+            println!("{}", "═".repeat(60).bright_black());
+        }
+
+        // Overall score section with card-like layout
+        let score_bar = self.create_enhanced_score_bar(quality_score.total_score);
+        let score_emoji = quality_score.quality_level.emoji();
+        let score_desc = quality_score.quality_level.description(&self.i18n.lang);
+
+        if self.i18n.lang == "zh-CN" {
+            println!("╭─ 📊 总体评分 ─────────────────────────────────────────╮");
+            println!("│                                                      │");
+            
+            // Format score line with proper alignment
+            let score_text = format!("总分: {:.1}/100", quality_score.total_score);
+            let status_text = format!("({} {})", score_emoji, score_desc);
+            println!("│  {}  {}  {}│", 
+                score_text.bright_red().bold(),
+                score_bar,
+                status_text.bright_black()
+            );
+            
+            // Add file statistics
+            let file_count = issues.iter().map(|i| &i.file_path).collect::<std::collections::HashSet<_>>().len();
+            let total_issues = issues.len();
+            println!("│                                                      │");
+            let stats_text = format!("分析文件: {} 个    问题总数: {} 个", 
+                file_count, total_issues);
+            println!("│  {}                              │", stats_text);
+            println!("│                                                      │");
+            println!("╰──────────────────────────────────────────────────────╯");
+        } else {
+            println!("╭─ 📊 Overall Score ───────────────────────────────────╮");
+            println!("│                                                      │");
+            
+            // Format score line with proper alignment
+            let score_text = format!("Score: {:.1}/100", quality_score.total_score);
+            let status_text = format!("({} {})", score_emoji, score_desc);
+            println!("│  {}  {}  {}│", 
+                score_text.bright_red().bold(),
+                score_bar,
+                status_text.bright_black()
+            );
+            
+            // Add file statistics
+            let file_count = issues.iter().map(|i| &i.file_path).collect::<std::collections::HashSet<_>>().len();
+            let total_issues = issues.len();
+            println!("│                                                      │");
+            let stats_text = format!("Files analyzed: {}    Total issues: {}", 
+                file_count, total_issues);
+            println!("│  {}                           │", stats_text);
+            println!("│                                                      │");
+            println!("╰──────────────────────────────────────────────────────╯");
+        }
+
+        println!();
+        self.print_category_scores_enhanced(&quality_score.category_scores);
+
+        println!();
+        self.print_quality_legend();
+
+        // Only show improvement suggestions if explicitly requested via --suggestions flag
+        // This makes the --suggestions parameter more meaningful
+    }
+
+    fn create_enhanced_score_bar(&self, score: f64) -> String {
+        let bar_length = 20;
+        // 注意：分数越高代码越烂，所以用红色表示高分
+        let filled_length = ((score / 100.0) * bar_length as f64) as usize;
+        let empty_length = bar_length - filled_length;
+        
+        let filled_char = if score >= 80.0 {
+            "█".red()
+        } else if score >= 60.0 {
+            "█".yellow()
+        } else if score >= 40.0 {
+            "█".blue()
+        } else {
+            "█".green()
+        };
+        
+        let empty_char = "▒".bright_black();
+        
+        format!("{}{}",
+            filled_char.to_string().repeat(filled_length),
+            empty_char.to_string().repeat(empty_length)
+        )
+    }
+
+    fn print_category_scores_enhanced(&self, category_scores: &std::collections::HashMap<String, f64>) {
+        if self.i18n.lang == "zh-CN" {
+            println!("{}", "📋 分类评分详情".bright_yellow().bold());
+        } else {
+            println!("{}", "📋 Category Scores".bright_yellow().bold());
+        }
+        println!("{}", "─".repeat(60).bright_black());
+
+        // Define category display order and info
+        let categories = [
+            ("naming", "命名规范", "Naming", "🏷️"),
+            ("complexity", "复杂度", "Complexity", "🧩"),
+            ("duplication", "代码重复", "Duplication", "🔄"),
+            ("rust-basics", "Rust基础", "Rust Basics", "🦀"),
+            ("advanced-rust", "高级特性", "Advanced Rust", "⚡"),
+            ("rust-features", "Rust功能", "Rust Features", "🚀"),
+            ("structure", "代码结构", "Code Structure", "🏗️"),
+        ];
+
+        for (category_key, zh_name, en_name, icon) in &categories {
+            if let Some(score) = category_scores.get(*category_key) {
+                let display_name = if self.i18n.lang == "zh-CN" {
+                    zh_name
+                } else {
+                    en_name
+                };
+                let (status_icon, status_text) = self.get_score_status(*score);
+                let score_bar = self.create_enhanced_score_bar(*score);
+
+                // Enhanced display with progress bar
+                let score_unit = if self.i18n.lang == "zh-CN" { "分" } else { "" };
+                println!(
+                    "   {} {} [{:>3}{}] {} {}",
+                    status_icon,
+                    format!("{icon} {display_name}").bright_white().bold(),
+                    format!("{score:.0}").bright_cyan(),
+                    score_unit,
+                    score_bar,
+                    status_text.bright_black()
+                );
+
+                // if score is high (code is bad), add a roast
+                if let Some(roast) = self.get_category_roast(category_key, *score) {
+                    println!("       💬 {}", roast.bright_yellow().italic());
+                }
+            }
+        }
+        println!();
+    }
+
+    fn print_quality_legend(&self) {
+        if self.i18n.lang == "zh-CN" {
+            println!("{}", "📏 评分标准 (分数越高代码越烂)".bright_yellow().bold());
+            println!("{}", "─".repeat(40).bright_black());
+            println!("   💀 81-100分: 糟糕，急需重写    🔥 61-80分: 较差，建议重构");
+            println!("   ⚠️  41-60分: 一般，需要改进    ✅ 21-40分: 良好，还有提升空间");
+            println!("   🌟 0-20分: 优秀，继续保持");
+        } else {
+            println!("{}", "📏 Scoring Scale (higher score = worse code)".bright_yellow().bold());
+            println!("{}", "─".repeat(50).bright_black());
+            println!("   💀 81-100: Terrible, rewrite needed    🔥 61-80: Poor, refactoring recommended");
+            println!("   ⚠️  41-60: Average, needs improvement   ✅ 21-40: Good, room for improvement");
+            println!("   🌟 0-20: Excellent, keep it up");
+        }
+    }
+
+    fn print_improvement_suggestions_enhanced(&self, quality_score: &CodeQualityScore) {
+        if self.i18n.lang == "zh-CN" {
+            println!("{}", "💡 改进建议".bright_green().bold());
+        } else {
+            println!("{}", "💡 Improvement Suggestions".bright_green().bold());
+        }
+        println!("{}", "─".repeat(50).bright_black());
+
+        let suggestions = self.generate_improvement_suggestions_from_score(quality_score);
+        for suggestion in suggestions {
+            println!("   • {}", suggestion.green());
+        }
+    }
+
+    fn generate_improvement_suggestions_from_score(&self, quality_score: &CodeQualityScore) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        
+        // Sort categories by score (worst first)
+        let mut sorted_categories: Vec<_> = quality_score.category_scores.iter().collect();
+        sorted_categories.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+        
+        for (category, score) in sorted_categories.iter().take(3) {
+            if **score > 60.0 {
+                let suggestion = match (self.i18n.lang.as_str(), category.as_str()) {
+                    ("zh-CN", "naming") => "🏷️ 重点改进变量和函数命名 - 清晰的名称让代码自文档化",
+                    ("zh-CN", "complexity") => "🧩 将复杂函数分解为更小、更专注的函数",
+                    ("zh-CN", "duplication") => "🔄 消除重复代码，提取公共函数和模块",
+                    ("zh-CN", "rust-features") => "🦀 学习和应用 Rust 最佳实践，减少不必要的分配",
+                    (_, "naming") => "🏷️ Focus on improving variable and function naming - clear names make code self-documenting",
+                    (_, "complexity") => "🧩 Break down complex functions into smaller, focused functions",
+                    (_, "duplication") => "🔄 Eliminate code duplication, extract common functions and modules",
+                    (_, "rust-features") => "🦀 Learn and apply Rust best practices, reduce unnecessary allocations",
+                    _ => continue,
+                };
+                suggestions.push(suggestion.to_string());
+            }
+        }
+        
+        if suggestions.is_empty() {
+            if self.i18n.lang == "zh-CN" {
+                suggestions.push("🎉 代码质量不错！继续保持良好的编程习惯".to_string());
+            } else {
+                suggestions.push("🎉 Code quality looks good! Keep up the good programming habits".to_string());
+            }
+        }
+        
+        suggestions
+    }
+
+    fn print_old_summary_with_score(&self, issues: &[CodeIssue], quality_score: &CodeQualityScore) {
         // Print detailed scoring breakdown
         self.print_scoring_breakdown(issues, quality_score);
         let _nuclear_count = issues
@@ -1290,11 +1510,13 @@ impl Reporter {
                 let (status_icon, status_text) = self.get_score_status(*score);
 
                 // basic display
+                let score_unit = if self.i18n.lang == "zh-CN" { "分" } else { "" };
                 println!(
-                    "  {} {} {}分     {}",
+                    "  {} {} {}{}     {}",
                     status_icon,
                     format!("{icon} {display_name}").bright_white(),
                     format!("{score:.0}").bright_cyan(),
+                    score_unit,
                     status_text.bright_black()
                 );
 
@@ -1359,13 +1581,23 @@ impl Reporter {
             return None;
         }
 
-        // 使用新的随机吐槽系统
-        let category_name = match category {
-            "naming" => "命名规范",
-            "complexity" => "复杂度", 
-            "duplication" => "代码重复",
-            "rust-features" => "Rust功能",
-            _ => category,
+        // 使用新的随机吐槽系统，支持中英文
+        let category_name = if self.i18n.lang == "zh-CN" {
+            match category {
+                "naming" => "命名规范",
+                "complexity" => "复杂度", 
+                "duplication" => "代码重复",
+                "rust-features" => "Rust功能",
+                _ => category,
+            }
+        } else {
+            match category {
+                "naming" => "Naming",
+                "complexity" => "Complexity", 
+                "duplication" => "Duplication",
+                "rust-features" => "Rust Features",
+                _ => category,
+            }
         };
         
         // 使用时间戳作为种子，确保每次运行都有不同的吐槽
@@ -1375,15 +1607,11 @@ impl Reporter {
             .as_millis() as u64;
         let seed = timestamp + (score * 1000.0) as u64;
         let roast_message = self.get_random_roast(category_name, score, seed);
-        let roasts = vec![roast_message.as_str()];
-
-        if roasts.is_empty() {
+        
+        if roast_message.is_empty() {
             None
         } else {
-            // select roast based on score (the higher the score, the more severe the roast)
-            let index = ((score - 60.0) / 10.0) as usize;
-            let roast_index = index.min(roasts.len() - 1);
-            Some(roasts[roast_index].to_string())
+            Some(roast_message)
         }
     }
 
@@ -1518,41 +1746,14 @@ impl Reporter {
         println!();
     }
 
-    fn print_footer(&self, issues: &[CodeIssue]) {
+    fn print_footer(&self, _issues: &[CodeIssue]) {
+        // Footer without improvement suggestions - suggestions are now only shown with --suggestions flag
         println!();
-        println!("{}", self.i18n.get("suggestions").bright_cyan().bold());
-        println!("{}", "─".repeat(50).bright_black());
-
-        let rule_names: Vec<String> = issues
-            .iter()
-            .map(|issue| issue.rule_name.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        let suggestions = self.i18n.get_suggestions(&rule_names);
-        for suggestion in suggestions {
-            println!("   {}", suggestion.cyan());
+        if self.i18n.lang == "zh-CN" {
+            println!("{}", "继续努力，让代码变得更好！🚀".bright_cyan());
+        } else {
+            println!("{}", "Keep working to make your code better! 🚀".bright_cyan());
         }
-
-        println!();
-        let footer_message = if self.savage_mode {
-            match self.i18n.lang.as_str() {
-                "zh-CN" => "记住：写垃圾代码容易，写好代码需要用心 💪".to_string(),
-                _ => "Remember: writing garbage code is easy, writing good code requires effort 💪"
-                    .to_string(),
-            }
-        } else {
-            self.i18n.get("keep_improving")
-        };
-
-        let color = if self.savage_mode {
-            footer_message.bright_red().bold()
-        } else {
-            footer_message.bright_green().bold()
-        };
-
-        println!("{color}");
     }
 
     fn print_top_files(&self, issues: &[CodeIssue]) {
@@ -1815,7 +2016,7 @@ impl Reporter {
         for (file_name, file_issues) in file_groups {
             println!("{} {}", "📁".bright_blue(), file_name.bright_blue().bold());
 
-            // Group issues by rule type
+            // Group issues by rule type and count them
             let mut rule_groups: BTreeMap<String, Vec<&CodeIssue>> = BTreeMap::new();
             for issue in &file_issues {
                 rule_groups
@@ -1824,56 +2025,139 @@ impl Reporter {
                     .push(issue);
             }
 
-            // Show limited number of issues per rule type
-            let mut total_shown = 0;
-            let max_total = if self.max_issues_per_file > 0 {
-                self.max_issues_per_file
-            } else {
-                usize::MAX
-            };
-
-            // Sort rule groups by severity (most severe first)
+            // Sort rule groups by count (most frequent first)
             let mut sorted_rules: Vec<_> = rule_groups.into_iter().collect();
-            sorted_rules.sort_by(|a, b| {
-                let severity_order = |s: &Severity| match s {
-                    Severity::Nuclear => 3,
-                    Severity::Spicy => 2,
-                    Severity::Mild => 1,
-                };
-                let max_severity_a =
-                    a.1.iter()
-                        .map(|i| severity_order(&i.severity))
-                        .max()
-                        .unwrap_or(1);
-                let max_severity_b =
-                    b.1.iter()
-                        .map(|i| severity_order(&i.severity))
-                        .max()
-                        .unwrap_or(1);
-                max_severity_b.cmp(&max_severity_a)
-            });
+            sorted_rules.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
 
-            for (_rule_name, rule_issues) in sorted_rules {
-                if total_shown >= max_total {
-                    break;
+            // Display grouped issues with counts and examples
+            for (rule_name, rule_issues) in sorted_rules {
+                let count = rule_issues.len();
+                let icon = self.get_rule_icon(&rule_name);
+                let translated_name = if self.i18n.lang == "zh-CN" {
+                    self.translate_rule_display_name(&rule_name)
+                } else {
+                    rule_name.replace("-", " ")
+                };
+
+                // Show count and some example variable names for naming issues
+                if rule_name.contains("naming") {
+                    let examples: Vec<String> = rule_issues.iter()
+                        .take(5)
+                        .filter_map(|issue| {
+                            // Extract variable name from message
+                            if let Some(start) = issue.message.find("'") {
+                                if let Some(end) = issue.message[start+1..].find("'") {
+                                    Some(issue.message[start+1..start+1+end].to_string())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    
+                    if !examples.is_empty() {
+                        println!("  {} {}: {} ({})", icon, translated_name, count, examples.join(", "));
+                    } else {
+                        println!("  {} {}: {}", icon, translated_name, count);
+                    }
+                } else if rule_name.contains("duplication") {
+                    // Show instance count for duplication
+                    if let Some(first_issue) = rule_issues.first() {
+                        if let Some(instances_start) = first_issue.message.find("发现 ") {
+                            if let Some(instances_end) = first_issue.message[instances_start..].find(" 个") {
+                                let instances_str = &first_issue.message[instances_start+3..instances_start+instances_end];
+                                println!("  {} {}: {} ({} instances)", icon, translated_name, count, instances_str);
+                            } else {
+                                println!("  {} {}: {}", icon, translated_name, count);
+                            }
+                        } else if let Some(instances_start) = first_issue.message.find("Similar code blocks detected: ") {
+                            if let Some(instances_end) = first_issue.message[instances_start..].find(" instances") {
+                                let instances_str = &first_issue.message[instances_start+30..instances_start+instances_end];
+                                println!("  {} {}: {} ({} instances)", icon, translated_name, count, instances_str);
+                            } else {
+                                println!("  {} {}: {}", icon, translated_name, count);
+                            }
+                        } else {
+                            println!("  {} {}: {}", icon, translated_name, count);
+                        }
+                    } else {
+                        println!("  {} {}: {}", icon, translated_name, count);
+                    }
+                } else {
+                    println!("  {} {}: {}", icon, translated_name, count);
                 }
 
-                for issue in rule_issues.iter().take(3) { // Show up to 3 issues per rule
-                    println!("  {}:{} - {}", issue.line, issue.column, issue.message.bright_red());
-                    
-                    // Show educational advice if requested
-                    if let Some(advisor) = educational_advisor {
-                        if let Some(advice) = advisor.get_advice(&issue.rule_name) {
-                            self.print_educational_advice(advice);
-                        }
-                    }
-                    total_shown += 1;
-                    if total_shown >= max_total {
-                        break;
+                // Show educational advice if requested (only for the first occurrence of each rule)
+                if let Some(advisor) = educational_advisor {
+                    if let Some(advice) = advisor.get_advice(&rule_name) {
+                        self.print_educational_advice(advice);
                     }
                 }
             }
             println!();
+        }
+    }
+
+    fn get_rule_icon(&self, rule_name: &str) -> &'static str {
+        match rule_name {
+            name if name.contains("naming") => "🏷️",
+            name if name.contains("nesting") => "📦",
+            name if name.contains("duplication") => "🔄",
+            name if name.contains("function") => "⚠️",
+            name if name.contains("unwrap") => "🛡️",
+            name if name.contains("string") => "📝",
+            name if name.contains("println") => "🔍",
+            name if name.contains("magic") => "🔢",
+            name if name.contains("panic") => "💥",
+            name if name.contains("todo") => "📋",
+            name if name.contains("import") => "📦",
+            name if name.contains("file") => "📄",
+            name if name.contains("module") => "🏗️",
+            _ => "⚠️",
+        }
+    }
+
+    fn translate_rule_display_name(&self, rule_name: &str) -> String {
+        match rule_name {
+            "terrible-naming" => "变量命名问题".to_string(),
+            "meaningless-naming" => "无意义命名问题".to_string(),
+            "deep-nesting" => "嵌套深度问题".to_string(),
+            "duplication" => "代码重复问题".to_string(),
+            "code-duplication" => "代码重复问题".to_string(),
+            "long-function" => "过长函数".to_string(),
+            "god-function" => "上帝函数".to_string(),
+            "unwrap-abuse" => "unwrap滥用".to_string(),
+            "string-abuse" => "字符串滥用".to_string(),
+            "println-debugging" => "println调试".to_string(),
+            "magic-number" => "魔法数字".to_string(),
+            "panic-abuse" => "panic滥用".to_string(),
+            "todo-comment" => "TODO注释".to_string(),
+            "file-too-long" => "文件过长".to_string(),
+            "unordered-imports" => "导入混乱".to_string(),
+            "deep-module-nesting" => "模块嵌套过深".to_string(),
+            "macro-abuse" => "宏滥用".to_string(),
+            "abbreviation-abuse" => "缩写滥用".to_string(),
+            "hungarian-notation" => "匈牙利命名法".to_string(),
+            "single-letter-variable" => "单字母变量".to_string(),
+            "iterator-abuse" => "迭代器滥用".to_string(),
+            "match-abuse" => "match滥用".to_string(),
+            "vec-abuse" => "Vec滥用".to_string(),
+            "dead-code" => "死代码".to_string(),
+            "commented-code" => "注释代码".to_string(),
+            "unnecessary-clone" => "不必要克隆".to_string(),
+            "channel-abuse" => "通道滥用".to_string(),
+            "async-abuse" => "异步滥用".to_string(),
+            "dyn-trait-abuse" => "动态trait滥用".to_string(),
+            "unsafe-abuse" => "unsafe滥用".to_string(),
+            "ffi-abuse" => "FFI滥用".to_string(),
+            "pattern-matching-abuse" => "模式匹配滥用".to_string(),
+            "reference-abuse" => "引用滥用".to_string(),
+            "box-abuse" => "Box滥用".to_string(),
+            "slice-abuse" => "切片滥用".to_string(),
+            "module-complexity" => "模块复杂度".to_string(),
+            _ => rule_name.replace("-", " "),
         }
     }
 
@@ -1906,62 +2190,130 @@ impl Reporter {
         let stats = hall_of_shame.generate_shame_report();
         
         println!();
-        println!("{}", "🏆 Hall of Shame - Worst Offenders".bright_red().bold());
+        if self.i18n.lang == "zh-CN" {
+            println!("{}", "🏆 问题最多的文件".bright_red().bold());
+        } else {
+            println!("{}", "🏆 Hall of Shame - Worst Offenders".bright_red().bold());
+        }
         println!("{}", "─".repeat(60).bright_black());
         
         if stats.hall_of_shame.is_empty() {
-            println!("🎉 No files in the hall of shame! Great job!");
+            if self.i18n.lang == "zh-CN" {
+                println!("🎉 没有文件进入耻辱榜！干得好！");
+            } else {
+                println!("🎉 No files in the hall of shame! Great job!");
+            }
             return;
         }
 
-        println!("📊 Project Statistics:");
-        println!("   Files analyzed: {}", stats.total_files_analyzed.to_string().cyan());
-        println!("   Total issues: {}", stats.total_issues.to_string().red());
-        println!("   Garbage density: {:.2} issues/1000 lines", stats.garbage_density.to_string().yellow());
+        if self.i18n.lang == "zh-CN" {
+            println!("📊 项目统计:");
+            println!("   分析文件数: {}", stats.total_files_analyzed.to_string().cyan());
+            println!("   总问题数: {}", stats.total_issues.to_string().red());
+            println!("   垃圾密度: {:.2} 问题/1000行", stats.garbage_density.to_string().yellow());
+        } else {
+            println!("📊 Project Statistics:");
+            println!("   Files analyzed: {}", stats.total_files_analyzed.to_string().cyan());
+            println!("   Total issues: {}", stats.total_issues.to_string().red());
+            println!("   Garbage density: {:.2} issues/1000 lines", stats.garbage_density.to_string().yellow());
+        }
         println!();
 
-        println!("🗑️ Top {} Worst Files:", stats.hall_of_shame.len().min(5));
+        if self.i18n.lang == "zh-CN" {
+            println!("🗑️ 问题最多的 {} 个文件:", stats.hall_of_shame.len().min(5));
+        } else {
+            println!("🗑️ Top {} Worst Files:", stats.hall_of_shame.len().min(5));
+        }
+        
         for (i, entry) in stats.hall_of_shame.iter().take(5).enumerate() {
             let file_name = entry.file_path.file_name()
                 .unwrap_or_default()
                 .to_string_lossy();
             
-            println!("   {}. {} (Shame Score: {:.1})", 
-                (i + 1).to_string().bright_white(),
-                file_name.bright_red().bold(),
-                entry.shame_score.to_string().red()
-            );
-            
-            println!("      💥 Nuclear: {}, 🌶️ Spicy: {}, 😐 Mild: {}", 
-                entry.nuclear_issues.to_string().red(),
-                entry.spicy_issues.to_string().yellow(),
-                entry.mild_issues.to_string().blue()
-            );
-            
-            if !entry.worst_offenses.is_empty() {
-                println!("      Worst offense: {}", 
-                    entry.worst_offenses[0].bright_black().italic()
+            if self.i18n.lang == "zh-CN" {
+                println!("   {}. {} ({} 个问题)", 
+                    (i + 1).to_string().bright_white(),
+                    file_name.bright_red().bold(),
+                    entry.total_issues.to_string().red()
+                );
+                
+                println!("      💥 严重: {}, 🌶️ 中等: {}, 😐 轻微: {}", 
+                    entry.nuclear_issues.to_string().red(),
+                    entry.spicy_issues.to_string().yellow(),
+                    entry.mild_issues.to_string().blue()
+                );
+            } else {
+                println!("   {}. {} ({} issues)", 
+                    (i + 1).to_string().bright_white(),
+                    file_name.bright_red().bold(),
+                    entry.total_issues.to_string().red()
+                );
+                
+                println!("      💥 Nuclear: {}, 🌶️ Spicy: {}, 😐 Mild: {}", 
+                    entry.nuclear_issues.to_string().red(),
+                    entry.spicy_issues.to_string().yellow(),
+                    entry.mild_issues.to_string().blue()
                 );
             }
         }
         println!();
 
-        println!("🔥 Most Common Issues:");
+        if self.i18n.lang == "zh-CN" {
+            println!("🔥 最常见问题:");
+        } else {
+            println!("🔥 Most Common Issues:");
+        }
+        
         for (i, pattern) in stats.most_common_patterns.iter().take(5).enumerate() {
-            println!("   {}. {} ({} occurrences)", 
-                (i + 1).to_string().bright_white(),
-                pattern.rule_name.bright_yellow(),
-                pattern.count.to_string().red()
-            );
+            if self.i18n.lang == "zh-CN" {
+                println!("   {}. {} ({} 次出现)", 
+                    (i + 1).to_string().bright_white(),
+                    self.translate_rule_name(&pattern.rule_name).bright_yellow(),
+                    pattern.count.to_string().red()
+                );
+            } else {
+                println!("   {}. {} ({} occurrences)", 
+                    (i + 1).to_string().bright_white(),
+                    pattern.rule_name.bright_yellow(),
+                    pattern.count.to_string().red()
+                );
+            }
         }
         println!();
     }
 
+    fn translate_rule_name(&self, rule_name: &str) -> String {
+        if self.i18n.lang != "zh-CN" {
+            return rule_name.to_string();
+        }
+        
+        match rule_name {
+            "terrible-naming" => "糟糕命名".to_string(),
+            "meaningless-naming" => "无意义命名".to_string(),
+            "magic-number" => "魔法数字".to_string(),
+            "macro-abuse" => "宏滥用".to_string(),
+            "deep-nesting" => "深层嵌套".to_string(),
+            "unwrap-abuse" => "unwrap滥用".to_string(),
+            "string-abuse" => "字符串滥用".to_string(),
+            "println-debugging" => "println调试".to_string(),
+            "long-function" => "过长函数".to_string(),
+            "god-function" => "上帝函数".to_string(),
+            "file-too-long" => "文件过长".to_string(),
+            "unordered-imports" => "导入混乱".to_string(),
+            "deep-module-nesting" => "模块嵌套过深".to_string(),
+            _ => rule_name.to_string(),
+        }
+    }
+
     fn print_improvement_suggestions(&self, hall_of_shame: &HallOfShame) {
-        let suggestions = hall_of_shame.get_improvement_suggestions();
+        let suggestions = hall_of_shame.get_improvement_suggestions(&self.i18n.lang);
         
         println!();
-        println!("{}", "💡 Improvement Suggestions".bright_green().bold());
+        if self.i18n.lang == "zh-CN" {
+            println!("{}", "💡 改进建议".bright_green().bold());
+        } else {
+            println!("{}", "💡 Improvement Suggestions".bright_green().bold());
+        }
         println!("{}", "─".repeat(50).bright_black());
         
         for suggestion in suggestions {
@@ -2063,9 +2415,13 @@ impl Reporter {
     }
 
     fn print_markdown_improvement_suggestions(&self, hall_of_shame: &HallOfShame) {
-        let suggestions = hall_of_shame.get_improvement_suggestions();
+        let suggestions = hall_of_shame.get_improvement_suggestions(&self.i18n.lang);
         
-        println!("## 💡 Improvement Suggestions");
+        if self.i18n.lang == "zh-CN" {
+            println!("## 💡 改进建议");
+        } else {
+            println!("## 💡 Improvement Suggestions");
+        }
         println!();
         
         for suggestion in suggestions {

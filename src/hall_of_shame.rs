@@ -191,7 +191,7 @@ impl HallOfShame {
         heatmap
     }
 
-    pub fn get_improvement_suggestions(&self) -> Vec<String> {
+    pub fn get_improvement_suggestions(&self, lang: &str) -> Vec<String> {
         let stats = self.generate_shame_report();
         let mut suggestions = Vec::new();
 
@@ -199,32 +199,64 @@ impl HallOfShame {
         for pattern in stats.most_common_patterns.iter().take(3) {
             match pattern.rule_name.as_str() {
                 name if name.contains("naming") => {
-                    suggestions.push("🏷️ Focus on improving variable and function naming - clear names make code self-documenting".to_string());
+                    if lang == "zh-CN" {
+                        suggestions.push("🏷️ 重点改进变量和函数命名 - 清晰的名称让代码自文档化".to_string());
+                    } else {
+                        suggestions.push("🏷️ Focus on improving variable and function naming - clear names make code self-documenting".to_string());
+                    }
                 }
                 name if name.contains("unwrap") => {
-                    suggestions.push("🛡️ Replace unwrap() calls with proper error handling using Result and Option".to_string());
+                    if lang == "zh-CN" {
+                        suggestions.push("🛡️ 用适当的错误处理替换 unwrap() 调用，使用 Result 和 Option".to_string());
+                    } else {
+                        suggestions.push("🛡️ Replace unwrap() calls with proper error handling using Result and Option".to_string());
+                    }
                 }
                 name if name.contains("complexity") || name.contains("nesting") => {
-                    suggestions.push("🧩 Break down complex functions into smaller, focused functions".to_string());
+                    if lang == "zh-CN" {
+                        suggestions.push("🧩 将复杂函数分解为更小、更专注的函数".to_string());
+                    } else {
+                        suggestions.push("🧩 Break down complex functions into smaller, focused functions".to_string());
+                    }
                 }
                 name if name.contains("println") => {
-                    suggestions.push("🔍 Remove debug println! statements and use proper logging instead".to_string());
+                    if lang == "zh-CN" {
+                        suggestions.push("🔍 移除调试用的 println! 语句，使用适当的日志记录".to_string());
+                    } else {
+                        suggestions.push("🔍 Remove debug println! statements and use proper logging instead".to_string());
+                    }
                 }
                 name if name.contains("clone") => {
-                    suggestions.push("⚡ Reduce unnecessary clones by using references and understanding ownership".to_string());
+                    if lang == "zh-CN" {
+                        suggestions.push("⚡ 通过使用引用和理解所有权来减少不必要的克隆".to_string());
+                    } else {
+                        suggestions.push("⚡ Reduce unnecessary clones by using references and understanding ownership".to_string());
+                    }
                 }
                 _ => {
-                    suggestions.push(format!("🔧 Address {} issues found {} times", pattern.rule_name, pattern.count));
+                    if lang == "zh-CN" {
+                        suggestions.push(format!("🔧 处理 {} 问题，发现 {} 次", pattern.rule_name, pattern.count));
+                    } else {
+                        suggestions.push(format!("🔧 Address {} issues found {} times", pattern.rule_name, pattern.count));
+                    }
                 }
             }
         }
 
         if stats.garbage_density > 50.0 {
-            suggestions.push("📊 High issue density detected - consider a systematic refactoring approach".to_string());
+            if lang == "zh-CN" {
+                suggestions.push("📊 检测到高问题密度 - 考虑系统性重构方法".to_string());
+            } else {
+                suggestions.push("📊 High issue density detected - consider a systematic refactoring approach".to_string());
+            }
         }
 
         if suggestions.is_empty() {
-            suggestions.push("🎉 Great job! Your code quality is looking good!".to_string());
+            if lang == "zh-CN" {
+                suggestions.push("🎉 干得好！你的代码质量看起来不错！".to_string());
+            } else {
+                suggestions.push("🎉 Great job! Your code quality is looking good!".to_string());
+            }
         }
 
         suggestions

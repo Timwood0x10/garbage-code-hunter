@@ -118,14 +118,18 @@ fn main() {
         &args.lang,
     );
     
-    reporter.report_with_enhanced_features(
-        issues, 
-        file_count, 
-        total_lines,
-        educational_advisor.as_ref(),
-        hall_of_shame.as_ref(),
-        args.suggestions,
-    );
+    if args.educational || args.hall_of_shame || args.suggestions {
+        reporter.report_with_enhanced_features(
+            issues, 
+            file_count, 
+            total_lines,
+            educational_advisor.as_ref(),
+            hall_of_shame.as_ref(),
+            args.suggestions,
+        );
+    } else {
+        reporter.report_with_metrics(issues, file_count, total_lines);
+    }
 }
 
 fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usize) {
