@@ -1,9 +1,8 @@
 use std::path::Path;
-use syn::{visit::Visit, File, Item, ItemMod, ItemUse, UseTree};
+use syn::{visit::Visit, File, ItemMod, ItemUse};
 
 use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
-use crate::utils::get_position;
 
 /// Detects files that are too long (>1000 lines)
 pub struct FileStructureRule;
@@ -58,7 +57,7 @@ impl Rule for FileStructureRule {
                 line: 1,
                 column: 1,
                 rule_name: "file-too-long".to_string(),
-                message: format!("{} ({}行)", message, line_count),
+                message: format!("{message} ({line_count}行)"),
                 severity,
                 roast_level: RoastLevel::Sarcastic,
             });

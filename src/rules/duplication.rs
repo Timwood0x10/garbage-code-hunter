@@ -139,7 +139,7 @@ impl DuplicationVisitor {
             if block_indices.len() >= 2 {
                 let messages = [
                     format!("发现 {} 个相似代码块，考虑重构成函数", block_indices.len()),
-                    format!("代码块重复度过高，DRY原则哭了",),
+                    "代码块重复度过高，DRY原则哭了".to_string(),
                     format!(
                         "Similar code blocks detected: {} instances",
                         block_indices.len()
@@ -167,7 +167,7 @@ impl DuplicationVisitor {
 impl<'ast> Visit<'ast> for DuplicationVisitor {
     fn visit_block(&mut self, block: &'ast Block) {
         // collect code blocks for duplication detection
-        let block_str = format!("{:?}", block);
+        let block_str = format!("{block:?}");
         if block_str.len() > 20 {
             self.code_blocks.push(block_str);
         }

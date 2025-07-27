@@ -175,16 +175,14 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
         if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z") {
             let messages = [
                 format!(
-                    "单字母变量 '{}'？你是在写数学公式还是在折磨读代码的人？",
-                    name
+                    "单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"
                 ),
-                format!("变量 '{}'？这是变量名还是你键盘坏了？", name),
+                format!("变量 '{name}'？这是变量名还是你键盘坏了？"),
                 format!(
-                    "用 '{}' 做变量名，你可能需要一本《如何给变量起名》的书",
-                    name
+                    "用 '{name}' 做变量名，你可能需要一本《如何给变量起名》的书"
                 ),
-                format!("单字母变量 '{}'：让代码比古埃及象形文字还难懂", name),
-                format!("变量 '{}' 的信息量约等于一个句号", name),
+                format!("单字母变量 '{name}'：让代码比古埃及象形文字还难懂"),
+                format!("变量 '{name}' 的信息量约等于一个句号"),
             ];
 
             let message_index =

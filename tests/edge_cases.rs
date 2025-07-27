@@ -115,12 +115,11 @@ fn test_very_long_variable_name() {
     let content = format!(
         r#"
 fn main() {{
-    let {} = "very long variable name";
+    let {very_long_name} = "very long variable name";
     let data = "should be detected";
-    println!("{{}}", {});
+    println!("{{}}", {very_long_name});
 }}
-"#,
-        very_long_name, very_long_name
+"#
     );
 
     fs::write(&file_path, content).expect("Failed to write long names file");

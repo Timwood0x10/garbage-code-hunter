@@ -132,24 +132,21 @@ fn test_i18n_all_rule_types() {
         let zh_messages = i18n_zh.get_roast_messages(rule_type);
         assert!(
             !zh_messages.is_empty(),
-            "Should have messages for {}",
-            rule_type
+            "Should have messages for {rule_type}"
         );
 
         // Test English messages
         let en_messages = i18n_en.get_roast_messages(rule_type);
         assert!(
             !en_messages.is_empty(),
-            "Should have messages for {}",
-            rule_type
+            "Should have messages for {rule_type}"
         );
 
         // Test invalid language (should fallback)
         let invalid_messages = i18n_invalid.get_roast_messages(rule_type);
         assert!(
             !invalid_messages.is_empty(),
-            "Should have fallback messages for {}",
-            rule_type
+            "Should have fallback messages for {rule_type}"
         );
     }
 }
@@ -184,18 +181,18 @@ fn test_i18n_all_suggestion_combinations() {
     ];
 
     for rules in rule_combinations {
+        // Suggestions are now handled by the --suggestions flag and hall_of_shame module
+        // The get_suggestions method now returns empty to avoid duplicate suggestions
         let zh_suggestions = i18n_zh.get_suggestions(&rules);
         assert!(
-            !zh_suggestions.is_empty(),
-            "Should have Chinese suggestions for {:?}",
-            rules
+            zh_suggestions.is_empty(),
+            "Suggestions should be empty as they're now handled by --suggestions flag"
         );
 
         let en_suggestions = i18n_en.get_suggestions(&rules);
         assert!(
-            !en_suggestions.is_empty(),
-            "Should have English suggestions for {:?}",
-            rules
+            en_suggestions.is_empty(),
+            "Suggestions should be empty as they're now handled by --suggestions flag"
         );
     }
 }
@@ -215,8 +212,7 @@ fn test_i18n_missing_keys() {
         let result = i18n.get(key);
         assert!(
             result.contains("Missing translation"),
-            "Should handle missing key: {}",
-            key
+            "Should handle missing key: {key}"
         );
     }
 }
@@ -273,7 +269,7 @@ fn test_severity_and_roast_level_coverage() {
     let severities = vec![Severity::Mild, Severity::Spicy, Severity::Nuclear];
     for severity in severities {
         // Test Debug trait
-        let debug_str = format!("{:?}", severity);
+        let debug_str = format!("{severity:?}");
         assert!(!debug_str.is_empty());
 
         // Test Clone trait
@@ -291,7 +287,7 @@ fn test_severity_and_roast_level_coverage() {
     ];
     for roast_level in roast_levels {
         // Test Debug trait
-        let debug_str = format!("{:?}", roast_level);
+        let debug_str = format!("{roast_level:?}");
         assert!(!debug_str.is_empty());
 
         // Test Clone trait
@@ -318,7 +314,7 @@ fn test_code_issue_debug_and_clone() {
     };
 
     // Test Debug trait
-    let debug_str = format!("{:?}", issue);
+    let debug_str = format!("{issue:?}");
     assert!(debug_str.contains("test.rs"));
     assert!(debug_str.contains("Test message"));
 

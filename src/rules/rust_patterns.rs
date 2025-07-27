@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{
     visit::Visit, Expr, ExprForLoop, ExprMatch, ExprMethodCall, File, Pat, PatIdent, Type,
-    TypePath, TypeReference,
+    TypePath,
 };
 
 use crate::analyzer::{CodeIssue, RoastLevel, Severity};
@@ -61,8 +61,8 @@ impl Rule for VecAbuseRule {
         
         // 检查内容中的 Vec 使用模式
         let vec_new_count = content.matches("Vec::new()").count();
-        let vec_with_capacity_count = content.matches("Vec::with_capacity(").count();
-        let vec_macro_count = content.matches("vec![").count();
+        let _vec_with_capacity_count = content.matches("Vec::with_capacity(").count();
+        let _vec_macro_count = content.matches("vec![").count();
         
         if vec_new_count > 3 {
             visitor.add_excessive_vec_allocation_issue(vec_new_count);
@@ -347,7 +347,7 @@ impl IteratorAbuseVisitor {
     fn check_simple_for_loop(&mut self, for_loop: &ExprForLoop) {
         // 检测简单的 for 循环，可能可以用迭代器替代
         if let Pat::Ident(PatIdent { ident, .. }) = for_loop.pat.as_ref() {
-            let var_name = ident.to_string();
+            let _var_name = ident.to_string();
             
             // 检测常见的可以用迭代器替代的模式
             let loop_body = format!("{:?}", for_loop.body);
@@ -416,7 +416,7 @@ impl MatchAbuseVisitor {
         
         // 检测只有两个分支的 match，可能可以用 if let 替代
         if arms_count == 2 {
-            let match_str = format!("{:?}", match_expr);
+            let match_str = format!("{match_expr:?}");
             
             // 检测 Option 或 Result 的简单匹配
             if match_str.contains("Some") && match_str.contains("None") {

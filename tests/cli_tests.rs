@@ -6,7 +6,7 @@ use tempfile::TempDir;
 #[test]
 fn test_cli_help() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--help"])
+        .args(["run", "--", "--help"])
         .output()
         .expect("Failed to execute command");
 
@@ -21,7 +21,7 @@ fn test_cli_help() {
 #[test]
 fn test_cli_version_info() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--version"])
+        .args(["run", "--", "--version"])
         .output()
         .expect("Failed to execute command");
 
@@ -47,7 +47,7 @@ fn main() {
     fs::write(&file_path, garbage_code).expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", file_path.to_str().unwrap()])
+        .args(["run", "--", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -66,7 +66,7 @@ fn test_cli_english_output() {
     fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--lang", "en-US", file_path.to_str().unwrap()])
+        .args(["run", "--", "--lang", "en-US", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -85,7 +85,7 @@ fn test_cli_chinese_output() {
     fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--lang", "zh-CN", file_path.to_str().unwrap()])
+        .args(["run", "--", "--lang", "zh-CN", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -104,7 +104,7 @@ fn test_cli_markdown_output() {
     fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--markdown", file_path.to_str().unwrap()])
+        .args(["run", "--", "--markdown", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -123,7 +123,7 @@ fn test_cli_summary_only() {
     fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--summary", file_path.to_str().unwrap()])
+        .args(["run", "--", "--summary", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -146,7 +146,7 @@ fn test_cli_verbose_mode() {
     .expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--verbose", file_path.to_str().unwrap()])
+        .args(["run", "--", "--verbose", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -165,7 +165,7 @@ fn test_cli_top_files_option() {
     fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--top", "1", file_path.to_str().unwrap()])
+        .args(["run", "--", "--top", "1", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -192,7 +192,7 @@ fn main() {
     fs::write(&file_path, code_with_many_issues).expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--issues", "2", file_path.to_str().unwrap()])
+        .args(["run", "--", "--issues", "2", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -213,7 +213,7 @@ fn test_cli_exclude_patterns() {
         .expect("Failed to write included file");
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--exclude",
@@ -238,7 +238,7 @@ fn test_cli_harsh_mode() {
     fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", "--harsh", file_path.to_str().unwrap()])
+        .args(["run", "--", "--harsh", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -248,7 +248,7 @@ fn test_cli_harsh_mode() {
 #[test]
 fn test_cli_nonexistent_file() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "nonexistent_file.rs"])
+        .args(["run", "--", "nonexistent_file.rs"])
         .output()
         .expect("Failed to execute command");
 
@@ -265,7 +265,7 @@ fn test_cli_empty_directory() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", temp_dir.path().to_str().unwrap()])
+        .args(["run", "--", temp_dir.path().to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 
@@ -286,7 +286,7 @@ fn test_cli_invalid_rust_file() {
         .expect("Failed to write invalid file");
 
     let output = Command::new("cargo")
-        .args(&["run", "--", file_path.to_str().unwrap()])
+        .args(["run", "--", file_path.to_str().unwrap()])
         .output()
         .expect("Failed to execute command");
 

@@ -27,6 +27,15 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 - 📝 **Markdown Export**: Perfect for documentation and CI/CD integration
 - 🚀 **Fast & Lightweight**: Built with Rust for maximum performance
 
+### 🆕 **Enhanced Features**
+
+- 🎓 **Educational Mode**: Detailed explanations with code examples and best practices
+- 🏆 **Hall of Shame**: Project statistics and worst files ranking
+- 💡 **Smart Suggestions**: AI-driven improvement recommendations based on actual issues
+- 📈 **Advanced Scoring**: Comprehensive quality metrics with category breakdown
+- 🎨 **Beautiful UI**: Card-style layouts with progress bars and visual indicators
+- 🔍 **File Structure Analysis**: Detects overly long files, import chaos, and deep module nesting
+
 ## 🎯 Detection Features
 
 ### 📝 **Naming Convention Checks**
@@ -70,6 +79,13 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 - **Macro Abuse**: Detects excessive macro usage
 - **Advanced Rust Patterns**: Complex closures, lifetime abuse, etc.
 
+### 🏗️ **File Structure Analysis**
+
+- **File Length**: Detects overly long files (>1000 lines)
+- **Import Chaos**: Identifies unordered and duplicate imports
+- **Module Nesting**: Detects overly deep module hierarchies
+- **Project Organization**: Analyzes overall code structure quality
+
 ## 📊 Detection Rules Statistics
 
 Our tool currently includes **20+ detection rules** covering the following categories:
@@ -81,9 +97,10 @@ Our tool currently includes **20+ detection rules** covering the following categ
 | **Rust-Specific**      | 6           | Rust language-specific issue patterns |
 | **Code Smells**        | 4           | General code quality problems         |
 | **Student Code**       | 3           | Common beginner code patterns         |
-| **Others**             | 3+          | Code duplication, macro abuse, etc.   |
+| **File Structure**     | 3           | File organization and import analysis |
+| **Others**             | 5+          | Code duplication, macro abuse, etc.   |
 
-**Total: 20+ rules** actively detecting garbage code patterns in your Rust projects! 🗑️
+**Total: 25+ rules** actively detecting garbage code patterns in your Rust projects! 🗑️
 
 ## 🎯 Scoring System
 
@@ -295,6 +312,52 @@ garbage-code-hunter --exclude "test_*" --exclude "target/*" src/
 # Show only serious issues
 garbage-code-hunter --harsh src/
 ```
+
+### 🆕 Enhanced Analysis Features
+
+```bash
+# Educational mode - provides detailed explanations and improvement suggestions for each issue type
+cargo run -- src/ --educational
+
+# Hall of Shame - shows statistics of worst files and most common issues  
+cargo run -- src/ --hall-of-shame
+
+# Smart suggestions - generates targeted improvement recommendations based on actual issues
+cargo run -- src/ --suggestions
+
+# Combine features for comprehensive analysis report
+cargo run -- src/ --hall-of-shame --suggestions --educational
+
+# Example: Complete project analysis with all enhanced features
+cargo run -- . --hall-of-shame --suggestions --lang en
+
+# Quick analysis with suggestions only
+cargo run -- src/ --suggestions --lang zh-CN
+```
+
+#### 🎓 Educational Mode (`--educational`)
+
+Provides detailed explanations for each detected issue:
+- **Why it's problematic**: Clear explanation of the issue
+- **How to fix**: Step-by-step improvement guide  
+- **Code examples**: Before/after code snippets
+- **Best practices**: Links to Rust documentation and guidelines
+
+#### 🏆 Hall of Shame (`--hall-of-shame`)
+
+Shows comprehensive project statistics:
+- **Worst files ranking**: Files with most issues
+- **Issue frequency analysis**: Most common problem patterns
+- **Project metrics**: Garbage density, file count, total issues
+- **Category breakdown**: Issues grouped by type
+
+#### 💡 Smart Suggestions (`--suggestions`)
+
+Generates intelligent, data-driven recommendations:
+- **Targeted advice**: Based on your actual code issues
+- **Priority ranking**: Most critical improvements first
+- **Actionable steps**: Specific, implementable suggestions
+- **Progress tracking**: Measurable improvement goals
 
 ## 🎨 Sample Output
 

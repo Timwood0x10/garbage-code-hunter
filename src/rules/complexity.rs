@@ -159,7 +159,7 @@ impl FunctionLengthVisitor {
 
         for line in content_lines.iter() {
             // Look for function declaration
-            if line.contains(&format!("fn {}", func_name)) && line.contains("(") {
+            if line.contains(&format!("fn {func_name}")) && line.contains("(") {
                 found_function = true;
                 in_function = true;
                 line_count = 1;

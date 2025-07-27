@@ -171,7 +171,7 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| !should_exclude(e.path()))
-            .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
         {
             file_count += 1;
             if let Ok(content) = fs::read_to_string(entry.path()) {

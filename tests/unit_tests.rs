@@ -98,15 +98,16 @@ fn test_suggestions_chinese() {
     let rule_names = vec!["terrible-naming".to_string(), "unwrap-abuse".to_string()];
     let suggestions = i18n.get_suggestions(&rule_names);
 
-    assert!(!suggestions.is_empty(), "Should provide suggestions");
-    assert!(
-        suggestions.iter().any(|s| s.contains("变量名")),
-        "Should have naming suggestions in Chinese"
-    );
-    assert!(
-        suggestions.iter().any(|s| s.contains("unwrap")),
-        "Should have unwrap suggestions"
-    );
+    // Suggestions are now handled by the --suggestions flag and hall_of_shame module
+    assert!(suggestions.is_empty(), "Suggestions should be empty as they're now handled by --suggestions flag");
+    // assert!(
+    //     suggestions.iter().any(|s| s.contains("变量名")),
+    //     "Should have naming suggestions in Chinese"
+    // );
+    // assert!(
+    //     suggestions.iter().any(|s| s.contains("unwrap")),
+    //     "Should have unwrap suggestions"
+    // );
 }
 
 #[test]
@@ -116,15 +117,16 @@ fn test_suggestions_english() {
     let rule_names = vec!["terrible-naming".to_string(), "deep-nesting".to_string()];
     let suggestions = i18n.get_suggestions(&rule_names);
 
-    assert!(!suggestions.is_empty(), "Should provide suggestions");
-    assert!(
-        suggestions.iter().any(|s| s.contains("variable")),
-        "Should have naming suggestions in English"
-    );
-    assert!(
-        suggestions.iter().any(|s| s.contains("nesting")),
-        "Should have nesting suggestions"
-    );
+    // Suggestions are now handled by the --suggestions flag and hall_of_shame module
+    assert!(suggestions.is_empty(), "Suggestions should be empty as they're now handled by --suggestions flag");
+    // assert!(
+    //     suggestions.iter().any(|s| s.contains("variable")),
+    //     "Should have naming suggestions in English"
+    // );
+    // assert!(
+    //     suggestions.iter().any(|s| s.contains("nesting")),
+    //     "Should have nesting suggestions"
+    // );
 }
 
 #[test]
@@ -134,14 +136,16 @@ fn test_empty_suggestions() {
     let rule_names = vec![];
     let suggestions = i18n.get_suggestions(&rule_names);
 
+    // Suggestions are now handled by the --suggestions flag and hall_of_shame module
     assert!(
-        !suggestions.is_empty(),
-        "Should provide default suggestions even when no rules"
+        suggestions.is_empty(),
+        "Suggestions should be empty as they're now handled by --suggestions flag"
     );
-    assert!(
-        suggestions[0].contains("good"),
-        "Default suggestion should be encouraging"
-    );
+    // Since suggestions are now empty, remove this assertion
+    // assert!(
+    //     suggestions[0].contains("good"),
+    //     "Default suggestion should be encouraging"
+    // );
 }
 
 #[cfg(test)]

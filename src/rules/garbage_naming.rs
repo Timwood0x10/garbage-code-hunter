@@ -192,7 +192,7 @@ impl HungarianNotationVisitor {
                     }
                 }
                 // 检查下划线分隔的情况
-                if name.starts_with(&format!("{}_", prefix)) {
+                if name.starts_with(&format!("{prefix}_")) {
                     return true;
                 }
             }
@@ -302,7 +302,7 @@ impl AbbreviationAbuseVisitor {
 
         let name_lower = name.to_lowercase();
         for (abbrev, full) in bad_abbreviations {
-            if name_lower == abbrev || name_lower.starts_with(&format!("{}_", abbrev)) {
+            if name_lower == abbrev || name_lower.starts_with(&format!("{abbrev}_")) {
                 return Some(full);
             }
         }

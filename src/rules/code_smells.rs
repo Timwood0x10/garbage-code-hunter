@@ -1,5 +1,5 @@
 use std::path::Path;
-use syn::{visit::Visit, Expr, ExprLit, File, ItemFn, Lit};
+use syn::{visit::Visit, ExprLit, File, ItemFn, Lit};
 
 use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
@@ -65,7 +65,7 @@ impl Rule for CommentedCodeRule {
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
         
-        let mut commented_code_blocks = 0;
+        let mut _commented_code_blocks = 0;
         let mut current_block_size = 0;
         
         for (line_num, line) in lines.iter().enumerate() {
@@ -81,7 +81,7 @@ impl Rule for CommentedCodeRule {
                 } else if current_block_size > 0 {
                     // 结束一个代码块
                     if current_block_size >= 3 {
-                        commented_code_blocks += 1;
+                        _commented_code_blocks += 1;
                         issues.push(create_commented_code_issue(
                             file_path,
                             line_num + 1 - current_block_size,
@@ -94,7 +94,7 @@ impl Rule for CommentedCodeRule {
             } else if current_block_size > 0 {
                 // 非注释行，结束当前块
                 if current_block_size >= 3 {
-                    commented_code_blocks += 1;
+                    _commented_code_blocks += 1;
                     issues.push(create_commented_code_issue(
                         file_path,
                         line_num - current_block_size,
@@ -304,7 +304,7 @@ impl MagicNumberVisitor {
             ]
         };
         
-        let severity = if value > 1000 || value < -100 {
+        let severity = if !(-100..=1000).contains(&value) {
             Severity::Spicy
         } else {
             Severity::Mild
@@ -343,7 +343,7 @@ impl<'ast> Visit<'ast> for MagicNumberVisitor {
 struct GodFunctionVisitor {
     file_path: std::path::PathBuf,
     issues: Vec<CodeIssue>,
-    content: String,
+    _content: String,
     lang: String,
 }
 
@@ -352,7 +352,7 @@ impl GodFunctionVisitor {
         Self {
             file_path,
             issues: Vec::new(),
-            content: content.to_string(),
+            _content: content.to_string(),
             lang: lang.to_string(),
         }
     }
@@ -370,7 +370,7 @@ impl GodFunctionVisitor {
         }
         
         // 2. 函数体大小（通过字符串分析估算）
-        let func_str = format!("{:?}", func);
+        let func_str = format!("{func:?}");
         let line_count = func_str.lines().count();
         if line_count > 50 {
             complexity_score += (line_count - 50) / 10;

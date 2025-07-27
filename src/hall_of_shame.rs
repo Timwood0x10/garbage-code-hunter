@@ -11,7 +11,7 @@ pub struct ShameEntry {
     pub spicy_issues: usize,
     pub mild_issues: usize,
     pub shame_score: f64,
-    pub worst_offenses: Vec<String>,
+    pub _worst_offenses: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -29,7 +29,7 @@ pub struct ProjectShameStats {
     pub garbage_density: f64, // issues per 1000 lines of code
     pub most_common_patterns: Vec<PatternStats>,
     pub hall_of_shame: Vec<ShameEntry>, // worst files
-    pub shame_categories: HashMap<String, usize>,
+    pub _shame_categories: HashMap<String, usize>,
 }
 
 pub struct HallOfShame {
@@ -88,7 +88,7 @@ impl HallOfShame {
             spicy_issues: spicy_count,
             mild_issues: mild_count,
             shame_score,
-            worst_offenses,
+            _worst_offenses: worst_offenses,
         };
 
         self.entries.push(entry);
@@ -145,7 +145,7 @@ impl HallOfShame {
             garbage_density,
             most_common_patterns,
             hall_of_shame,
-            shame_categories,
+            _shame_categories: shame_categories,
         }
     }
 
@@ -161,18 +161,21 @@ impl HallOfShame {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_worst_files(&self, limit: usize) -> Vec<&ShameEntry> {
         let mut sorted_entries: Vec<&ShameEntry> = self.entries.iter().collect();
         sorted_entries.sort_by(|a, b| b.shame_score.partial_cmp(&a.shame_score).unwrap());
         sorted_entries.into_iter().take(limit).collect()
     }
 
+    #[allow(dead_code)]
     pub fn get_most_common_patterns(&self, limit: usize) -> Vec<&PatternStats> {
         let mut patterns: Vec<&PatternStats> = self.pattern_stats.values().collect();
         patterns.sort_by(|a, b| b.count.cmp(&a.count));
         patterns.into_iter().take(limit).collect()
     }
 
+    #[allow(dead_code)]
     pub fn generate_shame_heatmap(&self) -> HashMap<String, f64> {
         // Generate a "heatmap" of shame density by file extension or directory
         let mut heatmap = HashMap::new();
@@ -270,6 +273,7 @@ impl Default for HallOfShame {
 }
 
 /// Generate anonymous team member statistics (for team environments)
+#[allow(dead_code)]
 pub fn generate_anonymous_stats(shame_entries: &[ShameEntry]) -> HashMap<String, usize> {
     // This would typically integrate with git blame or similar
     // For now, we'll create a simple hash-based anonymization

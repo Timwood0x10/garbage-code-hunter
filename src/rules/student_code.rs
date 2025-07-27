@@ -1,5 +1,5 @@
 use std::path::Path;
-use syn::{visit::Visit, Expr, ExprMacro, File, Macro};
+use syn::{visit::Visit, ExprMacro, File};
 
 use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;

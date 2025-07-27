@@ -215,13 +215,11 @@ impl Rule for BoxAbuseRule {
         // Check for Box usage in content since ExprBox doesn't exist in syn 2.0
         let box_count = content.matches("Box::new").count() + content.matches("Box<").count();
         if box_count > 8 {
-            let messages = vec![
-                "Box 用得比快递还频繁",
+            let messages = ["Box 用得比快递还频繁",
                 "这么多 Box，你是在开仓库吗？",
                 "Box 过多，堆内存都要爆炸了",
                 "Box 滥用，建议考虑栈分配",
-                "这么多 Box，内存分配器都累了",
-            ];
+                "这么多 Box，内存分配器都累了"];
 
             visitor.issues.push(CodeIssue {
                 file_path: file_path.to_path_buf(),
@@ -274,13 +272,11 @@ impl ChannelVisitor {
 
     fn check_channel_overuse(&mut self) {
         if self.channel_count > 5 {
-            let messages = vec![
-                "Channel 用得比我发微信还频繁，你确定不是在写聊天软件？",
+            let messages = ["Channel 用得比我发微信还频繁，你确定不是在写聊天软件？",
                 "这么多 Channel，你是想开通讯公司吗？",
                 "Channel 滥用！你的程序比电话交换机还复杂",
                 "Channel 数量超标，建议重新设计架构",
-                "这么多 Channel，我怀疑你在写分布式系统",
-            ];
+                "这么多 Channel，我怀疑你在写分布式系统"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -328,12 +324,10 @@ impl AsyncVisitor {
 
     fn check_async_abuse(&mut self) {
         if self.async_count > 10 {
-            let messages = vec![
-                "Async 函数比我的异步人生还要复杂",
+            let messages = ["Async 函数比我的异步人生还要复杂",
                 "这么多 async，你确定不是在写 JavaScript？",
                 "Async 滥用！建议学习一下同步编程的美好",
-                "异步函数过多，小心把自己绕晕了",
-            ];
+                "异步函数过多，小心把自己绕晕了"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -347,12 +341,10 @@ impl AsyncVisitor {
         }
 
         if self.await_count > 20 {
-            let messages = vec![
-                "Await 用得比我等外卖还频繁",
+            let messages = ["Await 用得比我等外卖还频繁",
                 "这么多 await，你的程序是在等什么？世界末日吗？",
                 "Await 过度使用，建议批量处理",
-                "等待次数过多，你的程序比我还有耐心",
-            ];
+                "等待次数过多，你的程序比我还有耐心"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -403,13 +395,11 @@ impl<'ast> Visit<'ast> for DynTraitVisitor {
         self.dyn_count += 1;
 
         if self.dyn_count > 5 {
-            let messages = vec![
-                "Dyn trait 用得比我换工作还频繁",
+            let messages = ["Dyn trait 用得比我换工作还频繁",
                 "这么多动态分发，性能都跑到哪里去了？",
                 "Dyn trait 滥用，你确定不是在写 Python？",
                 "动态 trait 过多，编译器优化都哭了",
-                "这么多 dyn，你的程序比变色龙还善变",
-            ];
+                "这么多 dyn，你的程序比变色龙还善变"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -490,12 +480,10 @@ impl UnsafeVisitor {
     fn generate_unsafe_issues(&mut self, raw_ptr_count: usize, dangerous_op_count: usize) {
         // 检查 unsafe 函数过多
         if self.unsafe_fn_count > 2 {
-            let messages = vec![
-                "Unsafe 函数比我的黑历史还多！你确定这还是 Rust 吗？",
+            let messages = ["Unsafe 函数比我的黑历史还多！你确定这还是 Rust 吗？",
                 "这么多 unsafe 函数，Rust 的安全保证都被你玩坏了",
                 "Unsafe 函数过多，建议重新考虑设计架构",
-                "你的 unsafe 函数让 Rust 编译器都开始怀疑人生了",
-            ];
+                "你的 unsafe 函数让 Rust 编译器都开始怀疑人生了"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -510,12 +498,10 @@ impl UnsafeVisitor {
 
         // 检查原始指针过多
         if raw_ptr_count > 5 {
-            let messages = vec![
-                "原始指针用得比我换手机还频繁，你这是在写 C 语言吗？",
+            let messages = ["原始指针用得比我换手机还频繁，你这是在写 C 语言吗？",
                 "这么多原始指针，内存安全已经不在服务区了",
                 "原始指针过多，建议使用安全的 Rust 抽象",
-                "你的指针操作让 Valgrind 都要加班了",
-            ];
+                "你的指针操作让 Valgrind 都要加班了"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -530,12 +516,10 @@ impl UnsafeVisitor {
 
         // 检查危险操作过多
         if dangerous_op_count > 3 {
-            let messages = vec![
-                "危险的内存操作比我的危险驾驶还要多！",
+            let messages = ["危险的内存操作比我的危险驾驶还要多！",
                 "这些危险操作让我想起了 C++ 的恐怖回忆",
                 "内存操作过于危险，建议使用安全替代方案",
-                "你的代码比走钢丝还危险，小心内存泄漏！",
-            ];
+                "你的代码比走钢丝还危险，小心内存泄漏！"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -554,13 +538,11 @@ impl<'ast> Visit<'ast> for UnsafeVisitor {
     fn visit_expr_unsafe(&mut self, _unsafe_expr: &'ast ExprUnsafe) {
         self.unsafe_count += 1;
 
-        let messages = vec![
-            "Unsafe 代码！你这是在玩火还是在挑战 Rust 的底线？",
+        let messages = ["Unsafe 代码！你这是在玩火还是在挑战 Rust 的底线？",
             "又见 unsafe！安全性是什么？能吃吗？",
             "Unsafe 使用者，恭喜你获得了'内存安全破坏者'称号",
             "这个 unsafe 让我想起了 C 语言的恐怖回忆",
-            "Unsafe 代码：让 Rust 程序员夜不能寐的存在",
-        ];
+            "Unsafe 代码：让 Rust 程序员夜不能寐的存在"];
 
         let severity = if self.unsafe_count > 3 {
             Severity::Nuclear
@@ -644,12 +626,10 @@ impl FFIVisitor {
     fn generate_ffi_issues(&mut self, c_ops_count: usize, dll_count: usize) {
         // 检查 extern 块过多
         if self.extern_block_count > 2 {
-            let messages = vec![
-                "Extern 块比我的前任还多，你这是要和多少种语言交互？",
+            let messages = ["Extern 块比我的前任还多，你这是要和多少种语言交互？",
                 "这么多 extern 块，你确定不是在写多语言翻译器？",
                 "FFI 接口过多，建议封装成统一的抽象层",
-                "外部接口比我的社交关系还复杂！",
-            ];
+                "外部接口比我的社交关系还复杂！"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -664,12 +644,10 @@ impl FFIVisitor {
 
         // 检查 C 操作过多
         if c_ops_count > 10 {
-            let messages = vec![
-                "C 语言操作比我的 C 语言作业还多，你确定这是 Rust 项目？",
+            let messages = ["C 语言操作比我的 C 语言作业还多，你确定这是 Rust 项目？",
                 "这么多 C FFI，Rust 的安全性都要哭了",
                 "C 接口过多，建议使用更安全的 Rust 绑定",
-                "你的 FFI 代码让我想起了指针地狱的恐怖",
-            ];
+                "你的 FFI 代码让我想起了指针地狱的恐怖"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -684,12 +662,10 @@ impl FFIVisitor {
 
         // 检查动态库加载
         if dll_count > 0 {
-            let messages = vec![
-                "动态库加载！你这是在运行时玩杂技吗？",
+            let messages = ["动态库加载！你这是在运行时玩杂技吗？",
                 "动态加载库，小心加载到病毒！",
                 "运行时库加载，调试的时候准备哭吧",
-                "动态库操作，你的程序比变形金刚还会变身",
-            ];
+                "动态库操作，你的程序比变形金刚还会变身"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -704,12 +680,10 @@ impl FFIVisitor {
 
         // 检查 repr(C) 过多
         if self.c_repr_count > 5 {
-            let messages = vec![
-                "repr(C) 用得比我说 C 语言还频繁！",
+            let messages = ["repr(C) 用得比我说 C 语言还频繁！",
                 "这么多 C 表示法，你的结构体都要移民到 C 语言了",
                 "C 表示法过多，内存布局都要乱套了",
-                "repr(C) 滥用，Rust 的零成本抽象在哭泣",
-            ];
+                "repr(C) 滥用，Rust 的零成本抽象在哭泣"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -737,12 +711,10 @@ impl<'ast> Visit<'ast> for FFIVisitor {
 
         // 检查 extern 函数过多
         if self.extern_fn_count > 10 {
-            let messages = vec![
-                "外部函数比我的外卖订单还多！",
+            let messages = ["外部函数比我的外卖订单还多！",
                 "这么多 extern 函数，你是在开联合国大会吗？",
                 "外部接口过多，建议分模块管理",
-                "FFI 函数数量超标，小心接口管理混乱",
-            ];
+                "FFI 函数数量超标，小心接口管理混乱"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -793,13 +765,11 @@ impl<'ast> Visit<'ast> for MacroVisitor {
         self.macro_count += 1;
 
         if self.macro_count > 10 {
-            let messages = vec![
-                "宏定义比我的借口还多",
+            let messages = ["宏定义比我的借口还多",
                 "这么多宏，你确定不是在写 C 语言？",
                 "宏滥用！编译时间都被你搞长了",
                 "宏过多，调试的时候准备哭吧",
-                "这么多宏，IDE 都要罢工了",
-            ];
+                "这么多宏，IDE 都要罢工了"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -841,12 +811,10 @@ impl<'ast> Visit<'ast> for ModuleVisitor {
         self.max_depth = self.max_depth.max(self.module_depth);
 
         if self.module_depth > 5 {
-            let messages = vec![
-                "模块嵌套比俄罗斯套娃还深",
+            let messages = ["模块嵌套比俄罗斯套娃还深",
                 "这模块结构比我的家族关系还复杂",
                 "模块嵌套过深，建议重新组织代码结构",
-                "这么深的模块，找个函数比找宝藏还难",
-            ];
+                "这么深的模块，找个函数比找宝藏还难"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -884,12 +852,10 @@ impl PatternVisitor {
         self.complex_pattern_count += 1;
 
         if self.complex_pattern_count > 15 {
-            let messages = vec![
-                format!("{}模式匹配比我的感情生活还复杂", pattern_type),
-                format!("这么多{}模式，你是在写解谜游戏吗？", pattern_type),
-                format!("{}模式过多，建议简化逻辑", pattern_type),
-                format!("复杂的{}模式让代码可读性直线下降", pattern_type),
-            ];
+            let messages = [format!("{pattern_type}模式匹配比我的感情生活还复杂"),
+                format!("这么多{pattern_type}模式，你是在写解谜游戏吗？"),
+                format!("{pattern_type}模式过多，建议简化逻辑"),
+                format!("复杂的{pattern_type}模式让代码可读性直线下降")];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -917,12 +883,10 @@ impl<'ast> Visit<'ast> for PatternVisitor {
 
     fn visit_expr_match(&mut self, match_expr: &'ast ExprMatch) {
         if match_expr.arms.len() > 10 {
-            let messages = vec![
-                "Match 分支比我的人生选择还多",
+            let messages = ["Match 分支比我的人生选择还多",
                 "这么多 match 分支，你确定不是在写状态机？",
                 "Match 分支过多，建议重构",
-                "这个 match 比电视遥控器的按钮还多",
-            ];
+                "这个 match 比电视遥控器的按钮还多"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -960,12 +924,10 @@ impl<'ast> Visit<'ast> for ReferenceVisitor {
         self.reference_count += 1;
 
         if self.reference_count > 20 {
-            let messages = vec![
-                "引用比我的社交关系还复杂",
+            let messages = ["引用比我的社交关系还复杂",
                 "这么多引用，你确定不是在写指针迷宫？",
                 "引用过多，小心借用检查器罢工",
-                "引用数量超标，建议重新设计数据结构",
-            ];
+                "引用数量超标，建议重新设计数据结构"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -1024,12 +986,10 @@ impl<'ast> Visit<'ast> for SliceVisitor {
         self.slice_count += 1;
 
         if self.slice_count > 15 {
-            let messages = vec![
-                "切片比我切菜还频繁",
+            let messages = ["切片比我切菜还频繁",
                 "这么多切片，你是在开水果店吗？",
                 "切片过多，数组都被你切碎了",
-                "Slice 滥用，建议使用 Vec",
-            ];
+                "Slice 滥用，建议使用 Vec"];
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),

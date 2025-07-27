@@ -842,26 +842,20 @@ impl Reporter {
                                 } else {
                                     "multiple instances".to_string()
                                 }
-                            } else {
-                                if self.i18n.lang == "zh-CN" {
-                                    "多个代码块".to_string()
-                                } else {
-                                    "multiple blocks".to_string()
-                                }
-                            }
-                        } else {
-                            if self.i18n.lang == "zh-CN" {
+                            } else if self.i18n.lang == "zh-CN" {
                                 "多个代码块".to_string()
                             } else {
                                 "multiple blocks".to_string()
                             }
-                        }
-                    } else {
-                        if self.i18n.lang == "zh-CN" {
+                        } else if self.i18n.lang == "zh-CN" {
                             "多个代码块".to_string()
                         } else {
                             "multiple blocks".to_string()
                         }
+                    } else if self.i18n.lang == "zh-CN" {
+                        "多个代码块".to_string()
+                    } else {
+                        "multiple blocks".to_string()
                     };
 
                     println!(
@@ -910,12 +904,10 @@ impl Reporter {
                         } else {
                             format!("depth {min_depth}-{max_depth}")
                         }
+                    } else if self.i18n.lang == "zh-CN" {
+                        "深度嵌套".to_string()
                     } else {
-                        if self.i18n.lang == "zh-CN" {
-                            "深度嵌套".to_string()
-                        } else {
-                            "deep nesting".to_string()
-                        }
+                        "deep nesting".to_string()
                     };
 
                     println!(
@@ -1029,13 +1021,11 @@ impl Reporter {
     }
 
     fn make_message_savage(&self, message: &str) -> String {
-        let savage_prefixes = vec![
-            "🔥 严重警告：",
+        let savage_prefixes = ["🔥 严重警告：",
             "💀 代码死刑：",
             "🗑️ 垃圾警报：",
             "😱 恐怖发现：",
-            "🤮 令人作呕：",
-        ];
+            "🤮 令人作呕："];
 
         let prefix = savage_prefixes[message.len() % savage_prefixes.len()];
         format!("{prefix} {message}")
@@ -1069,7 +1059,7 @@ impl Reporter {
             
             // Format score line with proper alignment
             let score_text = format!("总分: {:.1}/100", quality_score.total_score);
-            let status_text = format!("({} {})", score_emoji, score_desc);
+            let status_text = format!("({score_emoji} {score_desc})");
             println!("│  {}  {}  {}│", 
                 score_text.bright_red().bold(),
                 score_bar,
@@ -1080,9 +1070,8 @@ impl Reporter {
             let file_count = issues.iter().map(|i| &i.file_path).collect::<std::collections::HashSet<_>>().len();
             let total_issues = issues.len();
             println!("│                                                      │");
-            let stats_text = format!("分析文件: {} 个    问题总数: {} 个", 
-                file_count, total_issues);
-            println!("│  {}                              │", stats_text);
+            let stats_text = format!("分析文件: {file_count} 个    问题总数: {total_issues} 个");
+            println!("│  {stats_text}                              │");
             println!("│                                                      │");
             println!("╰──────────────────────────────────────────────────────╯");
         } else {
@@ -1091,7 +1080,7 @@ impl Reporter {
             
             // Format score line with proper alignment
             let score_text = format!("Score: {:.1}/100", quality_score.total_score);
-            let status_text = format!("({} {})", score_emoji, score_desc);
+            let status_text = format!("({score_emoji} {score_desc})");
             println!("│  {}  {}  {}│", 
                 score_text.bright_red().bold(),
                 score_bar,
@@ -1102,9 +1091,8 @@ impl Reporter {
             let file_count = issues.iter().map(|i| &i.file_path).collect::<std::collections::HashSet<_>>().len();
             let total_issues = issues.len();
             println!("│                                                      │");
-            let stats_text = format!("Files analyzed: {}    Total issues: {}", 
-                file_count, total_issues);
-            println!("│  {}                           │", stats_text);
+            let stats_text = format!("Files analyzed: {file_count}    Total issues: {total_issues}");
+            println!("│  {stats_text}                           │");
             println!("│                                                      │");
             println!("╰──────────────────────────────────────────────────────╯");
         }
@@ -1930,7 +1918,7 @@ impl Reporter {
             }
 
             for (rule_name, count) in rule_stats {
-                println!("- **{}**: {} issues", rule_name, count);
+                println!("- **{rule_name}**: {count} issues");
             }
             println!();
         }
@@ -1950,7 +1938,7 @@ impl Reporter {
         }
 
         for (file_name, file_issues) in file_groups {
-            println!("### 📁 {}", file_name);
+            println!("### 📁 {file_name}");
             println!();
 
             let issues_to_show = if self.max_issues_per_file > 0 {
@@ -1996,7 +1984,7 @@ impl Reporter {
 
         let suggestions = self.i18n.get_suggestions(&rule_names);
         for suggestion in suggestions {
-            println!("- {}", suggestion);
+            println!("- {suggestion}");
         }
     }
 
@@ -2046,11 +2034,7 @@ impl Reporter {
                         .filter_map(|issue| {
                             // Extract variable name from message
                             if let Some(start) = issue.message.find("'") {
-                                if let Some(end) = issue.message[start+1..].find("'") {
-                                    Some(issue.message[start+1..start+1+end].to_string())
-                                } else {
-                                    None
-                                }
+                                issue.message[start+1..].find("'").map(|end| issue.message[start+1..start+1+end].to_string())
                             } else {
                                 None
                             }
@@ -2060,7 +2044,7 @@ impl Reporter {
                     if !examples.is_empty() {
                         println!("  {} {}: {} ({})", icon, translated_name, count, examples.join(", "));
                     } else {
-                        println!("  {} {}: {}", icon, translated_name, count);
+                        println!("  {icon} {translated_name}: {count}");
                     }
                 } else if rule_name.contains("duplication") {
                     // Show instance count for duplication
@@ -2068,25 +2052,25 @@ impl Reporter {
                         if let Some(instances_start) = first_issue.message.find("发现 ") {
                             if let Some(instances_end) = first_issue.message[instances_start..].find(" 个") {
                                 let instances_str = &first_issue.message[instances_start+3..instances_start+instances_end];
-                                println!("  {} {}: {} ({} instances)", icon, translated_name, count, instances_str);
+                                println!("  {icon} {translated_name}: {count} ({instances_str} instances)");
                             } else {
-                                println!("  {} {}: {}", icon, translated_name, count);
+                                println!("  {icon} {translated_name}: {count}");
                             }
                         } else if let Some(instances_start) = first_issue.message.find("Similar code blocks detected: ") {
                             if let Some(instances_end) = first_issue.message[instances_start..].find(" instances") {
                                 let instances_str = &first_issue.message[instances_start+30..instances_start+instances_end];
-                                println!("  {} {}: {} ({} instances)", icon, translated_name, count, instances_str);
+                                println!("  {icon} {translated_name}: {count} ({instances_str} instances)");
                             } else {
-                                println!("  {} {}: {}", icon, translated_name, count);
+                                println!("  {icon} {translated_name}: {count}");
                             }
                         } else {
-                            println!("  {} {}: {}", icon, translated_name, count);
+                            println!("  {icon} {translated_name}: {count}");
                         }
                     } else {
-                        println!("  {} {}: {}", icon, translated_name, count);
+                        println!("  {icon} {translated_name}: {count}");
                     }
                 } else {
-                    println!("  {} {}: {}", icon, translated_name, count);
+                    println!("  {icon} {translated_name}: {count}");
                 }
 
                 // Show educational advice if requested (only for the first occurrence of each rule)
@@ -2168,20 +2152,20 @@ impl Reporter {
         
         if let Some(ref bad_example) = advice.example_bad {
             println!("    {}", "❌ Bad example:".red());
-            println!("    {}", format!("    {}", bad_example).bright_black());
+            println!("    {}", format!("    {bad_example}").bright_black());
         }
         
         if let Some(ref good_example) = advice.example_good {
             println!("    {}", "✅ Good example:".green());
-            println!("    {}", format!("    {}", good_example).bright_black());
+            println!("    {}", format!("    {good_example}").bright_black());
         }
         
         if let Some(ref tip) = advice.best_practice_tip {
-            println!("    {}", format!("💡 Tip: {}", tip).cyan());
+            println!("    {}", format!("💡 Tip: {tip}").cyan());
         }
         
         if let Some(ref link) = advice.rust_docs_link {
-            println!("    {}", format!("📚 Learn more: {}", link).blue());
+            println!("    {}", format!("📚 Learn more: {link}").blue());
         }
         println!();
     }
@@ -2425,7 +2409,7 @@ impl Reporter {
         println!();
         
         for suggestion in suggestions {
-            println!("- {}", suggestion);
+            println!("- {suggestion}");
         }
         println!();
     }
@@ -2455,7 +2439,7 @@ impl Reporter {
                     if let Some(ref bad_example) = advice.example_bad {
                         println!("**❌ Bad example:**");
                         println!("```rust");
-                        println!("{}", bad_example);
+                        println!("{bad_example}");
                         println!("```");
                         println!();
                     }
@@ -2463,20 +2447,20 @@ impl Reporter {
                     if let Some(ref good_example) = advice.example_good {
                         println!("**✅ Good example:**");
                         println!("```rust");
-                        println!("{}", good_example);
+                        println!("{good_example}");
                         println!("```");
                         println!();
                     }
                     
                     if let Some(ref tip) = advice.best_practice_tip {
                         println!("**💡 Best Practice Tip:**");
-                        println!("{}", tip);
+                        println!("{tip}");
                         println!();
                     }
                     
                     if let Some(ref link) = advice.rust_docs_link {
                         println!("**📚 Learn More:**");
-                        println!("[Rust Documentation]({})", link);
+                        println!("[Rust Documentation]({link})");
                         println!();
                     }
                 }
