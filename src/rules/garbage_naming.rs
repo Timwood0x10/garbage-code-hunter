@@ -90,18 +90,42 @@ impl MeaninglessNamingVisitor {
     fn is_meaningless_name(&self, name: &str) -> bool {
         let meaningless_names = [
             // 经典占位符
-            "foo", "bar", "baz", "qux", "quux", "quuz",
+            "foo",
+            "bar",
+            "baz",
+            "qux",
+            "quux",
+            "quuz",
             // 无意义的通用词
-            "data", "info", "obj", "item", "thing", "stuff", "value",
-            "temp", "tmp", "test", "example", "sample",
+            "data",
+            "info",
+            "obj",
+            "item",
+            "thing",
+            "stuff",
+            "value",
+            "temp",
+            "tmp",
+            "test",
+            "example",
+            "sample",
             // 管理器后缀滥用
-            "manager", "handler", "processor", "controller",
+            "manager",
+            "handler",
+            "processor",
+            "controller",
             // 中文拼音（常见的）
-            "yonghu", "mima", "denglu", "zhuce", "shuju",
+            "yonghu",
+            "mima",
+            "denglu",
+            "zhuce",
+            "shuju",
         ];
-        
+
         let name_lower = name.to_lowercase();
-        meaningless_names.iter().any(|&bad_name| name_lower == bad_name)
+        meaningless_names
+            .iter()
+            .any(|&bad_name| name_lower == bad_name)
     }
 
     fn create_issue(&self, name: &str, line: usize, column: usize) -> CodeIssue {
@@ -174,11 +198,9 @@ impl HungarianNotationVisitor {
     fn is_hungarian_notation(&self, name: &str) -> bool {
         let hungarian_prefixes = [
             // 类型前缀
-            "str", "int", "bool", "float", "double", "char",
-            "arr", "vec", "list", "map", "set",
+            "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
             // 作用域前缀
-            "g_", "m_", "s_", "p_",
-            // 其他常见前缀
+            "g_", "m_", "s_", "p_", // 其他常见前缀
             "b", "n", "sz", "lp", "dw",
         ];
 
@@ -212,10 +234,22 @@ impl HungarianNotationVisitor {
             ]
         } else {
             vec![
-                format!("'{}' uses Hungarian notation? This isn't the 1990s anymore", name),
-                format!("Seeing '{}' makes me nostalgic for the dark ages of C++", name),
-                format!("'{}' - Hungarian notation is as outdated as my haircut", name),
-                format!("Hungarian notation '{}'? Rust's type system has got you covered", name),
+                format!(
+                    "'{}' uses Hungarian notation? This isn't the 1990s anymore",
+                    name
+                ),
+                format!(
+                    "Seeing '{}' makes me nostalgic for the dark ages of C++",
+                    name
+                ),
+                format!(
+                    "'{}' - Hungarian notation is as outdated as my haircut",
+                    name
+                ),
+                format!(
+                    "Hungarian notation '{}'? Rust's type system has got you covered",
+                    name
+                ),
                 format!("'{}' reminds me of painful C++ memories", name),
             ]
         };
@@ -270,28 +304,24 @@ impl AbbreviationAbuseVisitor {
             ("ctrl", "controller"),
             ("proc", "processor"),
             ("hdlr", "handler"),
-            
             // 用户相关
             ("usr", "user"),
             ("pwd", "password"),
             ("auth", "authentication"),
             ("cfg", "config"),
             ("prefs", "preferences"),
-            
             // 界面相关
             ("btn", "button"),
             ("lbl", "label"),
             ("txt", "text"),
             ("img", "image"),
             ("pic", "picture"),
-            
             // 数据相关
             ("db", "database"),
             ("tbl", "table"),
             ("col", "column"),
             ("idx", "index"),
             ("cnt", "count"),
-            
             // 其他常见缩写
             ("calc", "calculate"),
             ("init", "initialize"),
@@ -314,17 +344,35 @@ impl AbbreviationAbuseVisitor {
             vec![
                 format!("'{}' 缩写得太狠了，建议用 '{}'", name, suggestion),
                 format!("看到 '{}' 我需要解密，不如直接用 '{}'", name, suggestion),
-                format!("'{}' 这个缩写让我想起了发电报的年代，用 '{}' 吧", name, suggestion),
-                format!("'{}' 省了几个字母，却让代码可读性大打折扣，试试 '{}'", name, suggestion),
+                format!(
+                    "'{}' 这个缩写让我想起了发电报的年代，用 '{}' 吧",
+                    name, suggestion
+                ),
+                format!(
+                    "'{}' 省了几个字母，却让代码可读性大打折扣，试试 '{}'",
+                    name, suggestion
+                ),
                 format!("缩写 '{}' 就像密码一样难懂，'{}'不香吗？", name, suggestion),
             ]
         } else {
             vec![
                 format!("'{}' is too abbreviated, consider '{}'", name, suggestion),
-                format!("Seeing '{}' makes me feel like I'm decoding, just use '{}'", name, suggestion),
-                format!("'{}' reminds me of telegraph era, try '{}'", name, suggestion),
-                format!("'{}' saves a few letters but kills readability, use '{}'", name, suggestion),
-                format!("Abbreviation '{}' is cryptic, isn't '{}' better?", name, suggestion),
+                format!(
+                    "Seeing '{}' makes me feel like I'm decoding, just use '{}'",
+                    name, suggestion
+                ),
+                format!(
+                    "'{}' reminds me of telegraph era, try '{}'",
+                    name, suggestion
+                ),
+                format!(
+                    "'{}' saves a few letters but kills readability, use '{}'",
+                    name, suggestion
+                ),
+                format!(
+                    "Abbreviation '{}' is cryptic, isn't '{}' better?",
+                    name, suggestion
+                ),
             ]
         };
 
@@ -345,7 +393,8 @@ impl<'ast> Visit<'ast> for AbbreviationAbuseVisitor {
         let name = ident.to_string();
         if let Some(suggestion) = self.is_bad_abbreviation(&name) {
             let (line, column) = get_position(ident);
-            self.issues.push(self.create_issue(&name, suggestion, line, column));
+            self.issues
+                .push(self.create_issue(&name, suggestion, line, column));
         }
         syn::visit::visit_ident(self, ident);
     }

@@ -64,17 +64,17 @@ impl Rule for CommentedCodeRule {
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
-        
+
         let mut _commented_code_blocks = 0;
         let mut current_block_size = 0;
-        
+
         for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            
+
             // 检测被注释的代码行
             if trimmed.starts_with("//") {
                 let comment_content = trimmed.trim_start_matches("//").trim();
-                
+
                 // 检测是否像代码（包含常见的代码模式）
                 if is_likely_code(comment_content) {
                     current_block_size += 1;
@@ -105,7 +105,7 @@ impl Rule for CommentedCodeRule {
                 current_block_size = 0;
             }
         }
-        
+
         // 处理文件末尾的代码块
         if current_block_size >= 3 {
             issues.push(create_commented_code_issue(
@@ -115,7 +115,7 @@ impl Rule for CommentedCodeRule {
                 lang,
             ));
         }
-        
+
         issues
     }
 }
@@ -137,10 +137,10 @@ impl Rule for DeadCodeRule {
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
-        
+
         for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            
+
             // 检测明显的死代码模式
             if is_dead_code_pattern(trimmed) {
                 let messages = if lang == "zh-CN" {
@@ -160,7 +160,7 @@ impl Rule for DeadCodeRule {
                         "Zombie code detected, cleanup needed",
                     ]
                 };
-                
+
                 issues.push(CodeIssue {
                     file_path: file_path.to_path_buf(),
                     line: line_num + 1,
@@ -172,7 +172,7 @@ impl Rule for DeadCodeRule {
                 });
             }
         }
-        
+
         issues
     }
 }
@@ -184,27 +184,27 @@ impl Rule for DeadCodeRule {
 fn is_likely_code(content: &str) -> bool {
     // 检测是否像代码的模式
     let code_patterns = [
-        "let ", "fn ", "if ", "else", "for ", "while ", "match ",
-        "struct ", "enum ", "impl ", "use ", "mod ",
-        "return ", "break", "continue",
-        "{", "}", "(", ")", "[", "]", ";",
-        "=", "==", "!=", "&&", "||", "->", "::",
+        "let ", "fn ", "if ", "else", "for ", "while ", "match ", "struct ", "enum ", "impl ",
+        "use ", "mod ", "return ", "break", "continue", "{", "}", "(", ")", "[", "]", ";", "=",
+        "==", "!=", "&&", "||", "->", "::",
     ];
-    
+
     let rust_keywords = [
-        "pub", "const", "static", "mut", "ref", "move",
-        "async", "await", "unsafe", "extern", "crate",
+        "pub", "const", "static", "mut", "ref", "move", "async", "await", "unsafe", "extern",
+        "crate",
     ];
-    
+
     // 如果包含多个代码模式，很可能是代码
-    let pattern_count = code_patterns.iter()
+    let pattern_count = code_patterns
+        .iter()
         .filter(|&&pattern| content.contains(pattern))
         .count();
-    
-    let keyword_count = rust_keywords.iter()
+
+    let keyword_count = rust_keywords
+        .iter()
         .filter(|&&keyword| content.contains(keyword))
         .count();
-    
+
     pattern_count >= 2 || keyword_count >= 1
 }
 
@@ -224,20 +224,35 @@ fn create_commented_code_issue(
         ]
     } else {
         vec![
-            format!("Found {} lines of commented code - can't let go?", block_size),
-            format!("{} lines of commented code - isn't version control enough?", block_size),
-            format!("These {} commented lines are like an ex - time to let go", block_size),
-            format!("{} lines of dead commented code - Marie Kondo would disapprove", block_size),
-            format!("Commented {} lines of code - Git remembers them anyway", block_size),
+            format!(
+                "Found {} lines of commented code - can't let go?",
+                block_size
+            ),
+            format!(
+                "{} lines of commented code - isn't version control enough?",
+                block_size
+            ),
+            format!(
+                "These {} commented lines are like an ex - time to let go",
+                block_size
+            ),
+            format!(
+                "{} lines of dead commented code - Marie Kondo would disapprove",
+                block_size
+            ),
+            format!(
+                "Commented {} lines of code - Git remembers them anyway",
+                block_size
+            ),
         ]
     };
-    
+
     let severity = if block_size > 10 {
         Severity::Spicy
     } else {
         Severity::Mild
     };
-    
+
     CodeIssue {
         file_path: file_path.to_path_buf(),
         line,
@@ -252,12 +267,15 @@ fn create_commented_code_issue(
 fn is_dead_code_pattern(line: &str) -> bool {
     // 检测明显的死代码模式
     let dead_patterns = [
-        "return;", "return ", // return 后的代码
-        "break;", "continue;", // break/continue 后的代码
-        "panic!(", "unreachable!(", // panic 后的代码
+        "return;",
+        "return ", // return 后的代码
+        "break;",
+        "continue;", // break/continue 后的代码
+        "panic!(",
+        "unreachable!(", // panic 后的代码
         "std::process::exit(",
     ];
-    
+
     dead_patterns.iter().any(|&pattern| line.contains(pattern))
 }
 
@@ -279,12 +297,12 @@ impl MagicNumberVisitor {
             lang: lang.to_string(),
         }
     }
-    
+
     fn is_magic_number(&self, value: i64) -> bool {
         // 常见的非魔法数字
         !matches!(value, -1 | 0 | 1 | 2 | 10 | 100 | 1000)
     }
-    
+
     fn create_magic_number_issue(&self, value: i64, line: usize, column: usize) -> CodeIssue {
         let messages = if self.lang == "zh-CN" {
             vec![
@@ -298,18 +316,21 @@ impl MagicNumberVisitor {
             vec![
                 format!("Magic number {}? What spell is this?", value),
                 format!("Hardcoded number {} - maintainability -1", value),
-                format!("Number {} fell from the sky, nobody knows its meaning", value),
+                format!(
+                    "Number {} fell from the sky, nobody knows its meaning",
+                    value
+                ),
                 format!("Magic number {} - consider defining as a constant", value),
                 format!("Seeing number {}, I'm lost in thought", value),
             ]
         };
-        
+
         let severity = if !(-100..=1000).contains(&value) {
             Severity::Spicy
         } else {
             Severity::Mild
         };
-        
+
         CodeIssue {
             file_path: self.file_path.clone(),
             line,
@@ -328,7 +349,8 @@ impl<'ast> Visit<'ast> for MagicNumberVisitor {
             if let Ok(value) = lit_int.base10_parse::<i64>() {
                 if self.is_magic_number(value) {
                     let (line, column) = get_position(expr_lit);
-                    self.issues.push(self.create_magic_number_issue(value, line, column));
+                    self.issues
+                        .push(self.create_magic_number_issue(value, line, column));
                 }
             }
         }
@@ -356,32 +378,32 @@ impl GodFunctionVisitor {
             lang: lang.to_string(),
         }
     }
-    
+
     fn analyze_function_complexity(&mut self, func: &ItemFn) {
         let func_name = func.sig.ident.to_string();
-        
+
         // 计算函数的各种复杂度指标
         let mut complexity_score = 0;
-        
+
         // 1. 参数数量
         let param_count = func.sig.inputs.len();
         if param_count > 5 {
             complexity_score += (param_count - 5) * 2;
         }
-        
+
         // 2. 函数体大小（通过字符串分析估算）
         let func_str = format!("{func:?}");
         let line_count = func_str.lines().count();
         if line_count > 50 {
             complexity_score += (line_count - 50) / 10;
         }
-        
+
         // 3. 嵌套深度和控制流复杂度
         let control_keywords = ["if", "else", "for", "while", "match", "loop"];
         for keyword in &control_keywords {
             complexity_score += func_str.matches(keyword).count();
         }
-        
+
         // 如果复杂度过高，报告问题
         if complexity_score > 15 {
             let messages = if self.lang == "zh-CN" {
@@ -394,20 +416,29 @@ impl GodFunctionVisitor {
                 ]
             } else {
                 vec![
-                    format!("Function '{}' does more things than I do in a day", func_name),
-                    format!("Is '{}' a god function? Wants to control everything", func_name),
+                    format!(
+                        "Function '{}' does more things than I do in a day",
+                        func_name
+                    ),
+                    format!(
+                        "Is '{}' a god function? Wants to control everything",
+                        func_name
+                    ),
                     format!("Function '{}' is as complex as my love life", func_name),
                     format!("Function '{}' needs to be split - too bloated", func_name),
-                    format!("Function '{}' violates single responsibility principle", func_name),
+                    format!(
+                        "Function '{}' violates single responsibility principle",
+                        func_name
+                    ),
                 ]
             };
-            
+
             let severity = if complexity_score > 25 {
                 Severity::Spicy
             } else {
                 Severity::Mild
             };
-            
+
             let (line, column) = get_position(func);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),

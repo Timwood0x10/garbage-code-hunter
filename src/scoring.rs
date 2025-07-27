@@ -436,7 +436,6 @@ impl CodeScorer {
             };
 
         // Calculate score based on thresholds (0 = excellent, 100 = terrible)
-        
 
         if issues_per_1k_lines <= excellent_threshold {
             0.0 // Perfect score

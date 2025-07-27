@@ -117,11 +117,11 @@ fn main() {
         args.markdown,
         &args.lang,
     );
-    
+
     if args.educational || args.hall_of_shame || args.suggestions {
         reporter.report_with_enhanced_features(
-            issues, 
-            file_count, 
+            issues,
+            file_count,
             total_lines,
             educational_advisor.as_ref(),
             hall_of_shame.as_ref(),
@@ -183,10 +183,15 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
     (file_count, total_lines)
 }
 
-fn group_issues_by_file(issues: &[analyzer::CodeIssue]) -> std::collections::HashMap<std::path::PathBuf, Vec<analyzer::CodeIssue>> {
+fn group_issues_by_file(
+    issues: &[analyzer::CodeIssue],
+) -> std::collections::HashMap<std::path::PathBuf, Vec<analyzer::CodeIssue>> {
     let mut grouped = std::collections::HashMap::new();
     for issue in issues {
-        grouped.entry(issue.file_path.clone()).or_insert_with(Vec::new).push(issue.clone());
+        grouped
+            .entry(issue.file_path.clone())
+            .or_insert_with(Vec::new)
+            .push(issue.clone());
     }
     grouped
 }

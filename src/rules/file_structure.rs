@@ -41,7 +41,11 @@ impl Rule for FileStructureRule {
                 "Please split this monster file into smaller ones, save the readability 🆘",
             ];
 
-            let messages = if lang == "zh-CN" { &messages_zh } else { &messages_en };
+            let messages = if lang == "zh-CN" {
+                &messages_zh
+            } else {
+                &messages_en
+            };
             let message = messages[line_count % messages.len()];
 
             let severity = if line_count > 2000 {
@@ -57,7 +61,7 @@ impl Rule for FileStructureRule {
                 line: 1,
                 column: 1,
                 rule_name: "file-too-long".to_string(),
-                message: format!("{message} ({line_count}行)"),
+                message: format!("{} ({}行)", message, line_count),
                 severity,
                 roast_level: RoastLevel::Sarcastic,
             });
@@ -86,14 +90,15 @@ impl Rule for ImportChaosRule {
         visitor.visit_file(syntax_tree);
 
         // Check for duplicate use statements
-        let use_lines: Vec<&str> = content.lines()
+        let use_lines: Vec<&str> = content
+            .lines()
             .filter(|line| line.trim().starts_with("use "))
             .collect();
 
         if use_lines.len() > 1 {
             let mut sorted_uses = use_lines.clone();
             sorted_uses.sort();
-            
+
             if use_lines != sorted_uses {
                 visitor.add_unordered_imports_issue();
             }
@@ -164,7 +169,11 @@ impl ImportChaosVisitor {
             "Use statement order is more chaotic than my sleep schedule ⏰",
         ];
 
-        let messages = if self.lang == "zh-CN" { &messages_zh } else { &messages_en };
+        let messages = if self.lang == "zh-CN" {
+            &messages_zh
+        } else {
+            &messages_en
+        };
         let message = messages[self.issues.len() % messages.len()];
 
         self.issues.push(CodeIssue {
@@ -191,7 +200,11 @@ impl ImportChaosVisitor {
             "More duplicate imports than my repeated words 💬",
         ];
 
-        let messages = if self.lang == "zh-CN" { &messages_zh } else { &messages_en };
+        let messages = if self.lang == "zh-CN" {
+            &messages_zh
+        } else {
+            &messages_en
+        };
         let message = messages[self.issues.len() % messages.len()];
 
         self.issues.push(CodeIssue {
@@ -248,7 +261,11 @@ impl ModuleNestingVisitor {
                 "Consider redesigning module structure, current nesting too deep 📐",
             ];
 
-            let messages = if self.lang == "zh-CN" { &messages_zh } else { &messages_en };
+            let messages = if self.lang == "zh-CN" {
+                &messages_zh
+            } else {
+                &messages_en
+            };
             let message = messages[self.issues.len() % messages.len()];
 
             let severity = if self.nesting_depth > 5 {
@@ -274,9 +291,9 @@ impl<'ast> Visit<'ast> for ModuleNestingVisitor {
     fn visit_item_mod(&mut self, module: &'ast ItemMod) {
         self.nesting_depth += 1;
         self.max_depth = self.max_depth.max(self.nesting_depth);
-        
+
         self.check_nesting_depth();
-        
+
         syn::visit::visit_item_mod(self, module);
         self.nesting_depth -= 1;
     }

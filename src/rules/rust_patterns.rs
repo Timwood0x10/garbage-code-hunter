@@ -1,7 +1,6 @@
 use std::path::Path;
 use syn::{
-    visit::Visit, Expr, ExprForLoop, ExprMatch, ExprMethodCall, File, Pat, PatIdent, Type,
-    TypePath,
+    visit::Visit, Expr, ExprForLoop, ExprMatch, ExprMethodCall, File, Pat, PatIdent, Type, TypePath,
 };
 
 use crate::analyzer::{CodeIssue, RoastLevel, Severity};
@@ -25,18 +24,18 @@ impl Rule for StringAbuseRule {
     ) -> Vec<CodeIssue> {
         let mut visitor = StringAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
-        
+
         // 检查内容中的 String 使用模式
         let string_new_count = content.matches("String::new()").count();
         let string_from_count = content.matches("String::from(").count();
         let to_string_count = content.matches(".to_string()").count();
-        
+
         if string_new_count + string_from_count + to_string_count > 5 {
             visitor.add_excessive_string_conversion_issue(
-                string_new_count + string_from_count + to_string_count
+                string_new_count + string_from_count + to_string_count,
             );
         }
-        
+
         visitor.issues
     }
 }
@@ -58,16 +57,16 @@ impl Rule for VecAbuseRule {
     ) -> Vec<CodeIssue> {
         let mut visitor = VecAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
-        
+
         // 检查内容中的 Vec 使用模式
         let vec_new_count = content.matches("Vec::new()").count();
         let _vec_with_capacity_count = content.matches("Vec::with_capacity(").count();
         let _vec_macro_count = content.matches("vec![").count();
-        
+
         if vec_new_count > 3 {
             visitor.add_excessive_vec_allocation_issue(vec_new_count);
         }
-        
+
         visitor.issues
     }
 }
@@ -132,26 +131,29 @@ impl StringAbuseVisitor {
             lang: lang.to_string(),
         }
     }
-    
+
     fn add_excessive_string_conversion_issue(&mut self, count: usize) {
         let messages = if self.lang == "zh-CN" {
             vec![
                 format!("{} 次 String 转换？你是在开字符串工厂吗？", count),
-                format!("这么多 String 分配，内存都要哭了", ),
+                format!("这么多 String 分配，内存都要哭了",),
                 format!("{} 个 String 转换，考虑用 &str 吧", count),
-                format!("String 用得比我换衣服还频繁", ),
-                format!("到处都是 String::from()，性能在哭泣", ),
+                format!("String 用得比我换衣服还频繁",),
+                format!("到处都是 String::from()，性能在哭泣",),
             ]
         } else {
             vec![
-                format!("{} String conversions? Are you running a string factory?", count),
+                format!(
+                    "{} String conversions? Are you running a string factory?",
+                    count
+                ),
                 format!("So many String allocations, memory is crying"),
                 format!("{} String conversions - consider using &str", count),
                 format!("You use String more than I change clothes"),
                 format!("String::from() everywhere - performance is weeping"),
             ]
         };
-        
+
         self.issues.push(CodeIssue {
             file_path: self.file_path.clone(),
             line: 1,
@@ -162,7 +164,7 @@ impl StringAbuseVisitor {
             roast_level: RoastLevel::Sarcastic,
         });
     }
-    
+
     fn check_string_parameter(&mut self, ty: &Type) {
         if let Type::Path(TypePath { path, .. }) = ty {
             if let Some(segment) = path.segments.last() {
@@ -182,7 +184,7 @@ impl StringAbuseVisitor {
                             "&str parameter would be more flexible",
                         ]
                     };
-                    
+
                     let (line, column) = get_position(ty);
                     self.issues.push(CodeIssue {
                         file_path: self.file_path.clone(),
@@ -217,7 +219,7 @@ impl<'ast> Visit<'ast> for StringAbuseVisitor {
                     "to_string() allocates memory - sure you need it?",
                 ]
             };
-            
+
             let (line, column) = get_position(method_call);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
@@ -231,7 +233,7 @@ impl<'ast> Visit<'ast> for StringAbuseVisitor {
         }
         syn::visit::visit_expr_method_call(self, method_call);
     }
-    
+
     fn visit_type(&mut self, ty: &'ast Type) {
         self.check_string_parameter(ty);
         syn::visit::visit_type(self, ty);
@@ -256,14 +258,14 @@ impl VecAbuseVisitor {
             lang: lang.to_string(),
         }
     }
-    
+
     fn add_excessive_vec_allocation_issue(&mut self, count: usize) {
         let messages = if self.lang == "zh-CN" {
             vec![
                 format!("{} 个 Vec::new()？你在收集什么？", count),
-                format!("这么多 Vec 分配，考虑用数组或切片", ),
+                format!("这么多 Vec 分配，考虑用数组或切片",),
                 format!("{} 次 Vec 分配，内存分配器很忙", count),
-                format!("Vec 用得这么多，确定都需要动态数组吗？", ),
+                format!("Vec 用得这么多，确定都需要动态数组吗？",),
             ]
         } else {
             vec![
@@ -273,7 +275,7 @@ impl VecAbuseVisitor {
                 format!("So many Vecs - sure you need all these dynamic arrays?"),
             ]
         };
-        
+
         self.issues.push(CodeIssue {
             file_path: self.file_path.clone(),
             line: 1,
@@ -307,7 +309,7 @@ impl<'ast> Visit<'ast> for VecAbuseVisitor {
                             "This Vec::new() might be optimizable",
                         ]
                     };
-                    
+
                     let (line, column) = get_position(method_call);
                     self.issues.push(CodeIssue {
                         file_path: self.file_path.clone(),
@@ -343,15 +345,15 @@ impl IteratorAbuseVisitor {
             lang: lang.to_string(),
         }
     }
-    
+
     fn check_simple_for_loop(&mut self, for_loop: &ExprForLoop) {
         // 检测简单的 for 循环，可能可以用迭代器替代
         if let Pat::Ident(PatIdent { ident, .. }) = for_loop.pat.as_ref() {
             let _var_name = ident.to_string();
-            
+
             // 检测常见的可以用迭代器替代的模式
             let loop_body = format!("{:?}", for_loop.body);
-            
+
             // 如果循环体很简单，建议用迭代器
             if loop_body.lines().count() < 5 {
                 let messages = if self.lang == "zh-CN" {
@@ -369,7 +371,7 @@ impl IteratorAbuseVisitor {
                         format!("Consider rewriting this loop in functional style"),
                     ]
                 };
-                
+
                 let (line, column) = get_position(for_loop);
                 self.issues.push(CodeIssue {
                     file_path: self.file_path.clone(),
@@ -410,14 +412,14 @@ impl MatchAbuseVisitor {
             lang: lang.to_string(),
         }
     }
-    
+
     fn check_simple_match(&mut self, match_expr: &ExprMatch) {
         let arms_count = match_expr.arms.len();
-        
+
         // 检测只有两个分支的 match，可能可以用 if let 替代
         if arms_count == 2 {
             let match_str = format!("{match_expr:?}");
-            
+
             // 检测 Option 或 Result 的简单匹配
             if match_str.contains("Some") && match_str.contains("None") {
                 let messages = if self.lang == "zh-CN" {
@@ -435,7 +437,7 @@ impl MatchAbuseVisitor {
                         "if let is more suitable for this case than match",
                     ]
                 };
-                
+
                 let (line, column) = get_position(match_expr);
                 self.issues.push(CodeIssue {
                     file_path: self.file_path.clone(),
@@ -447,7 +449,7 @@ impl MatchAbuseVisitor {
                     roast_level: RoastLevel::Gentle,
                 });
             }
-            
+
             if match_str.contains("Ok") && match_str.contains("Err") {
                 let messages = if self.lang == "zh-CN" {
                     vec![
@@ -464,7 +466,7 @@ impl MatchAbuseVisitor {
                         "Or consider using the ? operator",
                     ]
                 };
-                
+
                 let (line, column) = get_position(match_expr);
                 self.issues.push(CodeIssue {
                     file_path: self.file_path.clone(),

@@ -35,6 +35,9 @@ release:
 test:
 	cargo test
 
+test-signal:
+	cargo test -- --test-threads=1
+
 test-verbose:
 	cargo test -- --nocapture
 

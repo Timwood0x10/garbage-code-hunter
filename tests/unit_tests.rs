@@ -99,7 +99,10 @@ fn test_suggestions_chinese() {
     let suggestions = i18n.get_suggestions(&rule_names);
 
     // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-    assert!(suggestions.is_empty(), "Suggestions should be empty as they're now handled by --suggestions flag");
+    assert!(
+        suggestions.is_empty(),
+        "Suggestions should be empty as they're now handled by --suggestions flag"
+    );
     // assert!(
     //     suggestions.iter().any(|s| s.contains("变量名")),
     //     "Should have naming suggestions in Chinese"
@@ -118,7 +121,10 @@ fn test_suggestions_english() {
     let suggestions = i18n.get_suggestions(&rule_names);
 
     // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-    assert!(suggestions.is_empty(), "Suggestions should be empty as they're now handled by --suggestions flag");
+    assert!(
+        suggestions.is_empty(),
+        "Suggestions should be empty as they're now handled by --suggestions flag"
+    );
     // assert!(
     //     suggestions.iter().any(|s| s.contains("variable")),
     //     "Should have naming suggestions in English"

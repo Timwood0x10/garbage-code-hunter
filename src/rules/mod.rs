@@ -43,23 +43,19 @@ impl RuleEngine {
             // Add various detection rules
             Box::new(naming::TerribleNamingRule),
             Box::new(naming::SingleLetterVariableRule),
-            
             // Add garbage naming detection rules
             Box::new(garbage_naming::MeaninglessNamingRule),
             Box::new(garbage_naming::HungarianNotationRule),
             Box::new(garbage_naming::AbbreviationAbuseRule),
-            
             // Add student code detection rules
             Box::new(student_code::PrintlnDebuggingRule),
             Box::new(student_code::PanicAbuseRule),
             Box::new(student_code::TodoCommentRule),
-            
             // Add code smell detection rules
             Box::new(code_smells::MagicNumberRule),
             Box::new(code_smells::GodFunctionRule),
             Box::new(code_smells::CommentedCodeRule),
             Box::new(code_smells::DeadCodeRule),
-            
             // Add Rust-specific pattern detection rules
             Box::new(rust_patterns::StringAbuseRule),
             Box::new(rust_patterns::VecAbuseRule),
@@ -70,13 +66,11 @@ impl RuleEngine {
             Box::new(duplication::CodeDuplicationRule),
             Box::new(rust_specific::UnwrapAbuseRule),
             Box::new(rust_specific::UnnecessaryCloneRule),
-
             // Add advanced Rust-specific rules
             Box::new(advanced_rust::ComplexClosureRule),
             Box::new(advanced_rust::LifetimeAbuseRule),
             Box::new(advanced_rust::TraitComplexityRule),
             Box::new(advanced_rust::GenericAbuseRule),
-
             // Add comprehensive Rust feature rules
             Box::new(comprehensive_rust::ChannelAbuseRule),
             Box::new(comprehensive_rust::AsyncAbuseRule),
@@ -89,7 +83,6 @@ impl RuleEngine {
             Box::new(comprehensive_rust::ReferenceAbuseRule),
             Box::new(comprehensive_rust::BoxAbuseRule),
             Box::new(comprehensive_rust::SliceAbuseRule),
-
             // Add file structure rules
             Box::new(file_structure::FileStructureRule),
             Box::new(file_structure::ImportChaosRule),

@@ -33,35 +33,47 @@ impl EducationalAdvisor {
     fn initialize_advice_database(&mut self) {
         // Naming convention advice
         self.add_advice("terrible-naming", self.create_terrible_naming_advice());
-        self.add_advice("meaningless-naming", self.create_meaningless_naming_advice());
-        self.add_advice("hungarian-notation", self.create_hungarian_notation_advice());
-        self.add_advice("abbreviation-abuse", self.create_abbreviation_abuse_advice());
-        
+        self.add_advice(
+            "meaningless-naming",
+            self.create_meaningless_naming_advice(),
+        );
+        self.add_advice(
+            "hungarian-notation",
+            self.create_hungarian_notation_advice(),
+        );
+        self.add_advice(
+            "abbreviation-abuse",
+            self.create_abbreviation_abuse_advice(),
+        );
+
         // Complexity advice
         self.add_advice("deep-nesting", self.create_deep_nesting_advice());
         self.add_advice("god-function", self.create_god_function_advice());
         self.add_advice("long-function", self.create_long_function_advice());
-        
+
         // Code smells advice
         self.add_advice("magic-number", self.create_magic_number_advice());
         self.add_advice("commented-code", self.create_commented_code_advice());
         self.add_advice("dead-code", self.create_dead_code_advice());
-        
+
         // Rust-specific advice
         self.add_advice("unwrap-abuse", self.create_unwrap_abuse_advice());
         self.add_advice("string-abuse", self.create_string_abuse_advice());
         self.add_advice("unnecessary-clone", self.create_unnecessary_clone_advice());
         self.add_advice("iterator-abuse", self.create_iterator_abuse_advice());
-        
+
         // Student code advice
         self.add_advice("println-debugging", self.create_println_debugging_advice());
         self.add_advice("panic-abuse", self.create_panic_abuse_advice());
         self.add_advice("todo-comment", self.create_todo_comment_advice());
-        
+
         // File structure advice
         self.add_advice("file-too-long", self.create_file_too_long_advice());
         self.add_advice("unordered-imports", self.create_unordered_imports_advice());
-        self.add_advice("deep-module-nesting", self.create_deep_module_nesting_advice());
+        self.add_advice(
+            "deep-module-nesting",
+            self.create_deep_module_nesting_advice(),
+        );
     }
 
     fn add_advice(&mut self, rule_name: &str, advice: EducationalAdvice) {
@@ -93,12 +105,19 @@ impl EducationalAdvisor {
     fn create_meaningless_naming_advice(&self) -> EducationalAdvice {
         if self.lang == "zh-CN" {
             EducationalAdvice {
-                why_bad: "使用 foo、bar、data、temp 等占位符命名会让代码失去表达力，增加维护成本。".to_string(),
+                why_bad: "使用 foo、bar、data、temp 等占位符命名会让代码失去表达力，增加维护成本。"
+                    .to_string(),
                 how_to_fix: "根据变量的实际用途选择具体的、有意义的名称。".to_string(),
                 example_bad: Some("let data = process_foo(bar);".to_string()),
-                example_good: Some("let processed_orders = process_customer_orders(raw_orders);".to_string()),
-                rust_docs_link: Some("https://rust-lang.github.io/api-guidelines/naming.html".to_string()),
-                best_practice_tip: Some("避免使用通用词汇，选择能准确描述数据性质的词汇。".to_string()),
+                example_good: Some(
+                    "let processed_orders = process_customer_orders(raw_orders);".to_string(),
+                ),
+                rust_docs_link: Some(
+                    "https://rust-lang.github.io/api-guidelines/naming.html".to_string(),
+                ),
+                best_practice_tip: Some(
+                    "避免使用通用词汇，选择能准确描述数据性质的词汇。".to_string(),
+                ),
             }
         } else {
             EducationalAdvice {
@@ -115,12 +134,19 @@ impl EducationalAdvisor {
     fn create_hungarian_notation_advice(&self) -> EducationalAdvice {
         if self.lang == "zh-CN" {
             EducationalAdvice {
-                why_bad: "匈牙利命名法在现代编程语言中已经过时，Rust 的类型系统已经提供了类型安全保障。".to_string(),
-                how_to_fix: "使用描述性名称而不是类型前缀，让 Rust 的类型系统处理类型检查。".to_string(),
+                why_bad:
+                    "匈牙利命名法在现代编程语言中已经过时，Rust 的类型系统已经提供了类型安全保障。"
+                        .to_string(),
+                how_to_fix: "使用描述性名称而不是类型前缀，让 Rust 的类型系统处理类型检查。"
+                    .to_string(),
                 example_bad: Some("let strUserName: String = get_name();".to_string()),
                 example_good: Some("let user_name: String = get_name();".to_string()),
-                rust_docs_link: Some("https://rust-lang.github.io/api-guidelines/naming.html".to_string()),
-                best_practice_tip: Some("Rust 的强类型系统使得类型前缀变得多余，专注于语义而非类型。".to_string()),
+                rust_docs_link: Some(
+                    "https://rust-lang.github.io/api-guidelines/naming.html".to_string(),
+                ),
+                best_practice_tip: Some(
+                    "Rust 的强类型系统使得类型前缀变得多余，专注于语义而非类型。".to_string(),
+                ),
             }
         } else {
             EducationalAdvice {
@@ -137,12 +163,18 @@ impl EducationalAdvisor {
     fn create_abbreviation_abuse_advice(&self) -> EducationalAdvice {
         if self.lang == "zh-CN" {
             EducationalAdvice {
-                why_bad: "过度缩写会让代码变得难以理解，特别是对新团队成员或几个月后的自己。".to_string(),
-                how_to_fix: "使用完整的、清晰的单词，现代编辑器的自动补全让长名称不再是问题。".to_string(),
+                why_bad: "过度缩写会让代码变得难以理解，特别是对新团队成员或几个月后的自己。"
+                    .to_string(),
+                how_to_fix: "使用完整的、清晰的单词，现代编辑器的自动补全让长名称不再是问题。"
+                    .to_string(),
                 example_bad: Some("let usr_mgr = UserMgr::new();".to_string()),
                 example_good: Some("let user_manager = UserManager::new();".to_string()),
-                rust_docs_link: Some("https://rust-lang.github.io/api-guidelines/naming.html".to_string()),
-                best_practice_tip: Some("清晰胜过简洁，代码被阅读的次数远超过被编写的次数。".to_string()),
+                rust_docs_link: Some(
+                    "https://rust-lang.github.io/api-guidelines/naming.html".to_string(),
+                ),
+                best_practice_tip: Some(
+                    "清晰胜过简洁，代码被阅读的次数远超过被编写的次数。".to_string(),
+                ),
             }
         } else {
             EducationalAdvice {
@@ -203,12 +235,20 @@ impl EducationalAdvisor {
     fn create_string_abuse_advice(&self) -> EducationalAdvice {
         if self.lang == "zh-CN" {
             EducationalAdvice {
-                why_bad: "不必要的 String 分配会增加内存使用和性能开销，特别是在只需要读取的场景中。".to_string(),
-                how_to_fix: "在只需要读取字符串的地方使用 &str，只在需要拥有所有权时使用 String。".to_string(),
+                why_bad:
+                    "不必要的 String 分配会增加内存使用和性能开销，特别是在只需要读取的场景中。"
+                        .to_string(),
+                how_to_fix: "在只需要读取字符串的地方使用 &str，只在需要拥有所有权时使用 String。"
+                    .to_string(),
                 example_bad: Some("fn process_name(name: String) -> String".to_string()),
                 example_good: Some("fn process_name(name: &str) -> String".to_string()),
-                rust_docs_link: Some("https://doc.rust-lang.org/book/ch04-03-slices.html".to_string()),
-                best_practice_tip: Some("优先使用 &str 作为函数参数，这样可以接受 String 和 &str 两种类型。".to_string()),
+                rust_docs_link: Some(
+                    "https://doc.rust-lang.org/book/ch04-03-slices.html".to_string(),
+                ),
+                best_practice_tip: Some(
+                    "优先使用 &str 作为函数参数，这样可以接受 String 和 &str 两种类型。"
+                        .to_string(),
+                ),
             }
         } else {
             EducationalAdvice {
@@ -281,22 +321,36 @@ impl EducationalAdvisor {
     fn create_long_function_advice(&self) -> EducationalAdvice {
         EducationalAdvice {
             why_bad: "Long functions are harder to understand, test, and maintain.".to_string(),
-            how_to_fix: "Extract logical blocks into separate functions with descriptive names.".to_string(),
+            how_to_fix: "Extract logical blocks into separate functions with descriptive names."
+                .to_string(),
             example_bad: None,
             example_good: None,
-            rust_docs_link: Some("https://doc.rust-lang.org/book/ch03-03-how-functions-work.html".to_string()),
-            best_practice_tip: Some("If you can't see the entire function on your screen, it's probably too long.".to_string()),
+            rust_docs_link: Some(
+                "https://doc.rust-lang.org/book/ch03-03-how-functions-work.html".to_string(),
+            ),
+            best_practice_tip: Some(
+                "If you can't see the entire function on your screen, it's probably too long."
+                    .to_string(),
+            ),
         }
     }
 
     fn create_magic_number_advice(&self) -> EducationalAdvice {
         EducationalAdvice {
             why_bad: "Magic numbers make code hard to understand and maintain.".to_string(),
-            how_to_fix: "Replace magic numbers with named constants that explain their purpose.".to_string(),
+            how_to_fix: "Replace magic numbers with named constants that explain their purpose."
+                .to_string(),
             example_bad: Some("if age > 18 { /* ... */ }".to_string()),
-            example_good: Some("const LEGAL_AGE: u32 = 18;\nif age > LEGAL_AGE { /* ... */ }".to_string()),
-            rust_docs_link: Some("https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html#constants".to_string()),
-            best_practice_tip: Some("Use const declarations for values that have semantic meaning.".to_string()),
+            example_good: Some(
+                "const LEGAL_AGE: u32 = 18;\nif age > LEGAL_AGE { /* ... */ }".to_string(),
+            ),
+            rust_docs_link: Some(
+                "https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html#constants"
+                    .to_string(),
+            ),
+            best_practice_tip: Some(
+                "Use const declarations for values that have semantic meaning.".to_string(),
+            ),
         }
     }
 
@@ -313,23 +367,32 @@ impl EducationalAdvisor {
 
     fn create_dead_code_advice(&self) -> EducationalAdvice {
         EducationalAdvice {
-            why_bad: "Dead code increases maintenance burden and can confuse developers.".to_string(),
+            why_bad: "Dead code increases maintenance burden and can confuse developers."
+                .to_string(),
             how_to_fix: "Remove unused functions, variables, and imports regularly.".to_string(),
             example_bad: None,
             example_good: None,
             rust_docs_link: None,
-            best_practice_tip: Some("Use #[allow(dead_code)] only temporarily during development.".to_string()),
+            best_practice_tip: Some(
+                "Use #[allow(dead_code)] only temporarily during development.".to_string(),
+            ),
         }
     }
 
     fn create_unnecessary_clone_advice(&self) -> EducationalAdvice {
         EducationalAdvice {
             why_bad: "Unnecessary clones waste memory and CPU cycles.".to_string(),
-            how_to_fix: "Use references when possible, clone only when you need ownership.".to_string(),
+            how_to_fix: "Use references when possible, clone only when you need ownership."
+                .to_string(),
             example_bad: Some("let copied = original.clone();\nprocess(&copied);".to_string()),
             example_good: Some("process(&original);".to_string()),
-            rust_docs_link: Some("https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html".to_string()),
-            best_practice_tip: Some("Understand Rust's borrowing rules to minimize unnecessary allocations.".to_string()),
+            rust_docs_link: Some(
+                "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html".to_string(),
+            ),
+            best_practice_tip: Some(
+                "Understand Rust's borrowing rules to minimize unnecessary allocations."
+                    .to_string(),
+            ),
         }
     }
 

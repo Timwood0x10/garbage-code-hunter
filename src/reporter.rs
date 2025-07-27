@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 use colored::*;
-use std::collections::{HashMap, BTreeMap};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -57,14 +57,14 @@ impl Reporter {
                 "Code needs improvement 🔧".to_string()
             };
         }
-        
+
         // seed genearte random index
         let mut hasher = DefaultHasher::new();
         seed.hash(&mut hasher);
         category.hash(&mut hasher);
         let hash = hasher.finish();
         let index = (hash as usize) % roasts.len();
-        
+
         roasts[index].to_string()
     }
 
@@ -196,7 +196,7 @@ impl Reporter {
                         vec!["Rust 特性使用得不错 🦀", "代码很 Rust 化 ⚡"]
                     }
                 }
-                _ => vec!["代码需要改进 🔧"]
+                _ => vec!["代码需要改进 🔧"],
             }
         } else {
             // 英文版本的吐槽
@@ -232,7 +232,10 @@ impl Reporter {
                             "Naming style needs consistency 📐",
                         ]
                     } else {
-                        vec!["Variable naming is decent 👍", "Naming style is acceptable ✅"]
+                        vec![
+                            "Variable naming is decent 👍",
+                            "Naming style is acceptable ✅",
+                        ]
                     }
                 }
                 "Complexity" => {
@@ -266,7 +269,10 @@ impl Reporter {
                             "Code readability needs improvement 👓",
                         ]
                     } else {
-                        vec!["Code structure is fairly clear 👌", "Complexity is well controlled ✅"]
+                        vec![
+                            "Code structure is fairly clear 👌",
+                            "Complexity is well controlled ✅",
+                        ]
                     }
                 }
                 "Duplication" => {
@@ -300,7 +306,10 @@ impl Reporter {
                             "Code structure needs optimization 🏗️",
                         ]
                     } else {
-                        vec!["Code duplication is well controlled 👍", "Duplication within acceptable range ✅"]
+                        vec![
+                            "Code duplication is well controlled 👍",
+                            "Duplication within acceptable range ✅",
+                        ]
                     }
                 }
                 "Rust Features" => {
@@ -334,10 +343,13 @@ impl Reporter {
                             "Type system utilization is insufficient 📊",
                         ]
                     } else {
-                        vec!["Rust features used well 🦀", "Code is very Rust-idiomatic ⚡"]
+                        vec![
+                            "Rust features used well 🦀",
+                            "Code is very Rust-idiomatic ⚡",
+                        ]
                     }
                 }
-                _ => vec!["Code needs improvement 🔧"]
+                _ => vec!["Code needs improvement 🔧"],
             }
         }
     }
@@ -348,9 +360,9 @@ impl Reporter {
     }
 
     pub fn report_with_enhanced_features(
-        &self, 
-        mut issues: Vec<CodeIssue>, 
-        file_count: usize, 
+        &self,
+        mut issues: Vec<CodeIssue>,
+        file_count: usize,
         total_lines: usize,
         educational_advisor: Option<&EducationalAdvisor>,
         hall_of_shame: Option<&HallOfShame>,
@@ -381,7 +393,13 @@ impl Reporter {
         }
 
         if self.markdown {
-            self.print_markdown_report_enhanced(&issues, &quality_score, educational_advisor, hall_of_shame, show_suggestions);
+            self.print_markdown_report_enhanced(
+                &issues,
+                &quality_score,
+                educational_advisor,
+                hall_of_shame,
+                show_suggestions,
+            );
         } else {
             if !self.summary_only {
                 self.print_header(&issues);
@@ -398,14 +416,14 @@ impl Reporter {
                 if let Some(shame) = hall_of_shame {
                     self.print_hall_of_shame(shame);
                 }
-                
+
                 // Print improvement suggestions if requested
                 if show_suggestions {
                     if let Some(shame) = hall_of_shame {
                         self.print_improvement_suggestions(shame);
                     }
                 }
-                
+
                 // Always show footer for non-enhanced mode
                 if !show_suggestions {
                     self.print_footer(&issues);
@@ -587,7 +605,6 @@ impl Reporter {
             );
         }
 
-        
         if quality_score.severity_distribution.nuclear > 0
             || quality_score.severity_distribution.spicy > 0
             || quality_score.severity_distribution.mild > 0
@@ -798,7 +815,9 @@ impl Reporter {
                         .iter()
                         .filter_map(|issue| {
                             if let Some(start) = issue.message.find("'") {
-                                issue.message[start + 1..].find("'").map(|end| issue.message[start + 1..start + 1 + end].to_string())
+                                issue.message[start + 1..].find("'").map(|end| {
+                                    issue.message[start + 1..start + 1 + end].to_string()
+                                })
                             } else {
                                 None
                             }
@@ -1021,11 +1040,13 @@ impl Reporter {
     }
 
     fn make_message_savage(&self, message: &str) -> String {
-        let savage_prefixes = ["🔥 严重警告：",
+        let savage_prefixes = [
+            "🔥 严重警告：",
             "💀 代码死刑：",
             "🗑️ 垃圾警报：",
             "😱 恐怖发现：",
-            "🤮 令人作呕："];
+            "🤮 令人作呕：",
+        ];
 
         let prefix = savage_prefixes[message.len() % savage_prefixes.len()];
         format!("{prefix} {message}")
@@ -1038,7 +1059,7 @@ impl Reporter {
 
     fn print_enhanced_summary(&self, issues: &[CodeIssue], quality_score: &CodeQualityScore) {
         println!();
-        
+
         // Header with decorative border
         if self.i18n.lang == "zh-CN" {
             println!("{}", "🏆 代码质量报告".bright_cyan().bold());
@@ -1056,18 +1077,23 @@ impl Reporter {
         if self.i18n.lang == "zh-CN" {
             println!("╭─ 📊 总体评分 ─────────────────────────────────────────╮");
             println!("│                                                      │");
-            
+
             // Format score line with proper alignment
             let score_text = format!("总分: {:.1}/100", quality_score.total_score);
             let status_text = format!("({score_emoji} {score_desc})");
-            println!("│  {}  {}  {}│", 
+            println!(
+                "│  {}  {}  {}│",
                 score_text.bright_red().bold(),
                 score_bar,
                 status_text.bright_black()
             );
-            
+
             // Add file statistics
-            let file_count = issues.iter().map(|i| &i.file_path).collect::<std::collections::HashSet<_>>().len();
+            let file_count = issues
+                .iter()
+                .map(|i| &i.file_path)
+                .collect::<std::collections::HashSet<_>>()
+                .len();
             let total_issues = issues.len();
             println!("│                                                      │");
             let stats_text = format!("分析文件: {file_count} 个    问题总数: {total_issues} 个");
@@ -1077,21 +1103,27 @@ impl Reporter {
         } else {
             println!("╭─ 📊 Overall Score ───────────────────────────────────╮");
             println!("│                                                      │");
-            
+
             // Format score line with proper alignment
             let score_text = format!("Score: {:.1}/100", quality_score.total_score);
             let status_text = format!("({score_emoji} {score_desc})");
-            println!("│  {}  {}  {}│", 
+            println!(
+                "│  {}  {}  {}│",
                 score_text.bright_red().bold(),
                 score_bar,
                 status_text.bright_black()
             );
-            
+
             // Add file statistics
-            let file_count = issues.iter().map(|i| &i.file_path).collect::<std::collections::HashSet<_>>().len();
+            let file_count = issues
+                .iter()
+                .map(|i| &i.file_path)
+                .collect::<std::collections::HashSet<_>>()
+                .len();
             let total_issues = issues.len();
             println!("│                                                      │");
-            let stats_text = format!("Files analyzed: {file_count}    Total issues: {total_issues}");
+            let stats_text =
+                format!("Files analyzed: {file_count}    Total issues: {total_issues}");
             println!("│  {stats_text}                           │");
             println!("│                                                      │");
             println!("╰──────────────────────────────────────────────────────╯");
@@ -1112,7 +1144,7 @@ impl Reporter {
         // 注意：分数越高代码越烂，所以用红色表示高分
         let filled_length = ((score / 100.0) * bar_length as f64) as usize;
         let empty_length = bar_length - filled_length;
-        
+
         let filled_char = if score >= 80.0 {
             "█".red()
         } else if score >= 60.0 {
@@ -1122,16 +1154,20 @@ impl Reporter {
         } else {
             "█".green()
         };
-        
+
         let empty_char = "▒".bright_black();
-        
-        format!("{}{}",
+
+        format!(
+            "{}{}",
             filled_char.to_string().repeat(filled_length),
             empty_char.to_string().repeat(empty_length)
         )
     }
 
-    fn print_category_scores_enhanced(&self, category_scores: &std::collections::HashMap<String, f64>) {
+    fn print_category_scores_enhanced(
+        &self,
+        category_scores: &std::collections::HashMap<String, f64>,
+    ) {
         if self.i18n.lang == "zh-CN" {
             println!("{}", "📋 分类评分详情".bright_yellow().bold());
         } else {
@@ -1183,16 +1219,28 @@ impl Reporter {
 
     fn print_quality_legend(&self) {
         if self.i18n.lang == "zh-CN" {
-            println!("{}", "📏 评分标准 (分数越高代码越烂)".bright_yellow().bold());
+            println!(
+                "{}",
+                "📏 评分标准 (分数越高代码越烂)".bright_yellow().bold()
+            );
             println!("{}", "─".repeat(40).bright_black());
             println!("   💀 81-100分: 糟糕，急需重写    🔥 61-80分: 较差，建议重构");
             println!("   ⚠️  41-60分: 一般，需要改进    ✅ 21-40分: 良好，还有提升空间");
             println!("   🌟 0-20分: 优秀，继续保持");
         } else {
-            println!("{}", "📏 Scoring Scale (higher score = worse code)".bright_yellow().bold());
+            println!(
+                "{}",
+                "📏 Scoring Scale (higher score = worse code)"
+                    .bright_yellow()
+                    .bold()
+            );
             println!("{}", "─".repeat(50).bright_black());
-            println!("   💀 81-100: Terrible, rewrite needed    🔥 61-80: Poor, refactoring recommended");
-            println!("   ⚠️  41-60: Average, needs improvement   ✅ 21-40: Good, room for improvement");
+            println!(
+                "   💀 81-100: Terrible, rewrite needed    🔥 61-80: Poor, refactoring recommended"
+            );
+            println!(
+                "   ⚠️  41-60: Average, needs improvement   ✅ 21-40: Good, room for improvement"
+            );
             println!("   🌟 0-20: Excellent, keep it up");
         }
     }
@@ -1211,13 +1259,16 @@ impl Reporter {
         }
     }
 
-    fn generate_improvement_suggestions_from_score(&self, quality_score: &CodeQualityScore) -> Vec<String> {
+    fn generate_improvement_suggestions_from_score(
+        &self,
+        quality_score: &CodeQualityScore,
+    ) -> Vec<String> {
         let mut suggestions = Vec::new();
-        
+
         // Sort categories by score (worst first)
         let mut sorted_categories: Vec<_> = quality_score.category_scores.iter().collect();
         sorted_categories.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         for (category, score) in sorted_categories.iter().take(3) {
             if **score > 60.0 {
                 let suggestion = match (self.i18n.lang.as_str(), category.as_str()) {
@@ -1234,15 +1285,17 @@ impl Reporter {
                 suggestions.push(suggestion.to_string());
             }
         }
-        
+
         if suggestions.is_empty() {
             if self.i18n.lang == "zh-CN" {
                 suggestions.push("🎉 代码质量不错！继续保持良好的编程习惯".to_string());
             } else {
-                suggestions.push("🎉 Code quality looks good! Keep up the good programming habits".to_string());
+                suggestions.push(
+                    "🎉 Code quality looks good! Keep up the good programming habits".to_string(),
+                );
             }
         }
-        
+
         suggestions
     }
 
@@ -1573,7 +1626,7 @@ impl Reporter {
         let category_name = if self.i18n.lang == "zh-CN" {
             match category {
                 "naming" => "命名规范",
-                "complexity" => "复杂度", 
+                "complexity" => "复杂度",
                 "duplication" => "代码重复",
                 "rust-features" => "Rust功能",
                 _ => category,
@@ -1581,13 +1634,13 @@ impl Reporter {
         } else {
             match category {
                 "naming" => "Naming",
-                "complexity" => "Complexity", 
+                "complexity" => "Complexity",
                 "duplication" => "Duplication",
                 "rust-features" => "Rust Features",
                 _ => category,
             }
         };
-        
+
         // 使用时间戳作为种子，确保每次运行都有不同的吐槽
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1595,7 +1648,7 @@ impl Reporter {
             .as_millis() as u64;
         let seed = timestamp + (score * 1000.0) as u64;
         let roast_message = self.get_random_roast(category_name, score, seed);
-        
+
         if roast_message.is_empty() {
             None
         } else {
@@ -1740,7 +1793,10 @@ impl Reporter {
         if self.i18n.lang == "zh-CN" {
             println!("{}", "继续努力，让代码变得更好！🚀".bright_cyan());
         } else {
-            println!("{}", "Keep working to make your code better! 🚀".bright_cyan());
+            println!(
+                "{}",
+                "Keep working to make your code better! 🚀".bright_cyan()
+            );
         }
     }
 
@@ -1819,7 +1875,7 @@ impl Reporter {
 
         for (rule_name, count) in rule_stats {
             let rule_name_str = rule_name.as_str();
-            
+
             // 获取规则的中文显示名称
             let display_name = if self.i18n.lang == "zh-CN" {
                 match rule_name_str {
@@ -1988,7 +2044,11 @@ impl Reporter {
         }
     }
 
-    fn print_issues_enhanced(&self, issues: &[CodeIssue], educational_advisor: Option<&EducationalAdvisor>) {
+    fn print_issues_enhanced(
+        &self,
+        issues: &[CodeIssue],
+        educational_advisor: Option<&EducationalAdvisor>,
+    ) {
         let mut file_groups: HashMap<String, Vec<&CodeIssue>> = HashMap::new();
 
         for issue in issues {
@@ -2029,20 +2089,29 @@ impl Reporter {
 
                 // Show count and some example variable names for naming issues
                 if rule_name.contains("naming") {
-                    let examples: Vec<String> = rule_issues.iter()
+                    let examples: Vec<String> = rule_issues
+                        .iter()
                         .take(5)
                         .filter_map(|issue| {
                             // Extract variable name from message
                             if let Some(start) = issue.message.find("'") {
-                                issue.message[start+1..].find("'").map(|end| issue.message[start+1..start+1+end].to_string())
+                                issue.message[start + 1..].find("'").map(|end| {
+                                    issue.message[start + 1..start + 1 + end].to_string()
+                                })
                             } else {
                                 None
                             }
                         })
                         .collect();
-                    
+
                     if !examples.is_empty() {
-                        println!("  {} {}: {} ({})", icon, translated_name, count, examples.join(", "));
+                        println!(
+                            "  {} {}: {} ({})",
+                            icon,
+                            translated_name,
+                            count,
+                            examples.join(", ")
+                        );
                     } else {
                         println!("  {icon} {translated_name}: {count}");
                     }
@@ -2050,15 +2119,23 @@ impl Reporter {
                     // Show instance count for duplication
                     if let Some(first_issue) = rule_issues.first() {
                         if let Some(instances_start) = first_issue.message.find("发现 ") {
-                            if let Some(instances_end) = first_issue.message[instances_start..].find(" 个") {
-                                let instances_str = &first_issue.message[instances_start+3..instances_start+instances_end];
+                            if let Some(instances_end) =
+                                first_issue.message[instances_start..].find(" 个")
+                            {
+                                let instances_str = &first_issue.message
+                                    [instances_start + 3..instances_start + instances_end];
                                 println!("  {icon} {translated_name}: {count} ({instances_str} instances)");
                             } else {
                                 println!("  {icon} {translated_name}: {count}");
                             }
-                        } else if let Some(instances_start) = first_issue.message.find("Similar code blocks detected: ") {
-                            if let Some(instances_end) = first_issue.message[instances_start..].find(" instances") {
-                                let instances_str = &first_issue.message[instances_start+30..instances_start+instances_end];
+                        } else if let Some(instances_start) =
+                            first_issue.message.find("Similar code blocks detected: ")
+                        {
+                            if let Some(instances_end) =
+                                first_issue.message[instances_start..].find(" instances")
+                            {
+                                let instances_str = &first_issue.message
+                                    [instances_start + 30..instances_start + instances_end];
                                 println!("  {icon} {translated_name}: {count} ({instances_str} instances)");
                             } else {
                                 println!("  {icon} {translated_name}: {count}");
@@ -2147,23 +2224,29 @@ impl Reporter {
 
     fn print_educational_advice(&self, advice: &crate::educational::EducationalAdvice) {
         println!("    {}", "💡 Educational Advice:".bright_yellow().bold());
-        println!("    {}", format!("Why it's bad: {}", advice.why_bad).yellow());
-        println!("    {}", format!("How to fix: {}", advice.how_to_fix).green());
-        
+        println!(
+            "    {}",
+            format!("Why it's bad: {}", advice.why_bad).yellow()
+        );
+        println!(
+            "    {}",
+            format!("How to fix: {}", advice.how_to_fix).green()
+        );
+
         if let Some(ref bad_example) = advice.example_bad {
             println!("    {}", "❌ Bad example:".red());
             println!("    {}", format!("    {bad_example}").bright_black());
         }
-        
+
         if let Some(ref good_example) = advice.example_good {
             println!("    {}", "✅ Good example:".green());
             println!("    {}", format!("    {good_example}").bright_black());
         }
-        
+
         if let Some(ref tip) = advice.best_practice_tip {
             println!("    {}", format!("💡 Tip: {tip}").cyan());
         }
-        
+
         if let Some(ref link) = advice.rust_docs_link {
             println!("    {}", format!("📚 Learn more: {link}").blue());
         }
@@ -2172,15 +2255,18 @@ impl Reporter {
 
     fn print_hall_of_shame(&self, hall_of_shame: &HallOfShame) {
         let stats = hall_of_shame.generate_shame_report();
-        
+
         println!();
         if self.i18n.lang == "zh-CN" {
             println!("{}", "🏆 问题最多的文件".bright_red().bold());
         } else {
-            println!("{}", "🏆 Hall of Shame - Worst Offenders".bright_red().bold());
+            println!(
+                "{}",
+                "🏆 Hall of Shame - Worst Offenders".bright_red().bold()
+            );
         }
         println!("{}", "─".repeat(60).bright_black());
-        
+
         if stats.hall_of_shame.is_empty() {
             if self.i18n.lang == "zh-CN" {
                 println!("🎉 没有文件进入耻辱榜！干得好！");
@@ -2192,14 +2278,26 @@ impl Reporter {
 
         if self.i18n.lang == "zh-CN" {
             println!("📊 项目统计:");
-            println!("   分析文件数: {}", stats.total_files_analyzed.to_string().cyan());
+            println!(
+                "   分析文件数: {}",
+                stats.total_files_analyzed.to_string().cyan()
+            );
             println!("   总问题数: {}", stats.total_issues.to_string().red());
-            println!("   垃圾密度: {:.2} 问题/1000行", stats.garbage_density.to_string().yellow());
+            println!(
+                "   垃圾密度: {:.2} 问题/1000行",
+                stats.garbage_density.to_string().yellow()
+            );
         } else {
             println!("📊 Project Statistics:");
-            println!("   Files analyzed: {}", stats.total_files_analyzed.to_string().cyan());
+            println!(
+                "   Files analyzed: {}",
+                stats.total_files_analyzed.to_string().cyan()
+            );
             println!("   Total issues: {}", stats.total_issues.to_string().red());
-            println!("   Garbage density: {:.2} issues/1000 lines", stats.garbage_density.to_string().yellow());
+            println!(
+                "   Garbage density: {:.2} issues/1000 lines",
+                stats.garbage_density.to_string().yellow()
+            );
         }
         println!();
 
@@ -2208,32 +2306,38 @@ impl Reporter {
         } else {
             println!("🗑️ Top {} Worst Files:", stats.hall_of_shame.len().min(5));
         }
-        
+
         for (i, entry) in stats.hall_of_shame.iter().take(5).enumerate() {
-            let file_name = entry.file_path.file_name()
+            let file_name = entry
+                .file_path
+                .file_name()
                 .unwrap_or_default()
                 .to_string_lossy();
-            
+
             if self.i18n.lang == "zh-CN" {
-                println!("   {}. {} ({} 个问题)", 
+                println!(
+                    "   {}. {} ({} 个问题)",
                     (i + 1).to_string().bright_white(),
                     file_name.bright_red().bold(),
                     entry.total_issues.to_string().red()
                 );
-                
-                println!("      💥 严重: {}, 🌶️ 中等: {}, 😐 轻微: {}", 
+
+                println!(
+                    "      💥 严重: {}, 🌶️ 中等: {}, 😐 轻微: {}",
                     entry.nuclear_issues.to_string().red(),
                     entry.spicy_issues.to_string().yellow(),
                     entry.mild_issues.to_string().blue()
                 );
             } else {
-                println!("   {}. {} ({} issues)", 
+                println!(
+                    "   {}. {} ({} issues)",
                     (i + 1).to_string().bright_white(),
                     file_name.bright_red().bold(),
                     entry.total_issues.to_string().red()
                 );
-                
-                println!("      💥 Nuclear: {}, 🌶️ Spicy: {}, 😐 Mild: {}", 
+
+                println!(
+                    "      💥 Nuclear: {}, 🌶️ Spicy: {}, 😐 Mild: {}",
                     entry.nuclear_issues.to_string().red(),
                     entry.spicy_issues.to_string().yellow(),
                     entry.mild_issues.to_string().blue()
@@ -2247,16 +2351,18 @@ impl Reporter {
         } else {
             println!("🔥 Most Common Issues:");
         }
-        
+
         for (i, pattern) in stats.most_common_patterns.iter().take(5).enumerate() {
             if self.i18n.lang == "zh-CN" {
-                println!("   {}. {} ({} 次出现)", 
+                println!(
+                    "   {}. {} ({} 次出现)",
                     (i + 1).to_string().bright_white(),
                     self.translate_rule_name(&pattern.rule_name).bright_yellow(),
                     pattern.count.to_string().red()
                 );
             } else {
-                println!("   {}. {} ({} occurrences)", 
+                println!(
+                    "   {}. {} ({} occurrences)",
                     (i + 1).to_string().bright_white(),
                     pattern.rule_name.bright_yellow(),
                     pattern.count.to_string().red()
@@ -2270,7 +2376,7 @@ impl Reporter {
         if self.i18n.lang != "zh-CN" {
             return rule_name.to_string();
         }
-        
+
         match rule_name {
             "terrible-naming" => "糟糕命名".to_string(),
             "meaningless-naming" => "无意义命名".to_string(),
@@ -2291,7 +2397,7 @@ impl Reporter {
 
     fn print_improvement_suggestions(&self, hall_of_shame: &HallOfShame) {
         let suggestions = hall_of_shame.get_improvement_suggestions(&self.i18n.lang);
-        
+
         println!();
         if self.i18n.lang == "zh-CN" {
             println!("{}", "💡 改进建议".bright_green().bold());
@@ -2299,7 +2405,7 @@ impl Reporter {
             println!("{}", "💡 Improvement Suggestions".bright_green().bold());
         }
         println!("{}", "─".repeat(50).bright_black());
-        
+
         for suggestion in suggestions {
             println!("   {}", suggestion.green());
         }
@@ -2307,8 +2413,8 @@ impl Reporter {
     }
 
     fn print_markdown_report_enhanced(
-        &self, 
-        issues: &[CodeIssue], 
+        &self,
+        issues: &[CodeIssue],
         quality_score: &CodeQualityScore,
         educational_advisor: Option<&EducationalAdvisor>,
         hall_of_shame: Option<&HallOfShame>,
@@ -2316,26 +2422,33 @@ impl Reporter {
     ) {
         // First print the regular markdown report
         self.print_markdown_report(issues);
-        
+
         // Add quality score section
         println!("## 🏆 Code Quality Score");
         println!();
-        println!("**Score**: {:.1}/100 {}", quality_score.total_score, quality_score.quality_level.emoji());
-        println!("**Level**: {}", quality_score.quality_level.description(&self.i18n.lang));
+        println!(
+            "**Score**: {:.1}/100 {}",
+            quality_score.total_score,
+            quality_score.quality_level.emoji()
+        );
+        println!(
+            "**Level**: {}",
+            quality_score.quality_level.description(&self.i18n.lang)
+        );
         println!();
-        
+
         // Print hall of shame in markdown if requested
         if let Some(shame) = hall_of_shame {
             self.print_markdown_hall_of_shame(shame);
         }
-        
+
         // Print improvement suggestions in markdown if requested
         if show_suggestions {
             if let Some(shame) = hall_of_shame {
                 self.print_markdown_improvement_suggestions(shame);
             }
         }
-        
+
         // Print educational content in markdown if requested
         if educational_advisor.is_some() {
             self.print_markdown_educational_section(issues, educational_advisor);
@@ -2344,10 +2457,10 @@ impl Reporter {
 
     fn print_markdown_hall_of_shame(&self, hall_of_shame: &HallOfShame) {
         let stats = hall_of_shame.generate_shame_report();
-        
+
         println!("## 🏆 Hall of Shame");
         println!();
-        
+
         if stats.hall_of_shame.is_empty() {
             println!("🎉 No files in the hall of shame! Great job!");
             return;
@@ -2359,20 +2472,26 @@ impl Reporter {
         println!("| --- | --- |");
         println!("| Files analyzed | {} |", stats.total_files_analyzed);
         println!("| Total issues | {} |", stats.total_issues);
-        println!("| Garbage density | {:.2} issues/1000 lines |", stats.garbage_density);
+        println!(
+            "| Garbage density | {:.2} issues/1000 lines |",
+            stats.garbage_density
+        );
         println!();
 
         println!("### 🗑️ Worst Files");
         println!();
         println!("| Rank | File | Shame Score | Nuclear | Spicy | Mild |");
         println!("| --- | --- | --- | --- | --- | --- |");
-        
+
         for (i, entry) in stats.hall_of_shame.iter().take(5).enumerate() {
-            let file_name = entry.file_path.file_name()
+            let file_name = entry
+                .file_path
+                .file_name()
                 .unwrap_or_default()
                 .to_string_lossy();
-            
-            println!("| {} | {} | {:.1} | {} | {} | {} |",
+
+            println!(
+                "| {} | {} | {:.1} | {} | {} | {} |",
                 i + 1,
                 file_name,
                 entry.shame_score,
@@ -2387,44 +2506,45 @@ impl Reporter {
         println!();
         println!("| Rank | Issue Type | Count |");
         println!("| --- | --- | --- |");
-        
+
         for (i, pattern) in stats.most_common_patterns.iter().take(5).enumerate() {
-            println!("| {} | {} | {} |",
-                i + 1,
-                pattern.rule_name,
-                pattern.count
-            );
+            println!("| {} | {} | {} |", i + 1, pattern.rule_name, pattern.count);
         }
         println!();
     }
 
     fn print_markdown_improvement_suggestions(&self, hall_of_shame: &HallOfShame) {
         let suggestions = hall_of_shame.get_improvement_suggestions(&self.i18n.lang);
-        
+
         if self.i18n.lang == "zh-CN" {
             println!("## 💡 改进建议");
         } else {
             println!("## 💡 Improvement Suggestions");
         }
         println!();
-        
+
         for suggestion in suggestions {
             println!("- {suggestion}");
         }
         println!();
     }
 
-    fn print_markdown_educational_section(&self, issues: &[CodeIssue], educational_advisor: Option<&EducationalAdvisor>) {
+    fn print_markdown_educational_section(
+        &self,
+        issues: &[CodeIssue],
+        educational_advisor: Option<&EducationalAdvisor>,
+    ) {
         if let Some(advisor) = educational_advisor {
             println!("## 📚 Educational Content");
             println!();
-            
+
             // Get unique rule names
-            let mut rule_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut rule_names: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
             for issue in issues {
                 rule_names.insert(issue.rule_name.clone());
             }
-            
+
             for rule_name in rule_names {
                 if let Some(advice) = advisor.get_advice(&rule_name) {
                     println!("### 📖 {}", rule_name.replace("-", " "));
@@ -2435,7 +2555,7 @@ impl Reporter {
                     println!("**How to fix:**");
                     println!("{}", advice.how_to_fix);
                     println!();
-                    
+
                     if let Some(ref bad_example) = advice.example_bad {
                         println!("**❌ Bad example:**");
                         println!("```rust");
@@ -2443,7 +2563,7 @@ impl Reporter {
                         println!("```");
                         println!();
                     }
-                    
+
                     if let Some(ref good_example) = advice.example_good {
                         println!("**✅ Good example:**");
                         println!("```rust");
@@ -2451,13 +2571,13 @@ impl Reporter {
                         println!("```");
                         println!();
                     }
-                    
+
                     if let Some(ref tip) = advice.best_practice_tip {
                         println!("**💡 Best Practice Tip:**");
                         println!("{tip}");
                         println!();
                     }
-                    
+
                     if let Some(ref link) = advice.rust_docs_link {
                         println!("**📚 Learn More:**");
                         println!("[Rust Documentation]({link})");

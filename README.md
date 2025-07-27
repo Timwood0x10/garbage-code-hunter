@@ -7,7 +7,7 @@
 
 A humorous Rust code quality detector that roasts your garbage code with style! 🔥
 
-*The most sarcastic Rust static analysis assistant you'll ever meet* 🎭
+*The most sarcastic Rust static analysis assistant you'll ever meet* 🎭   Make coding more interesting, and have fun 😏.
 
 ```
 Inspiration from https://github.com/Done-0/fuck-u-code.git
@@ -31,7 +31,7 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 
 - 🎓 **Educational Mode**: Detailed explanations with code examples and best practices
 - 🏆 **Hall of Shame**: Project statistics and worst files ranking
-- 💡 **Smart Suggestions**: AI-driven improvement recommendations based on actual issues
+- 💡 **Smart Suggestions**: Targeted improvement recommendations based on detected issues
 - 📈 **Advanced Scoring**: Comprehensive quality metrics with category breakdown
 - 🎨 **Beautiful UI**: Card-style layouts with progress bars and visual indicators
 - 🔍 **File Structure Analysis**: Detects overly long files, import chaos, and deep module nesting
@@ -338,14 +338,16 @@ cargo run -- src/ --suggestions --lang zh-CN
 #### 🎓 Educational Mode (`--educational`)
 
 Provides detailed explanations for each detected issue:
+
 - **Why it's problematic**: Clear explanation of the issue
-- **How to fix**: Step-by-step improvement guide  
+- **How to fix**: Step-by-step improvement guide
 - **Code examples**: Before/after code snippets
 - **Best practices**: Links to Rust documentation and guidelines
 
 #### 🏆 Hall of Shame (`--hall-of-shame`)
 
 Shows comprehensive project statistics:
+
 - **Worst files ranking**: Files with most issues
 - **Issue frequency analysis**: Most common problem patterns
 - **Project metrics**: Garbage density, file count, total issues
@@ -354,6 +356,7 @@ Shows comprehensive project statistics:
 #### 💡 Smart Suggestions (`--suggestions`)
 
 Generates intelligent, data-driven recommendations:
+
 - **Targeted advice**: Based on your actual code issues
 - **Priority ranking**: Most critical improvements first
 - **Actionable steps**: Specific, implementable suggestions
@@ -372,75 +375,76 @@ Preparing to roast your code...
 Found some areas for improvement:
 
 📈 Issue Statistics:
-   1 🔥 Nuclear Issues (fix immediately)
-   138 🌶️  Spicy Issues (should fix)
-   34 😐 Mild Issues (can ignore)
-   173 📝 Total
+   8 🔥 Nuclear Issues (fix immediately)
+   202 🌶️  Spicy Issues (should fix)
+   210 😐 Mild Issues (can ignore)
+   420 📝 Total
 
 🏆 Code Quality Score
 ──────────────────────────────────────────────────
-   📊 Score: 60.9/100 😐
-   🎯 Level: Average
-   📏 Lines of Code: 260
-   📁 Files: 1
-   🔍 Issue Density: 66 issues/1k lines
+   📊 Score: 63.0/100 😞
+   🎯 Level: Poor
+   📏 Lines of Code: 512
+   📁 Files: 2
+   🔍 Issue Density: 82 issues/1k lines
 
    🎭 Issue Distribution:
-      💥 Nuclear: 1
-      🌶️  Spicy: 138
-      😐 Mild: 34
+      💥 Nuclear: 8
+      🌶️  Spicy: 202
+      😐 Mild: 210
 
 🏆 Files with Most Issues
 ──────────────────────────────────────────────────
-   1. func.rs (173 issues)
+   1. func.rs (231 issues)
+   2. ultimate_garbage_code_example.rs (189 issues)
+
+📁 ultimate_garbage_code_example.rs
+  📦 Nesting depth issues: 11 (depth 4-14)
+  ⚠️ panic abuse: 1
+  🔄 Code duplication issues: 5 (multiple blocks)
+  ⚠️ god function: 1
+  ⚠️ magic number: 16
 
 📁 func.rs
   📦 Nesting depth issues: 20 (depth 4-9)
-  🔄 Code duplication issues: 9 (6 instances)
+  🔄 Code duplication issues: 9 (10 instances)
+  🏷️ Variable naming issues: 22 (temp, temp, data, data, data, ...)
+  ⚠️ println debugging: 1
   🏷️ Variable naming issues: 128 (a, b, c, d, e, ...)
-  🏷️ Variable naming issues: 13 (a, b, c, d, e, ...)
-  ⚠️ long function: 1
 
 
-📊 Scoring Details
+🏆 Code Quality Report
+════════════════════════════════════════════════════════════
+╭─ 📊 Overall Score ───────────────────────────────────╮
+│                                                      │
+│  Score: 63.0/100  ████████████▒▒▒▒▒▒▒▒  (😞 Poor)│
+│                                                      │
+│  Files analyzed: 2    Total issues: 420                           │
+│                                                      │
+╰──────────────────────────────────────────────────────╯
+
+📋 Category Scores
+────────────────────────────────────────────────────────────
+   ⚠ 🏷️ Naming [ 90] ██████████████████▒▒ Terrible, urgent fixes needed
+       💬 Variable names harder to decode than alien language 👽
+   ⚠ 🧩 Complexity [ 90] ██████████████████▒▒ Terrible, urgent fixes needed
+       💬 More nesting levels than Russian dolls 🪆
+   ⚠ 🔄 Duplication [ 90] ██████████████████▒▒ Terrible, urgent fixes needed
+       💬 This duplication level deserves a Guinness World Record 🏆
+   ✓✓ 🦀 Rust Basics [  0] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ Excellent, keep it up
+   ✓✓ ⚡ Advanced Rust [  0] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ Excellent, keep it up
+   ⚠ 🚀 Rust Features [ 90] ██████████████████▒▒ Terrible, urgent fixes needed
+       💬 Rust community would shed tears seeing this code 🦀
+   ✓✓ 🏗️ Code Structure [  0] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ Excellent, keep it up
+
+
+📏 Scoring Scale (higher score = worse code)
 ──────────────────────────────────────────────────
-📋 Category Scores:
-  ⚠ 🏷️ Naming 90     Terrible, urgent fixes needed
-    💬 Congrats! Variables harder to understand than comments 🏆
-  ⚠ 🧩 Complexity 90     Terrible, urgent fixes needed
-    💬 Complexity off the charts! Even AI gave up 🤖
-  ⚠ 🔄 Duplication 90     Terrible, urgent fixes needed
-    💬 Suggest renaming to ctrl-c-ctrl-v.rs 📋
-  ✓✓ 🦀 Rust Basics 0     Excellent, keep it up
-  ✓✓ ⚡ Advanced Rust 0     Excellent, keep it up
-  • 🚀 Rust Features 69     Poor, refactoring recommended
-    💬 More macros than my excuses 🎭
-  ✓✓ 🏗️ Code Structure 0     Excellent, keep it up
+   💀 81-100: Terrible, rewrite needed    🔥 61-80: Poor, refactoring recommended
+   ⚠️  41-60: Average, needs improvement   ✅ 21-40: Good, room for improvement
+   🌟 0-20: Excellent, keep it up
 
-🧮 Weighted Calculation:
-  Score calculation: (90.0×0.25 + 90.0×0.20 + 90.0×0.15 + 0.0×0.15 + 0.0×0.10 + 69.4×0.10 + 0.0×0.05) ÷ 1.00 = 60.9
-
-📏 Scoring Scale (higher score = worse code):
-  💀 81-100: Terrible    🔥 61-80: Poor    ⚠️ 41-60: Average
-  ✅ 21-40: Good         🌟 0-20: Excellent
-📋 Summary
-──────────────────────────────────────────────────
-😐 Average code quality, Score: 60.9/100, room for improvement
-
-Found some serious issues, suggest fixing nuclear problems first 🔥
-
-💡 Suggestions
-──────────────────────────────────────────────────
-   💡 Use meaningful variable names that make code self-documenting (e.g., user_count instead of data)
-   🎯 Variable names should describe what they store, not the data type
-   🔧 Reduce nesting levels, consider extracting functions or using early returns (guard clauses)
-   🏗️ Complex conditional logic can be split into multiple small functions
-   ✂️ Split long functions into smaller ones, follow the single responsibility principle
-   📏 A function should ideally not exceed 20-30 lines for better understanding and testing
-   🔄 Extract common code into functions to follow the DRY principle
-   🏗️ Consider creating utility functions or modules for repeated logic
-
-Keep working hard to make your code better! 🚀
+Keep working to make your code better! 🚀
 ```
 
 ### Chinese Mode
@@ -454,73 +458,77 @@ Keep working hard to make your code better! 🚀
 发现了一些需要改进的地方：
 
 📈 问题统计:
-   1 🔥 核弹级问题 (需要立即修复)
-   138 🌶️  辣眼睛问题 (建议修复)
-   34 😐 轻微问题 (可以忽略)
-   173 📝 总计
+   8 🔥 核弹级问题 (需要立即修复)
+   202 🌶️  辣眼睛问题 (建议修复)
+   210 😐 轻微问题 (可以忽略)
+   420 📝 总计
 
 🏆 代码质量评分
 ──────────────────────────────────────────────────
-   📊 总分: 60.9/100 😐
-   🎯 等级: 一般
-   📏 代码行数: 260
-   📁 文件数量: 1
-   🔍 问题密度: 66 问题/千行
+   📊 总分: 63.0/100 😞
+   🎯 等级: 较差
+   📏 代码行数: 512
+   📁 文件数量: 2
+   🔍 问题密度: 82 问题/千行
 
    🎭 问题分布:
-      💥 核弹级: 1
-      🌶️  严重: 138
-      😐 轻微: 34
+      💥 核弹级: 8
+      🌶️  严重: 202
+      😐 轻微: 210
 
 🏆 问题最多的文件
 ──────────────────────────────────────────────────
-   1. func.rs (173 issues)
+   1. func.rs (231 issues)
+   2. ultimate_garbage_code_example.rs (189 issues)
 
 📁 func.rs
-  📦 嵌套深度问题: 20 (deep nesting)
-  🔄 代码重复问题: 9 (20 instances)
+  📦 嵌套深度问题: 20 (深度嵌套)
+  🔄 代码重复问题: 9 (6 instances)
+  🏷️ 变量命名问题: 22 (temp, temp, data, data, data, ...)
+  ⚠️ println 调试: 1
   🏷️ 变量命名问题: 128 (a, b, c, d, e, ...)
-  🏷️ 变量命名问题: 13 (a, b, c, d, e, ...)
-  ⚠️ long function: 1
+
+📁 ultimate_garbage_code_example.rs
+  📦 嵌套深度问题: 11 (深度嵌套)
+  ⚠️ panic 滥用: 1
+  🔄 代码重复问题: 5 (多个代码块)
+  ⚠️ 上帝函数: 1
+  ⚠️ 魔法数字: 16
 
 
-📊 评分详情
-──────────────────────────────────────────────────
-📋 分类评分详情:
-  ⚠ 🏷️ 命名规范 90分     糟糕，急需修复
-    💬 恭喜！你成功让变量名比注释还难懂 🏆
-  ⚠ 🧩 复杂度 90分     糟糕，急需修复
-    💬 复杂度爆表！连AI都看不懂了 🤖
-  ⚠ 🔄 代码重复 90分     糟糕，急需修复
-    💬 建议改名为copy-paste.rs 📋
-  ✓✓ 🦀 Rust基础 0分     优秀，继续保持
-  ✓✓ ⚡ 高级特性 0分     优秀，继续保持
-  • 🚀 Rust功能 69分     较差，建议重构
-    💬 宏定义比我的借口还多 🎭
-  ✓✓ 🏗️ 代码结构 0分     优秀，继续保持
+🏆 代码质量报告
+════════════════════════════════════════════════════════════
+╭─ 📊 总体评分 ─────────────────────────────────────────╮
+│                                                      │
+│  总分: 63.0/100  ████████████▒▒▒▒▒▒▒▒  (😞 较差)│
+│                                                      │
+│  分析文件: 2 个    问题总数: 420 个                              │
+│                                                      │
+╰──────────────────────────────────────────────────────╯
 
-🧮 加权计算:
-  评分计算: (90.0×0.25 + 90.0×0.20 + 90.0×0.15 + 0.0×0.15 + 0.0×0.10 + 69.4×0.10 + 0.0×0.05) ÷ 1.00 = 60.9
+📋 分类评分详情
+────────────────────────────────────────────────────────────
+   ⚠ 🏷️ 命名规范 [ 90分] ██████████████████▒▒ 糟糕，急需修复
+       💬 变量名的创意程度超越了我的理解 🚀
+   ⚠ 🧩 复杂度 [ 90分] ██████████████████▒▒ 糟糕，急需修复
+       💬 函数长度已经突破天际 🚀
+   ⚠ 🔄 代码重复 [ 90分] ██████████████████▒▒ 糟糕，急需修复
+       💬 建议改名为copy-paste.rs 📋
+   ✓✓ 🦀 Rust基础 [  0分] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 优秀，继续保持
+   ✓✓ ⚡ 高级特性 [  0分] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 优秀，继续保持
+   ⚠ 🚀 Rust功能 [ 90分] ██████████████████▒▒ 糟糕，急需修复
+       💬 建议重新学习 Rust 最佳实践 🎓
+   ✓✓ 🏗️ 代码结构 [  0分] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 优秀，继续保持
 
-📏 评分标准 (分数越高代码越烂):
-  💀 81-100: 糟糕    🔥 61-80: 较差    ⚠️ 41-60: 一般
-  ✅ 21-40: 良好     🌟 0-20: 优秀
-📋 总结
-──────────────────────────────────────────────────
-😐 代码质量一般，评分: 60.9/100，还有改进空间
 
-发现了一些严重问题，建议优先修复核弹级问题 🔥
-
-💡 改进建议
-──────────────────────────────────────────────────
-   💡 使用有意义的变量名，让代码自解释（比如用 user_count 而不是 data）
-   🎯 变量名应该描述它存储的内容，而不是数据类型
-   🔧 减少嵌套层数，考虑提取函数或使用早期返回（guard clauses）
-   🏗️ 复杂的条件逻辑可以拆分成多个小函数
-   ✂️ 将长函数拆分成多个小函数，遵循单一职责原则
-   📏 一个函数最好不超过 20-30 行，这样更容易理解和测试
+📏 评分标准 (分数越高代码越烂)
+────────────────────────────────────────
+   💀 81-100分: 糟糕，急需重写    🔥 61-80分: 较差，建议重构
+   ⚠️  41-60分: 一般，需要改进    ✅ 21-40分: 良好，还有提升空间
+   🌟 0-20分: 优秀，继续保持
 
 继续努力，让代码变得更好！🚀
+
 ```
 
 ## 🛠️ Command Line Options
@@ -536,6 +544,9 @@ Keep working hard to make your code better! 🚀
 | `--lang LANG`       | `-l LANG`    | Output language (zh-CN, en-US)                 |
 | `--exclude PATTERN` | `-e PATTERN` | Exclude file/directory patterns                |
 | `--harsh`           |                | Show only the worst offenders                  |
+| `--suggestions`     |                | Show suggestion for optimizing code            |
+| `--educational`     |                | Show educational advice for each issue type    |
+| `--hall-of-shame`   |                | Show hall of shame (worst files and patterns)  |
 
 ## 🔧 Development
 

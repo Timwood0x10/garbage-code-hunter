@@ -1,7 +1,7 @@
+use crate::analyzer::{CodeIssue, Severity};
 /// Hall of Shame - tracks and ranks the worst code patterns and files
 use std::collections::HashMap;
 use std::path::PathBuf;
-use crate::analyzer::{CodeIssue, Severity};
 
 #[derive(Debug, Clone)]
 pub struct ShameEntry {
@@ -47,9 +47,14 @@ impl HallOfShame {
         }
     }
 
-    pub fn add_file_analysis(&mut self, file_path: PathBuf, issues: &[CodeIssue], file_lines: usize) {
+    pub fn add_file_analysis(
+        &mut self,
+        file_path: PathBuf,
+        issues: &[CodeIssue],
+        file_lines: usize,
+    ) {
         self.total_lines += file_lines;
-        
+
         if issues.is_empty() {
             return;
         }
@@ -77,9 +82,8 @@ impl HallOfShame {
         }
 
         // Calculate shame score (weighted by severity)
-        let shame_score = (nuclear_count as f64 * 10.0) + 
-                         (spicy_count as f64 * 3.0) + 
-                         (mild_count as f64 * 1.0);
+        let shame_score =
+            (nuclear_count as f64 * 10.0) + (spicy_count as f64 * 3.0) + (mild_count as f64 * 1.0);
 
         let entry = ShameEntry {
             file_path,
@@ -95,18 +99,22 @@ impl HallOfShame {
     }
 
     fn update_pattern_stats(&mut self, rule_name: &str, severity: &Severity, file_path: &PathBuf) {
-        let stats = self.pattern_stats.entry(rule_name.to_string()).or_insert_with(|| {
-            PatternStats {
+        let stats = self
+            .pattern_stats
+            .entry(rule_name.to_string())
+            .or_insert_with(|| PatternStats {
                 rule_name: rule_name.to_string(),
                 count: 0,
                 severity_distribution: HashMap::new(),
                 example_files: Vec::new(),
-            }
-        });
+            });
 
         stats.count += 1;
-        *stats.severity_distribution.entry(severity.clone()).or_insert(0) += 1;
-        
+        *stats
+            .severity_distribution
+            .entry(severity.clone())
+            .or_insert(0) += 1;
+
         // Add file to examples if not already present and we have less than 5 examples
         if stats.example_files.len() < 5 && !stats.example_files.contains(file_path) {
             stats.example_files.push(file_path.clone());
@@ -121,7 +129,8 @@ impl HallOfShame {
         let hall_of_shame = sorted_entries.into_iter().take(10).collect();
 
         // Sort patterns by frequency
-        let mut most_common_patterns: Vec<PatternStats> = self.pattern_stats.values().cloned().collect();
+        let mut most_common_patterns: Vec<PatternStats> =
+            self.pattern_stats.values().cloned().collect();
         most_common_patterns.sort_by(|a, b| b.count.cmp(&a.count));
 
         // Calculate garbage density (issues per 1000 lines)
@@ -152,11 +161,28 @@ impl HallOfShame {
     fn categorize_rule(&self, rule_name: &str) -> String {
         match rule_name {
             name if name.contains("naming") => "Naming Issues".to_string(),
-            name if name.contains("complexity") || name.contains("nesting") || name.contains("function") => "Complexity Issues".to_string(),
-            name if name.contains("unwrap") || name.contains("panic") || name.contains("string") || name.contains("clone") => "Rust-specific Issues".to_string(),
-            name if name.contains("println") || name.contains("todo") => "Student Code Issues".to_string(),
-            name if name.contains("import") || name.contains("file") || name.contains("module") => "Structure Issues".to_string(),
-            name if name.contains("magic") || name.contains("dead") || name.contains("comment") => "Code Smells".to_string(),
+            name if name.contains("complexity")
+                || name.contains("nesting")
+                || name.contains("function") =>
+            {
+                "Complexity Issues".to_string()
+            }
+            name if name.contains("unwrap")
+                || name.contains("panic")
+                || name.contains("string")
+                || name.contains("clone") =>
+            {
+                "Rust-specific Issues".to_string()
+            }
+            name if name.contains("println") || name.contains("todo") => {
+                "Student Code Issues".to_string()
+            }
+            name if name.contains("import") || name.contains("file") || name.contains("module") => {
+                "Structure Issues".to_string()
+            }
+            name if name.contains("magic") || name.contains("dead") || name.contains("comment") => {
+                "Code Smells".to_string()
+            }
             _ => "Other Issues".to_string(),
         }
     }
@@ -179,18 +205,18 @@ impl HallOfShame {
     pub fn generate_shame_heatmap(&self) -> HashMap<String, f64> {
         // Generate a "heatmap" of shame density by file extension or directory
         let mut heatmap = HashMap::new();
-        
+
         for entry in &self.entries {
             let key = if let Some(parent) = entry.file_path.parent() {
                 parent.to_string_lossy().to_string()
             } else {
                 "root".to_string()
             };
-            
+
             let current_shame = heatmap.get(&key).unwrap_or(&0.0);
             heatmap.insert(key, current_shame + entry.shame_score);
         }
-        
+
         heatmap
     }
 
@@ -203,14 +229,19 @@ impl HallOfShame {
             match pattern.rule_name.as_str() {
                 name if name.contains("naming") => {
                     if lang == "zh-CN" {
-                        suggestions.push("🏷️ 重点改进变量和函数命名 - 清晰的名称让代码自文档化".to_string());
+                        suggestions.push(
+                            "🏷️ 重点改进变量和函数命名 - 清晰的名称让代码自文档化".to_string(),
+                        );
                     } else {
                         suggestions.push("🏷️ Focus on improving variable and function naming - clear names make code self-documenting".to_string());
                     }
                 }
                 name if name.contains("unwrap") => {
                     if lang == "zh-CN" {
-                        suggestions.push("🛡️ 用适当的错误处理替换 unwrap() 调用，使用 Result 和 Option".to_string());
+                        suggestions.push(
+                            "🛡️ 用适当的错误处理替换 unwrap() 调用，使用 Result 和 Option"
+                                .to_string(),
+                        );
                     } else {
                         suggestions.push("🛡️ Replace unwrap() calls with proper error handling using Result and Option".to_string());
                     }
@@ -219,28 +250,42 @@ impl HallOfShame {
                     if lang == "zh-CN" {
                         suggestions.push("🧩 将复杂函数分解为更小、更专注的函数".to_string());
                     } else {
-                        suggestions.push("🧩 Break down complex functions into smaller, focused functions".to_string());
+                        suggestions.push(
+                            "🧩 Break down complex functions into smaller, focused functions"
+                                .to_string(),
+                        );
                     }
                 }
                 name if name.contains("println") => {
                     if lang == "zh-CN" {
-                        suggestions.push("🔍 移除调试用的 println! 语句，使用适当的日志记录".to_string());
+                        suggestions
+                            .push("🔍 移除调试用的 println! 语句，使用适当的日志记录".to_string());
                     } else {
-                        suggestions.push("🔍 Remove debug println! statements and use proper logging instead".to_string());
+                        suggestions.push(
+                            "🔍 Remove debug println! statements and use proper logging instead"
+                                .to_string(),
+                        );
                     }
                 }
                 name if name.contains("clone") => {
                     if lang == "zh-CN" {
-                        suggestions.push("⚡ 通过使用引用和理解所有权来减少不必要的克隆".to_string());
+                        suggestions
+                            .push("⚡ 通过使用引用和理解所有权来减少不必要的克隆".to_string());
                     } else {
                         suggestions.push("⚡ Reduce unnecessary clones by using references and understanding ownership".to_string());
                     }
                 }
                 _ => {
                     if lang == "zh-CN" {
-                        suggestions.push(format!("🔧 处理 {} 问题，发现 {} 次", pattern.rule_name, pattern.count));
+                        suggestions.push(format!(
+                            "🔧 处理 {} 问题，发现 {} 次",
+                            pattern.rule_name, pattern.count
+                        ));
                     } else {
-                        suggestions.push(format!("🔧 Address {} issues found {} times", pattern.rule_name, pattern.count));
+                        suggestions.push(format!(
+                            "🔧 Address {} issues found {} times",
+                            pattern.rule_name, pattern.count
+                        ));
                     }
                 }
             }
@@ -250,7 +295,10 @@ impl HallOfShame {
             if lang == "zh-CN" {
                 suggestions.push("📊 检测到高问题密度 - 考虑系统性重构方法".to_string());
             } else {
-                suggestions.push("📊 High issue density detected - consider a systematic refactoring approach".to_string());
+                suggestions.push(
+                    "📊 High issue density detected - consider a systematic refactoring approach"
+                        .to_string(),
+                );
             }
         }
 
@@ -279,17 +327,17 @@ pub fn generate_anonymous_stats(shame_entries: &[ShameEntry]) -> HashMap<String,
     // For now, we'll create a simple hash-based anonymization
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
-    
+
     let mut team_stats = HashMap::new();
-    
+
     for entry in shame_entries {
         // Create anonymous identifier based on file path
         let mut hasher = DefaultHasher::new();
         entry.file_path.hash(&mut hasher);
         let anonymous_id = format!("Developer_{}", hasher.finish() % 100);
-        
+
         *team_stats.entry(anonymous_id).or_insert(0) += entry.total_issues;
     }
-    
+
     team_stats
 }
