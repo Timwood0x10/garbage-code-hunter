@@ -436,7 +436,8 @@ impl CodeScorer {
             };
 
         // Calculate score based on thresholds (0 = excellent, 100 = terrible)
-        let score = if issues_per_1k_lines <= excellent_threshold {
+
+        if issues_per_1k_lines <= excellent_threshold {
             0.0 // Perfect score
         } else if issues_per_1k_lines <= good_threshold {
             (issues_per_1k_lines - excellent_threshold) / (good_threshold - excellent_threshold)
@@ -451,9 +452,7 @@ impl CodeScorer {
             // Beyond poor threshold, score increases rapidly but caps at 90
             let excess = issues_per_1k_lines - poor_threshold;
             (60.0 + excess * 2.0).min(90.0) // Cap at 90 to avoid perfect 100
-        };
-
-        score
+        }
     }
 
     /// Calculate weighted final score from category scores

@@ -164,7 +164,7 @@ fn test_reporter_limited_issues_per_file() {
             line: i * 10,
             column: 1,
             rule_name: "terrible-naming".to_string(),
-            message: format!("Issue {}", i),
+            message: format!("Issue {i}"),
             severity: Severity::Spicy,
             roast_level: RoastLevel::Sarcastic,
         });

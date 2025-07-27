@@ -49,8 +49,7 @@ fn function_{i}() {{
     
     println!("{{}} {{}} {{}} {{}}", value, another.len(), s4.len(), c);
 }}
-"#,
-            i = i
+"#
         ));
     }
 

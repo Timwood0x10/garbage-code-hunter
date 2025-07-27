@@ -3,6 +3,7 @@ use syn::{visit::Visit, Block, File, ItemFn};
 
 use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
+use crate::utils::get_position;
 
 pub struct DeepNestingRule;
 
@@ -61,7 +62,7 @@ impl NestingVisitor {
         }
     }
 
-    fn check_nesting_depth(&mut self, _block: &Block, lang: &str) {
+    fn check_nesting_depth(&mut self, block: &Block, lang: &str) {
         if self.current_depth > 3 {
             let messages = if lang == "zh-CN" {
                 vec![
@@ -101,10 +102,11 @@ impl NestingVisitor {
                 format!("nesting depth: {}", self.current_depth)
             };
 
+            let (line, column) = get_position(block);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1, // TODO: Get actual line number
-                column: 1,
+                line,
+                column,
                 rule_name: "deep-nesting".to_string(),
                 message: format!(
                     "{} ({})",
@@ -157,7 +159,7 @@ impl FunctionLengthVisitor {
 
         for line in content_lines.iter() {
             // Look for function declaration
-            if line.contains(&format!("fn {}", func_name)) && line.contains("(") {
+            if line.contains(&format!("fn {func_name}")) && line.contains("(") {
                 found_function = true;
                 in_function = true;
                 line_count = 1;
