@@ -30,6 +30,7 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 ## 🎯 Detection Features
 
 ### 📝 **Naming Convention Checks**
+
 - **Terrible Naming**: Detects meaningless variable names
 - **Single Letter Variables**: Finds overused single-letter variables
 - **Meaningless Naming**: Identifies placeholder names like `foo`, `bar`, `data`, `temp`
@@ -37,11 +38,13 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 - **Abbreviation Abuse**: Finds confusing abbreviations like `mgr`, `ctrl`, `usr`, `pwd`
 
 ### 🔧 **Code Complexity Analysis**
+
 - **Deep Nesting**: Detects nesting deeper than 3 levels
 - **Long Functions**: Finds functions with too many lines
 - **God Functions**: Identifies overly complex functions doing too much
 
 ### 🦀 **Rust-Specific Issues**
+
 - **Unwrap Abuse**: Detects unsafe unwrap() usage
 - **Unnecessary Clone**: Finds avoidable clone() calls
 - **String Abuse**: Identifies places where `&str` should be used instead of `String`
@@ -50,16 +53,19 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 - **Match Abuse**: Identifies complex matches that could be simplified with `if let`
 
 ### 💩 **Code Smell Detection**
+
 - **Magic Numbers**: Detects hardcoded numeric constants
 - **Commented Code**: Finds large blocks of commented-out code
 - **Dead Code**: Identifies unreachable code
 
 ### 🎓 **Student Code Patterns**
+
 - **Printf Debugging**: Detects leftover debugging print statements
 - **Panic Abuse**: Finds casual panic! usage
 - **TODO Comments**: Counts excessive TODO/FIXME comments
 
 ### 🔄 **Other Detections**
+
 - **Code Duplication**: Finds repeated code blocks
 - **Macro Abuse**: Detects excessive macro usage
 - **Advanced Rust Patterns**: Complex closures, lifetime abuse, etc.
@@ -68,14 +74,14 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 
 Our tool currently includes **20+ detection rules** covering the following categories:
 
-| Category | Rules Count | Description |
-|----------|-------------|-------------|
-| **Naming Conventions** | 5 | Various naming issues detection |
-| **Code Complexity** | 3 | Code structure complexity analysis |
-| **Rust-Specific** | 6 | Rust language-specific issue patterns |
-| **Code Smells** | 4 | General code quality problems |
-| **Student Code** | 3 | Common beginner code patterns |
-| **Others** | 3+ | Code duplication, macro abuse, etc. |
+| Category                     | Rules Count | Description                           |
+| ---------------------------- | ----------- | ------------------------------------- |
+| **Naming Conventions** | 5           | Various naming issues detection       |
+| **Code Complexity**    | 3           | Code structure complexity analysis    |
+| **Rust-Specific**      | 6           | Rust language-specific issue patterns |
+| **Code Smells**        | 4           | General code quality problems         |
+| **Student Code**       | 3           | Common beginner code patterns         |
+| **Others**             | 3+          | Code duplication, macro abuse, etc.   |
 
 **Total: 20+ rules** actively detecting garbage code patterns in your Rust projects! 🗑️
 

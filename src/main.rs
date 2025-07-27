@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 
 mod analyzer;
+mod educational;
+mod hall_of_shame;
 mod i18n;
 mod reporter;
 mod rules;
@@ -11,6 +13,8 @@ mod scoring;
 mod utils;
 
 use analyzer::CodeAnalyzer;
+use educational::EducationalAdvisor;
+use hall_of_shame::HallOfShame;
 use reporter::Reporter;
 
 #[derive(Parser)]
@@ -57,6 +61,18 @@ struct Args {
     /// Exclude file/directory patterns (can be used multiple times)
     #[arg(short, long)]
     exclude: Vec<String>,
+
+    /// Show educational advice for each issue type
+    #[arg(long)]
+    educational: bool,
+
+    /// Show hall of shame (worst files and patterns)
+    #[arg(long)]
+    hall_of_shame: bool,
+
+    /// Show improvement suggestions based on analysis
+    #[arg(long)]
+    suggestions: bool,
 }
 
 fn main() {
@@ -68,6 +84,29 @@ fn main() {
     // Calculate metrics for scoring
     let (file_count, total_lines) = calculate_metrics(&args.path, &args.exclude);
 
+    // Initialize educational advisor if needed
+    let educational_advisor = if args.educational {
+        Some(EducationalAdvisor::new(&args.lang))
+    } else {
+        None
+    };
+
+    // Initialize hall of shame if needed
+    let mut hall_of_shame = if args.hall_of_shame || args.suggestions {
+        Some(HallOfShame::new())
+    } else {
+        None
+    };
+
+    // Populate hall of shame with analysis results
+    if let Some(ref mut shame) = hall_of_shame {
+        let issues_by_file = group_issues_by_file(&issues);
+        for (file_path, file_issues) in issues_by_file {
+            let file_lines = count_file_lines(&file_path);
+            shame.add_file_analysis(file_path, &file_issues, file_lines);
+        }
+    }
+
     let reporter = Reporter::new(
         args.harsh,
         args.savage,
@@ -78,7 +117,15 @@ fn main() {
         args.markdown,
         &args.lang,
     );
-    reporter.report_with_metrics(issues, file_count, total_lines);
+    
+    reporter.report_with_enhanced_features(
+        issues, 
+        file_count, 
+        total_lines,
+        educational_advisor.as_ref(),
+        hall_of_shame.as_ref(),
+        args.suggestions,
+    );
 }
 
 fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usize) {
@@ -130,4 +177,18 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
     }
 
     (file_count, total_lines)
+}
+
+fn group_issues_by_file(issues: &[analyzer::CodeIssue]) -> std::collections::HashMap<std::path::PathBuf, Vec<analyzer::CodeIssue>> {
+    let mut grouped = std::collections::HashMap::new();
+    for issue in issues {
+        grouped.entry(issue.file_path.clone()).or_insert_with(Vec::new).push(issue.clone());
+    }
+    grouped
+}
+
+fn count_file_lines(file_path: &std::path::Path) -> usize {
+    std::fs::read_to_string(file_path)
+        .map(|content| content.lines().count())
+        .unwrap_or(0)
 }

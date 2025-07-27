@@ -6,6 +6,8 @@ use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::analyzer::{CodeIssue, Severity};
+use crate::educational::EducationalAdvisor;
+use crate::hall_of_shame::HallOfShame;
 use crate::i18n::I18n;
 use crate::scoring::{CodeQualityScore, CodeScorer};
 
@@ -343,6 +345,70 @@ impl Reporter {
     #[allow(dead_code)]
     pub fn report(&self, issues: Vec<CodeIssue>) {
         self.report_with_metrics(issues, 1, 100);
+    }
+
+    pub fn report_with_enhanced_features(
+        &self, 
+        mut issues: Vec<CodeIssue>, 
+        file_count: usize, 
+        total_lines: usize,
+        educational_advisor: Option<&EducationalAdvisor>,
+        hall_of_shame: Option<&HallOfShame>,
+        show_suggestions: bool,
+    ) {
+        // calculate quality score
+        let scorer = CodeScorer::new();
+        let quality_score = scorer.calculate_score(&issues, file_count, total_lines);
+
+        if issues.is_empty() {
+            self.print_clean_code_message_with_score(&quality_score);
+            return;
+        }
+
+        //sort by severity
+        issues.sort_by(|a, b| {
+            let severity_order = |s: &Severity| match s {
+                Severity::Nuclear => 3,
+                Severity::Spicy => 2,
+                Severity::Mild => 1,
+            };
+            severity_order(&b.severity).cmp(&severity_order(&a.severity))
+        });
+
+        // if harsh mode  only show the most severe issue
+        if self.harsh_mode {
+            issues.retain(|issue| matches!(issue.severity, Severity::Nuclear | Severity::Spicy));
+        }
+
+        if self.markdown {
+            self.print_markdown_report_enhanced(&issues, &quality_score, educational_advisor, hall_of_shame, show_suggestions);
+        } else {
+            if !self.summary_only {
+                self.print_header(&issues);
+                self.print_quality_score(&quality_score);
+                if self.verbose {
+                    self.print_detailed_analysis(&issues);
+                }
+                self.print_top_files(&issues);
+                self.print_issues_enhanced(&issues, educational_advisor);
+            }
+            self.print_summary_with_score(&issues, &quality_score);
+            if !self.summary_only {
+                self.print_footer(&issues);
+                
+                // Print hall of shame if requested
+                if let Some(shame) = hall_of_shame {
+                    self.print_hall_of_shame(shame);
+                }
+                
+                // Print improvement suggestions if requested
+                if show_suggestions {
+                    if let Some(shame) = hall_of_shame {
+                        self.print_improvement_suggestions(shame);
+                    }
+                }
+            }
+        }
     }
 
     pub fn report_with_metrics(
@@ -1730,6 +1796,335 @@ impl Reporter {
         let suggestions = self.i18n.get_suggestions(&rule_names);
         for suggestion in suggestions {
             println!("- {}", suggestion);
+        }
+    }
+
+    fn print_issues_enhanced(&self, issues: &[CodeIssue], educational_advisor: Option<&EducationalAdvisor>) {
+        let mut file_groups: HashMap<String, Vec<&CodeIssue>> = HashMap::new();
+
+        for issue in issues {
+            let file_name = issue
+                .file_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            file_groups.entry(file_name).or_default().push(issue);
+        }
+
+        for (file_name, file_issues) in file_groups {
+            println!("{} {}", "📁".bright_blue(), file_name.bright_blue().bold());
+
+            // Group issues by rule type
+            let mut rule_groups: BTreeMap<String, Vec<&CodeIssue>> = BTreeMap::new();
+            for issue in &file_issues {
+                rule_groups
+                    .entry(issue.rule_name.clone())
+                    .or_default()
+                    .push(issue);
+            }
+
+            // Show limited number of issues per rule type
+            let mut total_shown = 0;
+            let max_total = if self.max_issues_per_file > 0 {
+                self.max_issues_per_file
+            } else {
+                usize::MAX
+            };
+
+            // Sort rule groups by severity (most severe first)
+            let mut sorted_rules: Vec<_> = rule_groups.into_iter().collect();
+            sorted_rules.sort_by(|a, b| {
+                let severity_order = |s: &Severity| match s {
+                    Severity::Nuclear => 3,
+                    Severity::Spicy => 2,
+                    Severity::Mild => 1,
+                };
+                let max_severity_a =
+                    a.1.iter()
+                        .map(|i| severity_order(&i.severity))
+                        .max()
+                        .unwrap_or(1);
+                let max_severity_b =
+                    b.1.iter()
+                        .map(|i| severity_order(&i.severity))
+                        .max()
+                        .unwrap_or(1);
+                max_severity_b.cmp(&max_severity_a)
+            });
+
+            for (_rule_name, rule_issues) in sorted_rules {
+                if total_shown >= max_total {
+                    break;
+                }
+
+                for issue in rule_issues.iter().take(3) { // Show up to 3 issues per rule
+                    println!("  {}:{} - {}", issue.line, issue.column, issue.message.bright_red());
+                    
+                    // Show educational advice if requested
+                    if let Some(advisor) = educational_advisor {
+                        if let Some(advice) = advisor.get_advice(&issue.rule_name) {
+                            self.print_educational_advice(advice);
+                        }
+                    }
+                    total_shown += 1;
+                    if total_shown >= max_total {
+                        break;
+                    }
+                }
+            }
+            println!();
+        }
+    }
+
+    fn print_educational_advice(&self, advice: &crate::educational::EducationalAdvice) {
+        println!("    {}", "💡 Educational Advice:".bright_yellow().bold());
+        println!("    {}", format!("Why it's bad: {}", advice.why_bad).yellow());
+        println!("    {}", format!("How to fix: {}", advice.how_to_fix).green());
+        
+        if let Some(ref bad_example) = advice.example_bad {
+            println!("    {}", "❌ Bad example:".red());
+            println!("    {}", format!("    {}", bad_example).bright_black());
+        }
+        
+        if let Some(ref good_example) = advice.example_good {
+            println!("    {}", "✅ Good example:".green());
+            println!("    {}", format!("    {}", good_example).bright_black());
+        }
+        
+        if let Some(ref tip) = advice.best_practice_tip {
+            println!("    {}", format!("💡 Tip: {}", tip).cyan());
+        }
+        
+        if let Some(ref link) = advice.rust_docs_link {
+            println!("    {}", format!("📚 Learn more: {}", link).blue());
+        }
+        println!();
+    }
+
+    fn print_hall_of_shame(&self, hall_of_shame: &HallOfShame) {
+        let stats = hall_of_shame.generate_shame_report();
+        
+        println!();
+        println!("{}", "🏆 Hall of Shame - Worst Offenders".bright_red().bold());
+        println!("{}", "─".repeat(60).bright_black());
+        
+        if stats.hall_of_shame.is_empty() {
+            println!("🎉 No files in the hall of shame! Great job!");
+            return;
+        }
+
+        println!("📊 Project Statistics:");
+        println!("   Files analyzed: {}", stats.total_files_analyzed.to_string().cyan());
+        println!("   Total issues: {}", stats.total_issues.to_string().red());
+        println!("   Garbage density: {:.2} issues/1000 lines", stats.garbage_density.to_string().yellow());
+        println!();
+
+        println!("🗑️ Top {} Worst Files:", stats.hall_of_shame.len().min(5));
+        for (i, entry) in stats.hall_of_shame.iter().take(5).enumerate() {
+            let file_name = entry.file_path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy();
+            
+            println!("   {}. {} (Shame Score: {:.1})", 
+                (i + 1).to_string().bright_white(),
+                file_name.bright_red().bold(),
+                entry.shame_score.to_string().red()
+            );
+            
+            println!("      💥 Nuclear: {}, 🌶️ Spicy: {}, 😐 Mild: {}", 
+                entry.nuclear_issues.to_string().red(),
+                entry.spicy_issues.to_string().yellow(),
+                entry.mild_issues.to_string().blue()
+            );
+            
+            if !entry.worst_offenses.is_empty() {
+                println!("      Worst offense: {}", 
+                    entry.worst_offenses[0].bright_black().italic()
+                );
+            }
+        }
+        println!();
+
+        println!("🔥 Most Common Issues:");
+        for (i, pattern) in stats.most_common_patterns.iter().take(5).enumerate() {
+            println!("   {}. {} ({} occurrences)", 
+                (i + 1).to_string().bright_white(),
+                pattern.rule_name.bright_yellow(),
+                pattern.count.to_string().red()
+            );
+        }
+        println!();
+    }
+
+    fn print_improvement_suggestions(&self, hall_of_shame: &HallOfShame) {
+        let suggestions = hall_of_shame.get_improvement_suggestions();
+        
+        println!();
+        println!("{}", "💡 Improvement Suggestions".bright_green().bold());
+        println!("{}", "─".repeat(50).bright_black());
+        
+        for suggestion in suggestions {
+            println!("   {}", suggestion.green());
+        }
+        println!();
+    }
+
+    fn print_markdown_report_enhanced(
+        &self, 
+        issues: &[CodeIssue], 
+        quality_score: &CodeQualityScore,
+        educational_advisor: Option<&EducationalAdvisor>,
+        hall_of_shame: Option<&HallOfShame>,
+        show_suggestions: bool,
+    ) {
+        // First print the regular markdown report
+        self.print_markdown_report(issues);
+        
+        // Add quality score section
+        println!("## 🏆 Code Quality Score");
+        println!();
+        println!("**Score**: {:.1}/100 {}", quality_score.total_score, quality_score.quality_level.emoji());
+        println!("**Level**: {}", quality_score.quality_level.description(&self.i18n.lang));
+        println!();
+        
+        // Print hall of shame in markdown if requested
+        if let Some(shame) = hall_of_shame {
+            self.print_markdown_hall_of_shame(shame);
+        }
+        
+        // Print improvement suggestions in markdown if requested
+        if show_suggestions {
+            if let Some(shame) = hall_of_shame {
+                self.print_markdown_improvement_suggestions(shame);
+            }
+        }
+        
+        // Print educational content in markdown if requested
+        if educational_advisor.is_some() {
+            self.print_markdown_educational_section(issues, educational_advisor);
+        }
+    }
+
+    fn print_markdown_hall_of_shame(&self, hall_of_shame: &HallOfShame) {
+        let stats = hall_of_shame.generate_shame_report();
+        
+        println!("## 🏆 Hall of Shame");
+        println!();
+        
+        if stats.hall_of_shame.is_empty() {
+            println!("🎉 No files in the hall of shame! Great job!");
+            return;
+        }
+
+        println!("### 📊 Project Statistics");
+        println!();
+        println!("| Metric | Value |");
+        println!("| --- | --- |");
+        println!("| Files analyzed | {} |", stats.total_files_analyzed);
+        println!("| Total issues | {} |", stats.total_issues);
+        println!("| Garbage density | {:.2} issues/1000 lines |", stats.garbage_density);
+        println!();
+
+        println!("### 🗑️ Worst Files");
+        println!();
+        println!("| Rank | File | Shame Score | Nuclear | Spicy | Mild |");
+        println!("| --- | --- | --- | --- | --- | --- |");
+        
+        for (i, entry) in stats.hall_of_shame.iter().take(5).enumerate() {
+            let file_name = entry.file_path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy();
+            
+            println!("| {} | {} | {:.1} | {} | {} | {} |",
+                i + 1,
+                file_name,
+                entry.shame_score,
+                entry.nuclear_issues,
+                entry.spicy_issues,
+                entry.mild_issues
+            );
+        }
+        println!();
+
+        println!("### 🔥 Most Common Issues");
+        println!();
+        println!("| Rank | Issue Type | Count |");
+        println!("| --- | --- | --- |");
+        
+        for (i, pattern) in stats.most_common_patterns.iter().take(5).enumerate() {
+            println!("| {} | {} | {} |",
+                i + 1,
+                pattern.rule_name,
+                pattern.count
+            );
+        }
+        println!();
+    }
+
+    fn print_markdown_improvement_suggestions(&self, hall_of_shame: &HallOfShame) {
+        let suggestions = hall_of_shame.get_improvement_suggestions();
+        
+        println!("## 💡 Improvement Suggestions");
+        println!();
+        
+        for suggestion in suggestions {
+            println!("- {}", suggestion);
+        }
+        println!();
+    }
+
+    fn print_markdown_educational_section(&self, issues: &[CodeIssue], educational_advisor: Option<&EducationalAdvisor>) {
+        if let Some(advisor) = educational_advisor {
+            println!("## 📚 Educational Content");
+            println!();
+            
+            // Get unique rule names
+            let mut rule_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for issue in issues {
+                rule_names.insert(issue.rule_name.clone());
+            }
+            
+            for rule_name in rule_names {
+                if let Some(advice) = advisor.get_advice(&rule_name) {
+                    println!("### 📖 {}", rule_name.replace("-", " "));
+                    println!();
+                    println!("**Why it's problematic:**");
+                    println!("{}", advice.why_bad);
+                    println!();
+                    println!("**How to fix:**");
+                    println!("{}", advice.how_to_fix);
+                    println!();
+                    
+                    if let Some(ref bad_example) = advice.example_bad {
+                        println!("**❌ Bad example:**");
+                        println!("```rust");
+                        println!("{}", bad_example);
+                        println!("```");
+                        println!();
+                    }
+                    
+                    if let Some(ref good_example) = advice.example_good {
+                        println!("**✅ Good example:**");
+                        println!("```rust");
+                        println!("{}", good_example);
+                        println!("```");
+                        println!();
+                    }
+                    
+                    if let Some(ref tip) = advice.best_practice_tip {
+                        println!("**💡 Best Practice Tip:**");
+                        println!("{}", tip);
+                        println!();
+                    }
+                    
+                    if let Some(ref link) = advice.rust_docs_link {
+                        println!("**📚 Learn More:**");
+                        println!("[Rust Documentation]({})", link);
+                        println!();
+                    }
+                }
+            }
         }
     }
 }

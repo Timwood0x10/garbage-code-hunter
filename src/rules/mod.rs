@@ -8,6 +8,7 @@ pub mod code_smells;
 pub mod complexity;
 pub mod comprehensive_rust;
 pub mod duplication;
+pub mod file_structure;
 pub mod garbage_naming;
 pub mod naming;
 pub mod rust_patterns;
@@ -83,6 +84,11 @@ impl RuleEngine {
         rules.push(Box::new(comprehensive_rust::ReferenceAbuseRule));
         rules.push(Box::new(comprehensive_rust::BoxAbuseRule));
         rules.push(Box::new(comprehensive_rust::SliceAbuseRule));
+
+        // Add file structure rules
+        rules.push(Box::new(file_structure::FileStructureRule));
+        rules.push(Box::new(file_structure::ImportChaosRule));
+        rules.push(Box::new(file_structure::ModuleNestingRule));
 
         Self { rules }
     }
