@@ -18,9 +18,9 @@ impl Rule for CodeDuplicationRule {
         file_path: &Path,
         syntax_tree: &File,
         content: &str,
-        _lang: &str,
+        lang: &str,
     ) -> Vec<CodeIssue> {
-        let mut visitor = DuplicationVisitor::new(file_path.to_path_buf(), content);
+        let mut visitor = DuplicationVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);
         visitor.find_duplications()
     }
@@ -31,15 +31,17 @@ struct DuplicationVisitor {
     content: String,
     code_blocks: Vec<String>,
     line_hashes: HashMap<String, Vec<usize>>,
+    lang: String,
 }
 
 impl DuplicationVisitor {
-    fn new(file_path: std::path::PathBuf, content: &str) -> Self {
+    fn new(file_path: std::path::PathBuf, content: &str, lang: &str) -> Self {
         Self {
             file_path,
             content: content.to_string(),
             code_blocks: Vec::new(),
             line_hashes: HashMap::new(),
+            lang: lang.to_string(),
         }
     }
 
@@ -82,22 +84,23 @@ impl DuplicationVisitor {
         for line_numbers in self.line_hashes.values() {
             if line_numbers.len() >= 3 {
                 // 3 times or more duplicate
-                let messages = [
-                    format!(
-                        "检测到 {} 次重复代码！你是复制粘贴大师吗？",
-                        line_numbers.len()
-                    ),
-                    format!("这行代码重复了 {} 次，建议提取成函数", line_numbers.len()),
-                    format!("重复代码警报！{} 次重复让维护变成噩梦", line_numbers.len()),
-                    format!(
-                        "Copy-paste ninja detected! {} identical lines found",
-                        line_numbers.len()
-                    ),
-                    format!(
-                        "DRY principle violation: {} duplicated lines",
-                        line_numbers.len()
-                    ),
-                ];
+                let messages = if self.lang == "zh-CN" {
+                    vec![
+                        format!("检测到 {} 次重复代码！你是复制粘贴大师吗？", line_numbers.len()),
+                        format!("这行代码重复了 {} 次，建议提取成函数", line_numbers.len()),
+                        format!("重复代码警报！{} 次重复让维护变成噩梦", line_numbers.len()),
+                        format!("复制粘贴忍者出现！{} 行相同代码", line_numbers.len()),
+                        format!("违反 DRY 原则：{} 行重复代码", line_numbers.len()),
+                    ]
+                } else {
+                    vec![
+                        format!("Copy-paste ninja detected! {} identical lines found", line_numbers.len()),
+                        format!("DRY principle violation: {} duplicated lines", line_numbers.len()),
+                        format!("Code duplication alert! {} repetitions found", line_numbers.len()),
+                        format!("This line repeated {} times - consider extracting to function", line_numbers.len()),
+                        format!("Maintenance nightmare: {} duplicate lines detected", line_numbers.len()),
+                    ]
+                };
 
                 let severity = if line_numbers.len() >= 5 {
                     Severity::Nuclear
@@ -137,18 +140,21 @@ impl DuplicationVisitor {
 
         for (_, block_indices) in block_signatures {
             if block_indices.len() >= 2 {
-                let messages = [
-                    format!("发现 {} 个相似代码块，考虑重构成函数", block_indices.len()),
-                    "代码块重复度过高，DRY原则哭了".to_string(),
-                    format!(
-                        "Similar code blocks detected: {} instances",
-                        block_indices.len()
-                    ),
-                    format!(
-                        "Refactoring opportunity: {} similar blocks found",
-                        block_indices.len()
-                    ),
-                ];
+                let messages = if self.lang == "zh-CN" {
+                    vec![
+                        format!("发现 {} 个相似代码块，考虑重构成函数", block_indices.len()),
+                        "代码块重复度过高，DRY原则哭了".to_string(),
+                        format!("检测到 {} 个相似代码块，重构时间到了", block_indices.len()),
+                        format!("代码重复警报：{} 个相似块需要整理", block_indices.len()),
+                    ]
+                } else {
+                    vec![
+                        format!("Similar code blocks detected: {} instances", block_indices.len()),
+                        format!("Refactoring opportunity: {} similar blocks found", block_indices.len()),
+                        "Code block duplication too high, DRY principle is crying".to_string(),
+                        format!("Maintenance alert: {} similar blocks need attention", block_indices.len()),
+                    ]
+                };
 
                 issues.push(CodeIssue {
                     file_path: self.file_path.clone(),
