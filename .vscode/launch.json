@@ -1,0 +1,198 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'garbage_code_hunter'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "garbage_code_hunter",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'garbage-code-hunter'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=garbage-code-hunter",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "garbage-code-hunter",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'garbage-code-hunter'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=garbage-code-hunter",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "garbage-code-hunter",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'cli_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=cli_tests",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "cli_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'coverage_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=coverage_tests",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "coverage_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'edge_cases'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=edge_cases",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "edge_cases",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'integration_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=integration_tests",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "integration_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'reporter_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=reporter_tests",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "reporter_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'unit_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=unit_tests",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "unit_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'performance_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=performance_tests",
+                    "--package=garbage-code-hunter"
+                ],
+                "filter": {
+                    "name": "performance_tests",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

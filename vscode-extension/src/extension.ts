@@ -218,8 +218,11 @@ function analyzeOpenRustFiles() {
 
 async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]> {
     const config = vscode.workspace.getConfiguration('garbageHunter');
-    const language = config.get<string>('language', 'en-US');
     const excludePatterns = config.get<string[]>('excludePatterns', []);
+    
+    // 智能检测文件语言
+    const detectedLanguage = await detectFileLanguage(filePath);
+    const language = config.get<string>('language', detectedLanguage);
     
     // 构建命令
     let command = `garbage-code-hunter "${filePath}" --format json --lang ${language}`;
@@ -286,9 +289,10 @@ function issuesToDiagnostics(issues: GarbageIssue[]): vscode.Diagnostic[] {
         const line = Math.max(0, issue.line - 1); // VS Code uses 0-based line numbers
         const column = Math.max(0, issue.column - 1);
         
+        // 创建更精确的范围，只高亮问题变量/代码
         const range = new vscode.Range(
             new vscode.Position(line, column),
-            new vscode.Position(line, column + 10) // Approximate word length
+            new vscode.Position(line, column + getTokenLength(issue))
         );
 
         const severity = severityToVSCodeSeverity(issue.severity);
@@ -304,6 +308,48 @@ function issuesToDiagnostics(issues: GarbageIssue[]): vscode.Diagnostic[] {
         
         return diagnostic;
     });
+}
+
+// 根据规则类型估算 token 长度
+function getTokenLength(issue: GarbageIssue): number {
+    // 根据不同的规则类型返回合适的长度
+    switch (issue.rule_name) {
+        case 'terrible-naming':
+        case 'meaningless-naming':
+        case 'single-letter-variable':
+        case 'hungarian-notation':
+        case 'abbreviation-abuse':
+            // 变量名相关问题，估算变量名长度
+            return estimateVariableNameLength(issue.message);
+        case 'unwrap-abuse':
+            return 7; // "unwrap()" 的长度
+        case 'println-debugging':
+            return 8; // "println!" 的长度
+        case 'magic-number':
+            return estimateNumberLength(issue.message);
+        default:
+            return 5; // 默认长度
+    }
+}
+
+function estimateVariableNameLength(message: string): number {
+    // 从消息中提取变量名
+    const matches = message.match(/Variable '(\w+)'/);
+    if (matches && matches[1]) {
+        return matches[1].length;
+    }
+    
+    // 如果无法提取，返回常见变量名长度
+    return 4;
+}
+
+function estimateNumberLength(message: string): number {
+    // 从消息中提取数字
+    const matches = message.match(/(\d+(?:\.\d+)?)/);
+    if (matches && matches[1]) {
+        return matches[1].length;
+    }
+    return 2;
 }
 
 function severityToVSCodeSeverity(severity: string): vscode.DiagnosticSeverity {
@@ -339,13 +385,19 @@ function updateInlineDecorations(editor: vscode.TextEditor) {
             message = message.substring(0, maxLength - 3) + '...';
         }
 
+        // ErrorLens 风格：在行尾显示消息，而不是在问题位置
+        const line = diagnostic.range.start.line;
+        const lineText = editor.document.lineAt(line).text;
+        const endOfLinePosition = new vscode.Position(line, lineText.length);
+        
         const decoration: vscode.DecorationOptions = {
-            range: diagnostic.range,
+            range: new vscode.Range(endOfLinePosition, endOfLinePosition),
             renderOptions: {
                 after: {
                     contentText: ` ${message}`,
                     color: getSeverityColor(diagnostic.severity),
                     fontStyle: 'italic',
+                    margin: '0 0 0 1em',
                 }
             }
         };
@@ -380,6 +432,26 @@ function clearInlineDecorations() {
     vscode.window.visibleTextEditors.forEach(editor => {
         editor.setDecorations(inlineDecorationType, []);
     });
+}
+
+// 智能检测文件中的语言（基于注释内容）
+async function detectFileLanguage(filePath: string): Promise<string> {
+    try {
+        const fs = require('fs').promises;
+        const content = await fs.readFile(filePath, 'utf8');
+        
+        // 检测中文字符
+        const chineseRegex = /[\u4e00-\u9fff]/;
+        const hasChineseComments = content.split('\n').some((line: string) => {
+            const trimmed = line.trim();
+            return (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.includes('*/')) 
+                   && chineseRegex.test(line);
+        });
+        
+        return hasChineseComments ? 'zh-CN' : 'en-US';
+    } catch (error) {
+        return 'en-US'; // 默认英文
+    }
 }
 
 export function deactivate() {

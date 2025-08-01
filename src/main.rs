@@ -129,14 +129,52 @@ fn main() {
     }
 
     if args.educational || args.hall_of_shame || args.suggestions {
-        reporter.report_with_enhanced_features(
-            issues,
-            file_count,
-            total_lines,
-            educational_advisor.as_ref(),
-            hall_of_shame.as_ref(),
-            args.suggestions,
-        );
+        // Enhanced reporting with educational features
+        reporter.report_with_metrics(issues.clone(), file_count, total_lines);
+        
+        if args.educational {
+            if let Some(advisor) = educational_advisor.as_ref() {
+                println!("\n🎓 Educational Advice:");
+                println!("{}", "─".repeat(50));
+                for issue in &issues {
+                    if let Some(advice) = advisor.get_advice(&issue.rule_name) {
+                        println!("\n📚 {}: {}", issue.rule_name, advice.why_bad);
+                        println!("💡 How to fix: {}", advice.how_to_fix);
+                        if let Some(tip) = &advice.best_practice_tip {
+                            println!("✨ Tip: {}", tip);
+                        }
+                    }
+                }
+            }
+        }
+        
+        if args.hall_of_shame {
+            if let Some(hall) = hall_of_shame.as_ref() {
+                let stats = hall.generate_shame_report();
+                println!("\n🏆 Hall of Shame:");
+                println!("{}", "─".repeat(50));
+                println!("📊 Total files analyzed: {}", stats.total_files_analyzed);
+                println!("🗑️ Total issues found: {}", stats.total_issues);
+                println!("📈 Garbage density: {:.2} issues per 1000 lines", stats.garbage_density);
+                
+                println!("\n🔥 Worst Files:");
+                for (i, entry) in stats.hall_of_shame.iter().take(5).enumerate() {
+                    println!("  {}. {} - {} issues (score: {:.1})", 
+                        i + 1, 
+                        entry.file_path.file_name().unwrap_or_default().to_string_lossy(),
+                        entry.total_issues,
+                        entry.shame_score
+                    );
+                }
+            }
+        }
+        
+        if args.suggestions {
+            println!("\n🎯 Improvement Suggestions:");
+            println!("- Focus on renaming meaningless variables");
+            println!("- Reduce function complexity and nesting");
+            println!("- Replace unwrap() with proper error handling");
+        }
     } else {
         reporter.report_with_metrics(issues, file_count, total_lines);
     }

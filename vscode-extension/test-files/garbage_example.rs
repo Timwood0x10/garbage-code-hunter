@@ -1,6 +1,8 @@
 // 这是一个故意写得很"垃圾"的 Rust 文件，用来测试插件功能
 
 fn main() {
+
+    let aaa = 1 ; 
     // 无意义的变量名
     let data = "hello world";
     let temp = 42;
