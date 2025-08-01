@@ -1,0 +1,140 @@
+{
+  "name": "garbage-code-hunter",
+  "displayName": "Garbage Code Hunter 🗑️",
+  "description": "A humorous Rust code quality detector that roasts your garbage code with style!",
+  "version": "0.1.0",
+  "publisher": "garbage-code-hunter",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "rust",
+    "linter",
+    "code-quality",
+    "humor",
+    "roast"
+  ],
+  "activationEvents": [
+    "onLanguage:rust"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "garbageHunter.analyzeFile",
+        "title": "🗑️ Roast This File",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.analyzeWorkspace",
+        "title": "🔥 Roast Entire Workspace",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.clearDiagnostics",
+        "title": "🧹 Clear All Roasts",
+        "category": "Garbage Hunter"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "garbageHunter.analyzeFile",
+          "when": "resourceExtname == .rs",
+          "group": "garbageHunter@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "garbageHunter.analyzeFile",
+          "when": "resourceExtname == .rs",
+          "group": "garbageHunter@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Garbage Code Hunter",
+      "properties": {
+        "garbageHunter.enableRealTimeAnalysis": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time analysis on file save"
+        },
+        "garbageHunter.roastIntensity": {
+          "type": "string",
+          "enum": [
+            "gentle",
+            "sarcastic", 
+            "savage"
+          ],
+          "default": "sarcastic",
+          "description": "How brutal should the roasts be?"
+        },
+        "garbageHunter.language": {
+          "type": "string",
+          "enum": [
+            "en-US",
+            "zh-CN"
+          ],
+          "default": "en-US",
+          "description": "Language for roast messages"
+        },
+        "garbageHunter.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/target/**",
+            "**/node_modules/**",
+            "**/.git/**"
+          ],
+          "description": "File patterns to exclude from analysis"
+        },
+        "garbageHunter.showInlineMessages": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show roast messages inline like ErrorLens"
+        },
+        "garbageHunter.maxInlineMessageLength": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum length of inline messages"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4",
+    "@vscode/test-electron": "^2.2.0",
+    "vsce": "^2.15.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TimWood0x10/garbage-code-hunter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TimWood0x10/garbage-code-hunter/issues"
+  },
+  "homepage": "https://github.com/TimWood0x10/garbage-code-hunter#readme",
+  "license": "MIT"
+}

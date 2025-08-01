@@ -274,6 +274,8 @@ dependencies = [
  "criterion",
  "quote",
  "regex",
+ "serde",
+ "serde_json",
  "syn",
  "tempfile",
  "walkdir",

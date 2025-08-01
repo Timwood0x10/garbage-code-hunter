@@ -73,6 +73,10 @@ struct Args {
     /// Show improvement suggestions based on analysis
     #[arg(long)]
     suggestions: bool,
+
+    /// Output format (text, json)
+    #[arg(short = 'f', long, default_value = "text")]
+    format: String,
 }
 
 fn main() {
@@ -117,6 +121,12 @@ fn main() {
         args.markdown,
         &args.lang,
     );
+
+    // Handle JSON output format
+    if args.format == "json" {
+        output_json(&issues);
+        return;
+    }
 
     if args.educational || args.hall_of_shame || args.suggestions {
         reporter.report_with_enhanced_features(
@@ -200,4 +210,29 @@ fn count_file_lines(file_path: &std::path::Path) -> usize {
     std::fs::read_to_string(file_path)
         .map(|content| content.lines().count())
         .unwrap_or(0)
+}
+
+fn output_json(issues: &[analyzer::CodeIssue]) {
+    use serde_json;
+    
+    let json_issues: Vec<serde_json::Value> = issues
+        .iter()
+        .map(|issue| {
+            serde_json::json!({
+                "file_path": issue.file_path.to_string_lossy(),
+                "line": issue.line,
+                "column": issue.column,
+                "rule_name": issue.rule_name,
+                "message": issue.message,
+                "severity": format!("{:?}", issue.severity)
+            })
+        })
+        .collect();
+
+    if let Ok(json_output) = serde_json::to_string_pretty(&json_issues) {
+        println!("{}", json_output);
+    } else {
+        eprintln!("Error: Failed to serialize issues to JSON");
+        std::process::exit(1);
+    }
 }
