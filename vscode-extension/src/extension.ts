@@ -194,11 +194,13 @@ async function analyzeDocument(document: vscode.TextDocument) {
         const issues = await runGarbageHunterOnPath(document.fileName);
         const diagnostics = issuesToDiagnostics(issues);
         
+        console.log(`📊 Setting ${diagnostics.length} diagnostics for ${document.fileName}`);
         diagnosticCollection.set(document.uri, diagnostics);
         
         // 更新内联装饰
         const editor = vscode.window.activeTextEditor;
         if (editor && editor.document.uri.toString() === document.uri.toString()) {
+            console.log(`🎨 Updating inline decorations for active editor`);
             updateInlineDecorations(editor);
         }
         
@@ -232,6 +234,8 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
     // 构建命令
     let command = `garbage-code-hunter "${filePath}" --format json --lang ${language}`;
     
+    console.log(`📝 Command: ${command}`);
+    
     // 添加排除模式
     if (excludePatterns.length > 0) {
         const excludeArgs = excludePatterns.map(pattern => `--exclude "${pattern}"`).join(' ');
@@ -241,12 +245,22 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
     return new Promise((resolve, reject) => {
         exec(command, { cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath }, (error, stdout, stderr) => {
             if (error) {
+                console.error(`Command execution error: ${error.message}`);
+                console.error(`Command: ${command}`);
+                console.error(`Stderr: ${stderr}`);
+                
                 // 如果是因为没有找到问题而退出，返回空数组
-                if (error.code === 0 || stdout.trim() === '') {
-                    resolve([]);
-                    return;
+                if (stdout.trim() !== '') {
+                    try {
+                        const issues: GarbageIssue[] = JSON.parse(stdout);
+                        resolve(issues);
+                        return;
+                    } catch (parseError) {
+                        // 解析失败，继续处理错误
+                    }
                 }
-                reject(new Error(`Command failed: ${error.message}`));
+                
+                resolve([]); // 出错时返回空数组，不中断用户体验
                 return;
             }
 
@@ -257,6 +271,7 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
                 }
                 
                 const issues: GarbageIssue[] = JSON.parse(stdout);
+                console.log(`✅ Successfully parsed ${issues.length} issues from CLI output`);
                 resolve(issues);
             } catch (parseError) {
                 reject(new Error(`Failed to parse output: ${parseError}`));
@@ -392,6 +407,12 @@ function updateInlineDecorations(editor: vscode.TextEditor) {
 
         // ErrorLens 风格：在行尾显示消息，而不是在问题位置
         const line = diagnostic.range.start.line;
+        
+        // 确保行号在有效范围内
+        if (line >= editor.document.lineCount) {
+            continue;
+        }
+        
         const lineText = editor.document.lineAt(line).text;
         const endOfLinePosition = new vscode.Position(line, lineText.length);
         
