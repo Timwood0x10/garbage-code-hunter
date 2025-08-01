@@ -77,11 +77,12 @@
         "garbageHunter.language": {
           "type": "string",
           "enum": [
+            "auto",
             "en-US",
             "zh-CN"
           ],
-          "default": "en-US",
-          "description": "Language for roast messages"
+          "default": "auto",
+          "description": "Language for roast messages (auto = smart detection based on comments)"
         },
         "garbageHunter.excludePatterns": {
           "type": "array",

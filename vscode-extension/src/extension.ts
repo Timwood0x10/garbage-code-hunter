@@ -222,7 +222,12 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
     
     // 智能检测文件语言
     const detectedLanguage = await detectFileLanguage(filePath);
-    const language = config.get<string>('language', detectedLanguage);
+    const configLanguage = config.get<string>('language');
+    
+    // 如果用户没有手动设置语言，使用智能检测
+    const language = configLanguage === 'auto' || !configLanguage ? detectedLanguage : configLanguage;
+    
+    console.log(`🔍 File: ${filePath}, Detected: ${detectedLanguage}, Using: ${language}`);
     
     // 构建命令
     let command = `garbage-code-hunter "${filePath}" --format json --lang ${language}`;
@@ -440,13 +445,28 @@ async function detectFileLanguage(filePath: string): Promise<string> {
         const fs = require('fs').promises;
         const content = await fs.readFile(filePath, 'utf8');
         
-        // 检测中文字符
+        // 检测中文字符 - 只在注释中检测
         const chineseRegex = /[\u4e00-\u9fff]/;
-        const hasChineseComments = content.split('\n').some((line: string) => {
+        const lines = content.split('\n');
+        let hasChineseComments = false;
+        
+        for (const line of lines) {
             const trimmed = line.trim();
-            return (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.includes('*/')) 
-                   && chineseRegex.test(line);
-        });
+            // 只检查注释行
+            if (trimmed.startsWith('//')) {
+                // 单行注释
+                if (chineseRegex.test(trimmed)) {
+                    hasChineseComments = true;
+                    break;
+                }
+            } else if (trimmed.startsWith('/*') || trimmed.includes('/*')) {
+                // 多行注释开始
+                if (chineseRegex.test(trimmed)) {
+                    hasChineseComments = true;
+                    break;
+                }
+            }
+        }
         
         return hasChineseComments ? 'zh-CN' : 'en-US';
     } catch (error) {
