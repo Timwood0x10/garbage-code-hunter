@@ -17,6 +17,7 @@ impl Rule for ComplexClosureRule {
         syntax_tree: &File,
         _content: &str,
         _lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = ClosureVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
@@ -37,7 +38,12 @@ impl Rule for LifetimeAbuseRule {
         syntax_tree: &File,
         _content: &str,
         _lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = LifetimeVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -57,6 +63,7 @@ impl Rule for TraitComplexityRule {
         syntax_tree: &File,
         _content: &str,
         _lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = TraitVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
@@ -77,6 +84,7 @@ impl Rule for GenericAbuseRule {
         syntax_tree: &File,
         _content: &str,
         _lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = GenericVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
@@ -166,10 +174,15 @@ impl LifetimeVisitor {
 
 impl<'ast> Visit<'ast> for LifetimeVisitor {
     fn visit_lifetime(&mut self, lifetime: &'ast Lifetime) {
+        // Skip 'static lifetime
+        if lifetime.ident == "static" {
+            return;
+        }
+
         self.lifetime_count += 1;
 
-        // Check for excessive lifetime usage
-        if self.lifetime_count > 5 {
+        // Check for excessive lifetime usage, cap to 1 issue per file
+        if self.lifetime_count > 15 && self.issues.is_empty() {
             let messages = [
                 "生命周期标注比我的生命还复杂",
                 "这么多生命周期，你是在写哲学论文吗？",

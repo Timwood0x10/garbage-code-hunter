@@ -18,7 +18,12 @@ impl Rule for TerribleNamingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = NamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -38,7 +43,12 @@ impl Rule for SingleLetterVariableRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = SingleLetterVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -127,17 +137,18 @@ impl NamingVisitor {
 }
 
 impl<'ast> Visit<'ast> for NamingVisitor {
-    fn visit_ident(&mut self, ident: &'ast Ident) {
+    // Check variable names (pattern identifiers)
+    fn visit_pat_ident(&mut self, pat_ident: &'ast syn::PatIdent) {
         let context = if self.lang == "zh-CN" {
             "变量名"
         } else {
             "Variable"
         };
-        self.check_name(ident, context);
-        syn::visit::visit_ident(self, ident);
+        self.check_name(&pat_ident.ident, context);
+        syn::visit::visit_pat_ident(self, pat_ident);
     }
 
-    // Add function name detection
+    // Check function names
     fn visit_item_fn(&mut self, func: &'ast syn::ItemFn) {
         let context = if self.lang == "zh-CN" {
             "函数名"
@@ -169,8 +180,8 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
     fn visit_pat_ident(&mut self, pat_ident: &'ast syn::PatIdent) {
         let name = pat_ident.ident.to_string();
 
-        // Exclude common single-letter variables (like loop counters i, j, k)
-        if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z") {
+        // Exclude common single-letter variables (like loop counters i, j, k, and closure params e)
+        if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z" | "e") {
             let messages = if self.lang == "zh-CN" {
                 [
                     format!("单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"),

@@ -24,6 +24,7 @@ pub trait Rule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue>;
 }
 
@@ -59,8 +60,6 @@ impl RuleEngine {
             // Add Rust-specific pattern detection rules
             Box::new(rust_patterns::StringAbuseRule),
             Box::new(rust_patterns::VecAbuseRule),
-            Box::new(rust_patterns::IteratorAbuseRule),
-            Box::new(rust_patterns::MatchAbuseRule),
             Box::new(complexity::DeepNestingRule),
             Box::new(complexity::LongFunctionRule),
             Box::new(duplication::CodeDuplicationRule),
@@ -98,11 +97,12 @@ impl RuleEngine {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
 
         for rule in &self.rules {
-            issues.extend(rule.check(file_path, syntax_tree, content, lang));
+            issues.extend(rule.check(file_path, syntax_tree, content, lang, is_test_file));
         }
 
         issues

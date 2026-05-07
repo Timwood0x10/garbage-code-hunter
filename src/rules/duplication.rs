@@ -19,7 +19,12 @@ impl Rule for CodeDuplicationRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = DuplicationVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);
         visitor.find_duplications()
@@ -145,7 +150,7 @@ impl DuplicationVisitor {
         let mut block_signatures = HashMap::new();
 
         for (i, block) in self.code_blocks.iter().enumerate() {
-            if block.len() > 50 {
+            if block.len() > 150 {
                 // only detect larger code blocks
                 let signature = generate_block_signature(block);
                 block_signatures
@@ -207,8 +212,11 @@ impl<'ast> Visit<'ast> for DuplicationVisitor {
 }
 
 fn normalize_line(line: &str) -> String {
-    // normalize code line, remove variable name differences
-    line.trim()
+    use regex::Regex;
+    let re = Regex::new(r#""[^"]*""#).unwrap();
+    // normalize code line: strip string literals, remove variable name differences
+    let stripped = re.replace_all(line.trim(), "STR");
+    stripped
         .replace(char::is_whitespace, "")
         .replace("let", "VAR")
         .replace("mut", "")

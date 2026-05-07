@@ -18,6 +18,7 @@ impl Rule for FileStructureRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
         let line_count = content.lines().count();
@@ -84,6 +85,7 @@ impl Rule for ImportChaosRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = ImportChaosVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -129,6 +131,7 @@ impl Rule for ModuleNestingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = ModuleNestingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);

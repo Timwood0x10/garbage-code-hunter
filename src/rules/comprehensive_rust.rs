@@ -27,6 +27,7 @@ impl Rule for ChannelAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = ChannelVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -54,6 +55,7 @@ impl Rule for AsyncAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = AsyncVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -72,6 +74,7 @@ impl Rule for DynTraitAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = DynTraitVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -90,6 +93,7 @@ impl Rule for UnsafeAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = UnsafeVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -111,6 +115,7 @@ impl Rule for FFIAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = FFIVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -132,6 +137,7 @@ impl Rule for MacroAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = MacroVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -150,6 +156,7 @@ impl Rule for ModuleComplexityRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = ModuleVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -168,6 +175,7 @@ impl Rule for PatternMatchingAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = PatternVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);

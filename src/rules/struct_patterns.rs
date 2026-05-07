@@ -19,7 +19,12 @@ impl Rule for ReferenceAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = ReferenceVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -37,6 +42,7 @@ impl Rule for BoxAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = BoxVisitor::new();
         visitor.visit_file(syntax_tree);
@@ -87,6 +93,7 @@ impl Rule for SliceAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = SliceVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -114,10 +121,20 @@ impl ReferenceVisitor {
 }
 
 impl<'ast> Visit<'ast> for ReferenceVisitor {
-    fn visit_type_reference(&mut self, _ref_type: &'ast TypeReference) {
+    fn visit_type_reference(&mut self, ref_type: &'ast TypeReference) {
+        // Skip &self and &mut self
+        if let syn::Type::Path(type_path) = &*ref_type.elem {
+            if let Some(segment) = type_path.path.segments.last() {
+                if segment.ident == "Self" {
+                    return;
+                }
+            }
+        }
+
         self.reference_count += 1;
 
-        if self.reference_count > 20 {
+        // Cap to 1 issue per file
+        if self.reference_count > 50 && self.issues.is_empty() {
             let messages = if self.lang == "zh-CN" {
                 [
                     "引用比我的社交关系还复杂",
@@ -144,7 +161,7 @@ impl<'ast> Visit<'ast> for ReferenceVisitor {
             });
         }
 
-        syn::visit::visit_type_reference(self, _ref_type);
+        syn::visit::visit_type_reference(self, ref_type);
     }
 }
 

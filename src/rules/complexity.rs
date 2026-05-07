@@ -18,6 +18,7 @@ impl Rule for DeepNestingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = NestingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -38,6 +39,7 @@ impl Rule for LongFunctionRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = FunctionLengthVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);

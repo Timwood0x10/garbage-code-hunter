@@ -97,7 +97,24 @@ impl CodeAnalyzer {
             Err(_) => return vec![],
         };
 
+        let is_test_file = Self::is_test_file(file_path, &content);
+
         self.rule_engine
-            .check_file(file_path, &syntax_tree, &content, &self.lang)
+            .check_file(file_path, &syntax_tree, &content, &self.lang, is_test_file)
+    }
+
+    fn is_test_file(path: &Path, content: &str) -> bool {
+        let path_str = path.to_string_lossy();
+        // Check file path patterns
+        if path_str.contains("/tests/")
+            || path_str.contains("\\tests\\")
+            || path_str.ends_with("_test.rs")
+            || path_str.ends_with("_tests.rs")
+            || path_str.contains("test_")
+        {
+            return true;
+        }
+        // Check for #[cfg(test)] module in content
+        content.contains("#[cfg(test)]")
     }
 }

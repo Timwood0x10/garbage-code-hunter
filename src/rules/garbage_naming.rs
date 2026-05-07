@@ -19,7 +19,12 @@ impl Rule for MeaninglessNamingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = MeaninglessNamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -40,6 +45,7 @@ impl Rule for HungarianNotationRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = HungarianNotationVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -61,6 +67,7 @@ impl Rule for AbbreviationAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = AbbreviationAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -106,7 +113,6 @@ impl MeaninglessNamingVisitor {
             "value",
             "temp",
             "tmp",
-            "test",
             "example",
             "sample",
             // Manager suffix abuse
@@ -196,11 +202,10 @@ impl HungarianNotationVisitor {
 
     fn is_hungarian_notation(&self, name: &str) -> bool {
         let hungarian_prefixes = [
-            // Type prefixes
+            // Type prefixes (only check with camelCase, not underscore)
             "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
             // Scope prefixes
-            "g_", "m_", "s_", "p_", // Other common prefixes
-            "b", "n", "sz", "lp", "dw",
+            "g_", "m_", "s_", "p_",
         ];
 
         // Check if starts with a Hungarian prefix
@@ -209,13 +214,23 @@ impl HungarianNotationVisitor {
                 // Check if prefix is followed by uppercase letter (camelCase)
                 if let Some(next_char) = name.chars().nth(prefix.len()) {
                     if next_char.is_uppercase() {
+                        // Avoid false positives on words like "stringify", "internal", "boolean"
+                        // by checking that the prefix is not part of a longer word
+                        let rest = &name[prefix.len()..];
+                        // If the rest starts with a common word continuation, skip
+                        if rest.starts_with("ify") || rest.starts_with("nal") || rest.starts_with("ean") {
+                            continue;
+                        }
                         return true;
                     }
                 }
-                // Check underscore-separated case
-                if name.starts_with(&format!("{prefix}_")) {
-                    return true;
-                }
+            }
+        }
+
+        // Check underscore-separated case separately
+        for prefix in &["g_", "m_", "s_", "p_"] {
+            if name.starts_with(prefix) {
+                return true;
             }
         }
 
@@ -322,9 +337,7 @@ impl AbbreviationAbuseVisitor {
             ("cnt", "count"),
             // Other common abbreviations
             ("calc", "calculate"),
-            ("init", "initialize"),
             ("exec", "execute"),
-            ("impl", "implementation"),
             ("util", "utility"),
         ];
 

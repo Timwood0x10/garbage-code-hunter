@@ -19,6 +19,7 @@ impl Rule for MagicNumberRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = MagicNumberVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -40,6 +41,7 @@ impl Rule for GodFunctionRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = GodFunctionVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);
@@ -61,6 +63,7 @@ impl Rule for CommentedCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
@@ -134,6 +137,7 @@ impl Rule for DeadCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();

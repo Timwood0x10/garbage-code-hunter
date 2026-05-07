@@ -17,6 +17,7 @@ impl Rule for UnwrapAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = UnwrapVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
@@ -37,6 +38,7 @@ impl Rule for UnnecessaryCloneRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut visitor = CloneVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
