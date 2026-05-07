@@ -2,7 +2,7 @@ use regex::Regex;
 use std::path::Path;
 use syn::{visit::Visit, File, Ident};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 
 pub struct TerribleNamingRule;
@@ -121,7 +121,6 @@ impl NamingVisitor {
                 rule_name: "terrible-naming".to_string(),
                 message: messages[message_index].clone(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
     }
@@ -201,7 +200,6 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
                 rule_name: "single-letter-variable".to_string(),
                 message: messages[message_index].clone(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
 

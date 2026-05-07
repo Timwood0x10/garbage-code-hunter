@@ -131,6 +131,7 @@ fn main() {
     );
 
     let analyzer = CodeAnalyzer::new(&args.exclude, &args.lang);
+    let _rule_count = analyzer.rule_names().len();
     let issues = analyzer.analyze_path(&args.path);
 
     // Calculate metrics for scoring

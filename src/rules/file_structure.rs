@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, File, ItemMod, ItemUse};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 
 /// Detects files that are too long (>1000 lines)
@@ -63,7 +63,6 @@ impl Rule for FileStructureRule {
                 rule_name: "file-too-long".to_string(),
                 message: format!("{} ({}行)", message, line_count),
                 severity,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -183,7 +182,6 @@ impl ImportChaosVisitor {
             rule_name: "unordered-imports".to_string(),
             message: message.to_string(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Sarcastic,
         });
     }
 
@@ -214,7 +212,6 @@ impl ImportChaosVisitor {
             rule_name: "duplicate-imports".to_string(),
             message: message.to_string(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Sarcastic,
         });
     }
 }
@@ -281,7 +278,6 @@ impl ModuleNestingVisitor {
                 rule_name: "deep-module-nesting".to_string(),
                 message: format!("{} (深度: {})", message, self.nesting_depth),
                 severity,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
     }

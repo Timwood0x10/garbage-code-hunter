@@ -12,7 +12,7 @@ pub mod rules;
 pub mod scoring;
 pub mod utils;
 
-pub use analyzer::{CodeAnalyzer, CodeIssue, RoastLevel, Severity};
+pub use analyzer::{CodeAnalyzer, CodeIssue, Severity};
 pub use educational::{EducationalAdvice, EducationalAdvisor};
 pub use hall_of_shame::{HallOfShame, ProjectShameStats, ShameEntry};
 pub use i18n::I18n;

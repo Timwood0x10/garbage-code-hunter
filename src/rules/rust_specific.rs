@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, ExprMethodCall, File};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 
 pub struct UnwrapAbuseRule;
@@ -95,12 +95,6 @@ impl<'ast> Visit<'ast> for UnwrapVisitor {
                 Severity::Mild
             };
 
-            let roast_level = if self.unwrap_count > 5 {
-                RoastLevel::Savage
-            } else {
-                RoastLevel::Sarcastic
-            };
-
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1, // Simplified handling
@@ -108,7 +102,6 @@ impl<'ast> Visit<'ast> for UnwrapVisitor {
                 rule_name: "unwrap-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity,
-                roast_level,
             });
         }
 
@@ -166,7 +159,6 @@ impl<'ast> Visit<'ast> for CloneVisitor {
                     rule_name: "unnecessary-clone".to_string(),
                     message: messages[self.issues.len() % messages.len()].to_string(),
                     severity: Severity::Spicy,
-                    roast_level: RoastLevel::Sarcastic,
                 });
             }
         }

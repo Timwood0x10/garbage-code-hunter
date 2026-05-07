@@ -107,4 +107,8 @@ impl RuleEngine {
 
         issues
     }
+
+    pub fn rule_names(&self) -> Vec<&'static str> {
+        self.rules.iter().map(|r| r.name()).collect()
+    }
 }

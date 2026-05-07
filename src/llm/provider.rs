@@ -203,7 +203,7 @@ fn extract_json_from_response(response: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::{RoastLevel, Severity};
+    use crate::analyzer::Severity;
 
     /// Helper to create a test CodeIssue with minimal fields.
     fn make_issue(rule: &str, line: usize) -> CodeIssue {
@@ -214,7 +214,6 @@ mod tests {
             rule_name: rule.to_string(),
             message: "test message".to_string(),
             severity: Severity::Spicy,
-            roast_level: RoastLevel::Sarcastic,
         }
     }
 

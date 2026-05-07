@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, Block, File, ItemFn};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -90,12 +90,6 @@ impl NestingVisitor {
                 Severity::Mild
             };
 
-            let roast_level = if self.current_depth > 8 {
-                RoastLevel::Savage
-            } else {
-                RoastLevel::Sarcastic
-            };
-
             let depth_text = if self.lang == "zh-CN" {
                 format!("嵌套深度: {}", self.current_depth)
             } else {
@@ -114,7 +108,6 @@ impl NestingVisitor {
                     depth_text
                 ),
                 severity,
-                roast_level,
             });
         }
     }
@@ -256,12 +249,6 @@ impl<'ast> Visit<'ast> for FunctionLengthVisitor {
                 Severity::Mild
             };
 
-            let roast_level = if line_count > 100 {
-                RoastLevel::Savage
-            } else {
-                RoastLevel::Sarcastic
-            };
-
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
                 line: 1, // Simplified handling
@@ -269,7 +256,6 @@ impl<'ast> Visit<'ast> for FunctionLengthVisitor {
                 rule_name: "long-function".to_string(),
                 message: messages[self.issues.len() % messages.len()].clone(),
                 severity,
-                roast_level,
             });
         }
 

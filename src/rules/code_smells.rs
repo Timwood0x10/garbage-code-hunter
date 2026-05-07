@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, ExprLit, File, ItemFn, Lit};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -168,7 +168,6 @@ impl Rule for DeadCodeRule {
                     rule_name: "dead-code".to_string(),
                     message: messages[line_num % messages.len()].to_string(),
                     severity: Severity::Mild,
-                    roast_level: RoastLevel::Sarcastic,
                 });
             }
         }
@@ -260,7 +259,6 @@ fn create_commented_code_issue(
         rule_name: "commented-code".to_string(),
         message: messages[block_size % messages.len()].clone(),
         severity,
-        roast_level: RoastLevel::Sarcastic,
     }
 }
 
@@ -338,7 +336,6 @@ impl MagicNumberVisitor {
             rule_name: "magic-number".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity,
-            roast_level: RoastLevel::Gentle,
         }
     }
 }
@@ -447,7 +444,6 @@ impl GodFunctionVisitor {
                 rule_name: "god-function".to_string(),
                 message: messages[self.issues.len() % messages.len()].clone(),
                 severity,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
     }

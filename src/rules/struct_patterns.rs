@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, File, TypeReference, TypeSlice};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 
 pub struct ReferenceAbuseRule;
@@ -69,7 +69,6 @@ impl Rule for BoxAbuseRule {
                 rule_name: "box-abuse".to_string(),
                 message: messages[0].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -142,7 +141,6 @@ impl<'ast> Visit<'ast> for ReferenceVisitor {
                 rule_name: "reference-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
 
@@ -212,7 +210,6 @@ impl<'ast> Visit<'ast> for SliceVisitor {
                 rule_name: "slice-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
 

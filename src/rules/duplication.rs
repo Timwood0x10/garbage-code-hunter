@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use syn::{visit::Visit, Block, File};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 
 /// code duplication detection rule
@@ -135,7 +135,6 @@ impl DuplicationVisitor {
                     rule_name: "code-duplication".to_string(),
                     message: messages[issues.len() % messages.len()].clone(),
                     severity,
-                    roast_level: RoastLevel::Sarcastic,
                 });
             }
         }
@@ -190,7 +189,6 @@ impl DuplicationVisitor {
                     rule_name: "code-duplication".to_string(),
                     message: messages[issues.len() % messages.len()].clone(),
                     severity: Severity::Spicy,
-                    roast_level: RoastLevel::Sarcastic,
                 });
             }
         }

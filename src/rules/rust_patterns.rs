@@ -3,7 +3,7 @@ use syn::{
     visit::Visit, Expr, ExprForLoop, ExprMatch, ExprMethodCall, File, Pat, PatIdent, Type, TypePath,
 };
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -161,7 +161,6 @@ impl StringAbuseVisitor {
             rule_name: "string-abuse".to_string(),
             message: messages[count % messages.len()].clone(),
             severity: Severity::Spicy,
-            roast_level: RoastLevel::Sarcastic,
         });
     }
 
@@ -193,7 +192,6 @@ impl StringAbuseVisitor {
                         rule_name: "string-abuse".to_string(),
                         message: messages[self.issues.len() % messages.len()].to_string(),
                         severity: Severity::Mild,
-                        roast_level: RoastLevel::Gentle,
                     });
                 }
             }
@@ -228,7 +226,6 @@ impl<'ast> Visit<'ast> for StringAbuseVisitor {
                 rule_name: "string-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
         syn::visit::visit_expr_method_call(self, method_call);
@@ -283,7 +280,6 @@ impl VecAbuseVisitor {
             rule_name: "vec-abuse".to_string(),
             message: messages[count % messages.len()].clone(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Gentle,
         });
     }
 }
@@ -318,7 +314,6 @@ impl<'ast> Visit<'ast> for VecAbuseVisitor {
                         rule_name: "vec-abuse".to_string(),
                         message: messages[self.issues.len() % messages.len()].to_string(),
                         severity: Severity::Mild,
-                        roast_level: RoastLevel::Gentle,
                     });
                 }
             }
@@ -380,7 +375,6 @@ impl IteratorAbuseVisitor {
                     rule_name: "iterator-abuse".to_string(),
                     message: messages[self.issues.len() % messages.len()].to_string(),
                     severity: Severity::Mild,
-                    roast_level: RoastLevel::Gentle,
                 });
             }
         }
@@ -446,7 +440,6 @@ impl MatchAbuseVisitor {
                     rule_name: "match-abuse".to_string(),
                     message: messages[self.issues.len() % messages.len()].to_string(),
                     severity: Severity::Mild,
-                    roast_level: RoastLevel::Gentle,
                 });
             }
 
@@ -475,7 +468,6 @@ impl MatchAbuseVisitor {
                     rule_name: "match-abuse".to_string(),
                     message: messages[self.issues.len() % messages.len()].to_string(),
                     severity: Severity::Mild,
-                    roast_level: RoastLevel::Gentle,
                 });
             }
         }

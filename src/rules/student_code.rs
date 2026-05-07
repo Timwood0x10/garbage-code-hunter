@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, ExprMacro, File};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -142,7 +142,6 @@ impl Rule for TodoCommentRule {
                 rule_name: "todo-comment".to_string(),
                 message: messages[total_todos % messages.len()].clone(),
                 severity,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -197,7 +196,6 @@ impl PrintlnDebuggingVisitor {
             rule_name: "println-debugging".to_string(),
             message: messages[count % messages.len()].clone(),
             severity: Severity::Spicy,
-            roast_level: RoastLevel::Savage,
         });
     }
 }
@@ -234,7 +232,6 @@ impl<'ast> Visit<'ast> for PrintlnDebuggingVisitor {
                     rule_name: "println-debugging".to_string(),
                     message: messages[self.println_count % messages.len()].to_string(),
                     severity: Severity::Mild,
-                    roast_level: RoastLevel::Gentle,
                 });
             }
         }
@@ -285,7 +282,6 @@ impl PanicAbuseVisitor {
             rule_name: "panic-abuse".to_string(),
             message: messages[count % messages.len()].clone(),
             severity: Severity::Nuclear,
-            roast_level: RoastLevel::Savage,
         });
     }
 
@@ -313,7 +309,6 @@ impl PanicAbuseVisitor {
             rule_name: "panic-abuse".to_string(),
             message: messages[count % messages.len()].clone(),
             severity: Severity::Spicy,
-            roast_level: RoastLevel::Sarcastic,
         });
     }
 }
@@ -346,7 +341,6 @@ impl<'ast> Visit<'ast> for PanicAbuseVisitor {
                     rule_name: "panic-abuse".to_string(),
                     message: messages[self.issues.len() % messages.len()].to_string(),
                     severity: Severity::Spicy,
-                    roast_level: RoastLevel::Sarcastic,
                 });
             }
         }

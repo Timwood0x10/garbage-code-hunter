@@ -629,76 +629,6 @@ impl Reporter {
         }
     }
 
-    fn calculate_base_score_for_display(
-        &self,
-        issues: &[CodeIssue],
-        scorer: &crate::scoring::CodeScorer,
-    ) -> f64 {
-        let mut score = 0.0;
-        for issue in issues {
-            let rule_weight = scorer.rule_weights.get(&issue.rule_name).unwrap_or(&1.0);
-            let severity_weight = match issue.severity {
-                crate::analyzer::Severity::Nuclear => 10.0,
-                crate::analyzer::Severity::Spicy => 5.0,
-                crate::analyzer::Severity::Mild => 2.0,
-            };
-            score += rule_weight * severity_weight;
-        }
-        score
-    }
-
-    fn calculate_density_penalty_for_display(
-        &self,
-        issue_count: usize,
-        file_count: usize,
-        total_lines: usize,
-    ) -> f64 {
-        if total_lines == 0 || file_count == 0 {
-            return 0.0;
-        }
-
-        let issues_per_1000_lines = (issue_count as f64 / total_lines as f64) * 1000.0;
-        let issues_per_file = issue_count as f64 / file_count as f64;
-
-        let density_penalty = match issues_per_1000_lines {
-            x if x > 50.0 => 25.0,
-            x if x > 30.0 => 15.0,
-            x if x > 20.0 => 10.0,
-            x if x > 10.0 => 5.0,
-            _ => 0.0,
-        };
-
-        let file_penalty = match issues_per_file {
-            x if x > 20.0 => 15.0,
-            x if x > 10.0 => 10.0,
-            x if x > 5.0 => 5.0,
-            _ => 0.0,
-        };
-
-        density_penalty + file_penalty
-    }
-
-    fn calculate_severity_penalty_for_display(
-        &self,
-        distribution: &crate::scoring::SeverityDistribution,
-    ) -> f64 {
-        let mut penalty = 0.0;
-
-        if distribution.nuclear > 0 {
-            penalty += 20.0 + (distribution.nuclear as f64 - 1.0) * 5.0;
-        }
-
-        if distribution.spicy > 5 {
-            penalty += (distribution.spicy as f64 - 5.0) * 2.0;
-        }
-
-        if distribution.mild > 20 {
-            penalty += (distribution.mild as f64 - 20.0) * 0.5;
-        }
-
-        penalty
-    }
-
     fn print_category_scores(&self, category_scores: &std::collections::HashMap<String, f64>) {
         let title = if self.i18n.lang == "zh-CN" {
             "📋 分类评分详情:"
@@ -814,7 +744,7 @@ impl Reporter {
             .as_millis() as u64;
         let seed = timestamp + (score * 1000.0) as u64;
         let roast_message = self.get_random_roast(category_name, score, seed);
-        let roasts = vec![roast_message.as_str()];
+        let roasts = [roast_message.as_str()];
 
         if roasts.is_empty() {
             None
@@ -874,86 +804,5 @@ impl Reporter {
                 format!("{weighted_sum:.1}").bright_green().bold()
             );
         }
-    }
-
-    fn print_detailed_base_score_breakdown(
-        &self,
-        issues: &[CodeIssue],
-        scorer: &crate::scoring::CodeScorer,
-    ) {
-        // Group issues by rule type and calculate scores
-        let mut rule_scores: std::collections::HashMap<String, (usize, f64)> =
-            std::collections::HashMap::new();
-
-        for issue in issues {
-            let rule_weight = scorer.rule_weights.get(&issue.rule_name).unwrap_or(&1.0);
-            let severity_weight = match issue.severity {
-                crate::analyzer::Severity::Nuclear => 10.0,
-                crate::analyzer::Severity::Spicy => 5.0,
-                crate::analyzer::Severity::Mild => 2.0,
-            };
-            let issue_score = rule_weight * severity_weight;
-
-            let entry = rule_scores
-                .entry(issue.rule_name.clone())
-                .or_insert((0, 0.0));
-            entry.0 += 1; // count
-            entry.1 += issue_score; // total score
-        }
-
-        // Sort by score (highest first)
-        let mut sorted_rules: Vec<_> = rule_scores.into_iter().collect();
-        sorted_rules.sort_by(|a, b| {
-            b.1 .1
-                .partial_cmp(&a.1 .1)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        let breakdown_title = if self.i18n.lang == "zh-CN" {
-            "🔍 基础分数详细计算:"
-        } else {
-            "🔍 Base score detailed calculation:"
-        };
-
-        println!("{}", breakdown_title.bright_yellow());
-
-        for (rule_name, (count, total_score)) in sorted_rules.iter().take(10) {
-            let rule_weight = scorer.rule_weights.get(rule_name).unwrap_or(&1.0);
-
-            let rule_display = match (self.i18n.lang.as_str(), rule_name.as_str()) {
-                ("zh-CN", "terrible-naming") => "糟糕命名",
-                ("zh-CN", "single-letter-variable") => "单字母变量",
-                ("zh-CN", "deep-nesting") => "深度嵌套",
-                ("zh-CN", "code-duplication") => "代码重复",
-                ("zh-CN", "long-function") => "超长函数",
-                ("zh-CN", "macro-abuse") => "宏滥用",
-                (_, "terrible-naming") => "Terrible naming",
-                (_, "single-letter-variable") => "Single letter vars",
-                (_, "deep-nesting") => "Deep nesting",
-                (_, "code-duplication") => "Code duplication",
-                (_, "long-function") => "Long function",
-                (_, "macro-abuse") => "Macro abuse",
-                _ => rule_name,
-            };
-
-            if self.i18n.lang == "zh-CN" {
-                println!(
-                    "  • {} × {} (权重{:.1}) = {}",
-                    format!("{count}").cyan(),
-                    rule_display.bright_white(),
-                    format!("{rule_weight:.1}").yellow(),
-                    format!("{total_score:.1}").bright_red()
-                );
-            } else {
-                println!(
-                    "  • {} × {} (weight {:.1}) = {}",
-                    format!("{count}").cyan(),
-                    rule_display.bright_white(),
-                    format!("{rule_weight:.1}").yellow(),
-                    format!("{total_score:.1}").bright_red()
-                );
-            }
-        }
-        println!();
     }
 }

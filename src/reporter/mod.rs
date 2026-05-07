@@ -46,10 +46,6 @@ impl Reporter {
         }
     }
 
-    pub fn report(&self, issues: Vec<CodeIssue>) {
-        self.report_with_metrics(issues, 1, 100);
-    }
-
     pub fn report_with_metrics(
         &self,
         mut issues: Vec<CodeIssue>,
@@ -101,19 +97,6 @@ impl Reporter {
             if !self.summary_only {
                 self.print_footer(&issues);
             }
-        }
-    }
-
-    fn print_clean_code_message(&self) {
-        if self.markdown {
-            println!("# {}", self.i18n.get("title"));
-            println!();
-            println!("{}", self.i18n.get("clean_code"));
-            println!();
-            println!("{}", self.i18n.get("clean_code_warning"));
-        } else {
-            println!("{}", self.i18n.get("clean_code").bright_green().bold());
-            println!("{}", self.i18n.get("clean_code_warning").yellow());
         }
     }
 
@@ -440,91 +423,6 @@ impl Reporter {
         }
     }
 
-    fn print_issue(&self, issue: &CodeIssue) {
-        // Choose icon and color based on rule type
-        if issue.rule_name.contains("duplication") {
-            let message = if self.i18n.lang == "zh-CN" {
-                &issue.message
-            } else {
-                // Translate common duplication messages to English
-                if issue.message.contains("相似代码块") {
-                    "Found similar code blocks, consider refactoring into functions"
-                } else if issue.message.contains("DRY原则哭了") {
-                    "Code duplication detected, DRY principle violated"
-                } else {
-                    &issue.message
-                }
-            };
-            println!(
-                "  {} {} {}",
-                "🔄".bright_cyan(),
-                "duplicate".bright_black(),
-                message.bright_cyan().bold()
-            );
-        } else if issue.rule_name.contains("nesting") {
-            let message = if self.i18n.lang == "zh-CN" {
-                &issue.message
-            } else {
-                // Translate common nesting messages to English
-                if issue.message.contains("俄罗斯套娃") {
-                    "Nesting deeper than Russian dolls, are you writing a maze?"
-                } else if issue.message.contains("挖到地心") {
-                    "Nesting so deep, trying to dig to the Earth's core?"
-                } else if issue.message.contains("像洋葱一样") {
-                    "Code nested like an onion, makes me want to cry"
-                } else {
-                    &issue.message
-                }
-            };
-            println!(
-                "  {} {} {}",
-                "📦".bright_magenta(),
-                "nesting".bright_black(),
-                message.bright_magenta()
-            );
-        } else {
-            // Default based on severity
-            let severity_icon = match issue.severity {
-                Severity::Nuclear => "💥",
-                Severity::Spicy => "🌶️",
-                Severity::Mild => "😐",
-            };
-
-            let line_info = format!("{}:{}", issue.line, issue.column);
-            let colored_message = match issue.severity {
-                Severity::Nuclear => issue.message.red().bold(),
-                Severity::Spicy => issue.message.yellow(),
-                Severity::Mild => issue.message.blue(),
-            };
-
-            let _final_message = if self.savage_mode {
-                self.make_message_savage(&issue.message)
-            } else {
-                issue.message.clone()
-            };
-
-            println!(
-                "  {} {} {}",
-                severity_icon.bright_yellow(),
-                line_info.bright_black(),
-                colored_message
-            );
-        }
-    }
-
-    fn make_message_savage(&self, message: &str) -> String {
-        let savage_prefixes = vec![
-            "🔥 严重警告：",
-            "💀 代码死刑：",
-            "🗑️ 垃圾警报：",
-            "😱 恐怖发现：",
-            "🤮 令人作呕：",
-        ];
-
-        let prefix = savage_prefixes[message.len() % savage_prefixes.len()];
-        format!("{prefix} {message}")
-    }
-
     fn print_footer(&self, issues: &[CodeIssue]) {
         println!();
         println!("{}", self.i18n.get("suggestions").bright_cyan().bold());
@@ -579,7 +477,7 @@ impl Reporter {
         }
 
         let mut sorted_files: Vec<_> = file_issue_counts.into_iter().collect();
-        sorted_files.sort_by(|a, b| b.1.cmp(&a.1));
+        sorted_files.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         if !sorted_files.is_empty() {
             println!("{}", self.i18n.get("top_files").bright_yellow().bold());

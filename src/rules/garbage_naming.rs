@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, File, Ident};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -160,7 +160,6 @@ impl MeaninglessNamingVisitor {
             rule_name: "meaningless-naming".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity,
-            roast_level: RoastLevel::Sarcastic,
         }
     }
 }
@@ -261,7 +260,6 @@ impl HungarianNotationVisitor {
             rule_name: "hungarian-notation".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Sarcastic,
         }
     }
 }
@@ -383,7 +381,6 @@ impl AbbreviationAbuseVisitor {
             rule_name: "abbreviation-abuse".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Gentle,
         }
     }
 }

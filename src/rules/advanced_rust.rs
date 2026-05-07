@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, ExprClosure, File, GenericParam, ItemImpl, ItemTrait, Lifetime};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 
 pub struct ComplexClosureRule;
@@ -116,7 +116,6 @@ impl ClosureVisitor {
                 rule_name: "complex-closure".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -135,7 +134,6 @@ impl ClosureVisitor {
                 rule_name: "complex-closure".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
     }
@@ -186,7 +184,6 @@ impl<'ast> Visit<'ast> for LifetimeVisitor {
                 rule_name: "lifetime-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -224,7 +221,6 @@ impl TraitVisitor {
                 rule_name: "trait-complexity".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -243,7 +239,6 @@ impl TraitVisitor {
                 rule_name: "trait-complexity".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
     }
@@ -285,7 +280,6 @@ impl GenericVisitor {
                 rule_name: "generic-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -307,7 +301,6 @@ impl GenericVisitor {
                         rule_name: "generic-abuse".to_string(),
                         message: messages[self.issues.len() % messages.len()].clone(),
                         severity: Severity::Mild,
-                        roast_level: RoastLevel::Gentle,
                     });
                 }
             }

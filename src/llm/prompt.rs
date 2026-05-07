@@ -105,7 +105,7 @@ fn build_issues_section(issues: &[CodeIssue], code_contexts: &HashMap<String, St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::{RoastLevel, Severity};
+    use crate::analyzer::Severity;
     use std::path::PathBuf;
 
     fn make_issue(rule: &str, line: usize, severity: Severity) -> CodeIssue {
@@ -116,7 +116,6 @@ mod tests {
             rule_name: rule.to_string(),
             message: format!("issue with {}", rule),
             severity,
-            roast_level: RoastLevel::Sarcastic,
         }
     }
 

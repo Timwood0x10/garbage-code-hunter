@@ -1,4 +1,4 @@
-use garbage_code_hunter::{CodeAnalyzer, RoastLevel, Severity};
+use garbage_code_hunter::{CodeAnalyzer, Severity};
 use std::fs;
 use tempfile::TempDir;
 
@@ -291,7 +291,7 @@ fn main() {
 }
 
 #[test]
-fn test_roast_levels() {
+fn test_issue_severity_valid() {
     let code = r#"
 fn main() {
     let data = "test";
@@ -303,14 +303,14 @@ fn main() {
     let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
-    // Check that issues have roast levels assigned
+    // Check that issues have severity levels assigned
     for issue in &issues {
         assert!(
             matches!(
-                issue.roast_level,
-                RoastLevel::Gentle | RoastLevel::Sarcastic | RoastLevel::Savage
+                issue.severity,
+                Severity::Mild | Severity::Spicy | Severity::Nuclear
             ),
-            "Each issue should have a roast level assigned"
+            "Each issue should have a severity level assigned"
         );
     }
 }

@@ -4,7 +4,7 @@ use syn::{
     ItemForeignMod, ItemMod, Macro, PatSlice, PatTuple, TypePath, TypeTraitObject,
 };
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 
 pub struct ChannelAbuseRule;
@@ -220,7 +220,6 @@ impl ChannelVisitor {
                 rule_name: "channel-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
     }
@@ -284,7 +283,6 @@ impl AsyncVisitor {
                 rule_name: "async-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -312,7 +310,6 @@ impl AsyncVisitor {
                 rule_name: "async-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
     }
@@ -381,7 +378,6 @@ impl<'ast> Visit<'ast> for DynTraitVisitor {
                 rule_name: "dyn-trait-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -478,7 +474,6 @@ impl UnsafeVisitor {
                 rule_name: "unsafe-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Nuclear,
-                roast_level: RoastLevel::Savage,
             });
         }
 
@@ -507,7 +502,6 @@ impl UnsafeVisitor {
                 rule_name: "unsafe-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Nuclear,
-                roast_level: RoastLevel::Savage,
             });
         }
 
@@ -536,7 +530,6 @@ impl UnsafeVisitor {
                 rule_name: "unsafe-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Nuclear,
-                roast_level: RoastLevel::Savage,
             });
         }
     }
@@ -577,7 +570,6 @@ impl<'ast> Visit<'ast> for UnsafeVisitor {
             rule_name: "unsafe-abuse".to_string(),
             message: messages[self.issues.len() % messages.len()].to_string(),
             severity,
-            roast_level: RoastLevel::Savage,
         });
 
         syn::visit::visit_expr_unsafe(self, _unsafe_expr);
@@ -671,7 +663,6 @@ impl FFIVisitor {
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -700,7 +691,6 @@ impl FFIVisitor {
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Nuclear,
-                roast_level: RoastLevel::Savage,
             });
         }
 
@@ -729,7 +719,6 @@ impl FFIVisitor {
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -758,7 +747,6 @@ impl FFIVisitor {
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
     }
@@ -800,7 +788,6 @@ impl<'ast> Visit<'ast> for FFIVisitor {
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -869,7 +856,6 @@ impl<'ast> Visit<'ast> for MacroVisitor {
                 rule_name: "macro-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
 
@@ -927,7 +913,6 @@ impl<'ast> Visit<'ast> for ModuleVisitor {
                 rule_name: "module-complexity".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
 
@@ -986,7 +971,6 @@ impl PatternVisitor {
                 rule_name: "pattern-matching-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
     }
@@ -1028,7 +1012,6 @@ impl<'ast> Visit<'ast> for PatternVisitor {
                 rule_name: "pattern-matching-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
         syn::visit::visit_expr_match(self, match_expr);

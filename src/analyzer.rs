@@ -14,7 +14,6 @@ pub struct CodeIssue {
     pub rule_name: String,
     pub message: String,
     pub severity: Severity,
-    pub roast_level: RoastLevel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -24,13 +23,6 @@ pub enum Severity {
     Nuclear, // Serious issues
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum RoastLevel {
-    Gentle,    // Gentle roasting
-    Sarcastic, // Sarcastic comments
-    Savage,    // Brutal honesty
-}
-
 pub struct CodeAnalyzer {
     rule_engine: RuleEngine,
     exclude_patterns: Vec<Regex>,
@@ -38,6 +30,10 @@ pub struct CodeAnalyzer {
 }
 
 impl CodeAnalyzer {
+    pub fn rule_names(&self) -> Vec<&'static str> {
+        self.rule_engine.rule_names()
+    }
+
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
         let patterns = exclude_patterns
             .iter()

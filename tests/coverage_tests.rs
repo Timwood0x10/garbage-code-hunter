@@ -115,7 +115,7 @@ fn main() {
             lang,
             Box::new(LocalRoastProvider),
         );
-        reporter.report(issues.clone());
+        reporter.report_with_metrics(issues.clone(), 1, 100);
     }
 }
 
@@ -270,8 +270,8 @@ fn test_analyzer_with_mixed_files() {
 }
 
 #[test]
-fn test_severity_and_roast_level_coverage() {
-    use garbage_code_hunter::{RoastLevel, Severity};
+fn test_severity_coverage() {
+    use garbage_code_hunter::Severity;
 
     // Test all severity levels
     let severities = vec![Severity::Mild, Severity::Spicy, Severity::Nuclear];
@@ -286,29 +286,11 @@ fn test_severity_and_roast_level_coverage() {
         // Test PartialEq trait
         assert_eq!(severity, severity);
     }
-
-    // Test all roast levels
-    let roast_levels = vec![
-        RoastLevel::Gentle,
-        RoastLevel::Sarcastic,
-        RoastLevel::Savage,
-    ];
-    for roast_level in roast_levels {
-        // Test Debug trait
-        let debug_str = format!("{roast_level:?}");
-        assert!(!debug_str.is_empty());
-
-        // Test Clone trait
-        let _cloned = roast_level.clone();
-
-        // Test PartialEq trait
-        assert_eq!(roast_level, roast_level);
-    }
 }
 
 #[test]
 fn test_code_issue_debug_and_clone() {
-    use garbage_code_hunter::{CodeIssue, RoastLevel, Severity};
+    use garbage_code_hunter::{CodeIssue, Severity};
     use std::path::PathBuf;
 
     let issue = CodeIssue {
@@ -318,7 +300,6 @@ fn test_code_issue_debug_and_clone() {
         rule_name: "test-rule".to_string(),
         message: "Test message".to_string(),
         severity: Severity::Spicy,
-        roast_level: RoastLevel::Sarcastic,
     };
 
     // Test Debug trait
