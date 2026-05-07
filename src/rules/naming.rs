@@ -68,9 +68,9 @@ impl NamingVisitor {
         let name = ident.to_string();
 
         if self.terrible_names.is_match(&name.to_lowercase()) {
-            // 根据语言设置选择消息
+            // Select messages based on language setting
             let messages = if self.lang == "zh-CN" {
-                // 中文消息
+                // Chinese messages
                 let ctx = if context == "函数名" {
                     "函数名"
                 } else {
@@ -94,7 +94,7 @@ impl NamingVisitor {
                     ),
                 ]
             } else {
-                // 英文消息
+                // English messages
                 let ctx = if context == "Function" {
                     "Function"
                 } else {
@@ -116,8 +116,8 @@ impl NamingVisitor {
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: self.issues.len() + 2, // 简单的行号估算，避免都是1:1
-                column: (name.len() % 10) + 1, // 基于名字长度的列号
+                line: self.issues.len() + 2, // Simple line number estimation to avoid all being 1:1
+                column: (name.len() % 10) + 1, // Column based on name length
                 rule_name: "terrible-naming".to_string(),
                 message: messages[message_index].clone(),
                 severity: Severity::Spicy,
@@ -138,7 +138,7 @@ impl<'ast> Visit<'ast> for NamingVisitor {
         syn::visit::visit_ident(self, ident);
     }
 
-    // 添加函数名检测
+    // Add function name detection
     fn visit_item_fn(&mut self, func: &'ast syn::ItemFn) {
         let context = if self.lang == "zh-CN" {
             "函数名"
@@ -150,7 +150,6 @@ impl<'ast> Visit<'ast> for NamingVisitor {
     }
 }
 
-#[allow(dead_code)]
 struct SingleLetterVisitor {
     file_path: std::path::PathBuf,
     issues: Vec<CodeIssue>,
@@ -173,13 +172,23 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
 
         // Exclude common single-letter variables (like loop counters i, j, k)
         if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z") {
-            let messages = [
-                format!("单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"),
-                format!("变量 '{name}'？这是变量名还是你键盘坏了？"),
-                format!("用 '{name}' 做变量名，你可能需要一本《如何给变量起名》的书"),
-                format!("单字母变量 '{name}'：让代码比古埃及象形文字还难懂"),
-                format!("变量 '{name}' 的信息量约等于一个句号"),
-            ];
+            let messages = if self.lang == "zh-CN" {
+                [
+                    format!("单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"),
+                    format!("变量 '{name}'？这是变量名还是你键盘坏了？"),
+                    format!("用 '{name}' 做变量名，你可能需要一本《如何给变量起名》的书"),
+                    format!("单字母变量 '{name}'：让代码比古埃及象形文字还难懂"),
+                    format!("变量 '{name}' 的信息量约等于一个句号"),
+                ]
+            } else {
+                [
+                    format!("Single-letter variable '{name}'? Writing math formulas or torturing readers?"),
+                    format!("Variable '{name}'? Is this a name or did your keyboard break?"),
+                    format!("Using '{name}' as a variable name? You need a book on naming"),
+                    format!("Single-letter variable '{name}': harder to read than hieroglyphics"),
+                    format!("Variable '{name}' has about as much info as a period"),
+                ]
+            };
 
             let message_index =
                 (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize)
@@ -187,7 +196,7 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: self.issues.len() + 10, // 不同的行号范围
+                line: self.issues.len() + 10, // Different line number range
                 column: (name.len() % 5) + 1,
                 rule_name: "single-letter-variable".to_string(),
                 message: messages[message_index].clone(),

@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 use crate::analyzer::{CodeIssue, Severity};
 use std::collections::HashMap;
 
@@ -73,7 +72,6 @@ impl QualityLevel {
     }
 }
 
-#[allow(dead_code)]
 pub struct CodeScorer {
     /// rule weights
     pub rule_weights: HashMap<String, f64>,
@@ -81,7 +79,6 @@ pub struct CodeScorer {
     pub severity_weights: HashMap<Severity, f64>,
 }
 
-#[allow(dead_code)]
 impl CodeScorer {
     pub fn new() -> Self {
         let mut rule_weights = HashMap::new();

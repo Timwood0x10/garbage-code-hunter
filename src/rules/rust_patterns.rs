@@ -7,7 +7,7 @@ use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
-/// 检测到处用 String 而不用 &str
+/// Detect using String everywhere instead of &str
 pub struct StringAbuseRule;
 
 impl Rule for StringAbuseRule {
@@ -25,7 +25,7 @@ impl Rule for StringAbuseRule {
         let mut visitor = StringAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
-        // 检查内容中的 String 使用模式
+        // Check String usage patterns in content
         let string_new_count = content.matches("String::new()").count();
         let string_from_count = content.matches("String::from(").count();
         let to_string_count = content.matches(".to_string()").count();
@@ -40,7 +40,7 @@ impl Rule for StringAbuseRule {
     }
 }
 
-/// 检测不必要的 Vec 分配
+/// Detect unnecessary Vec allocations
 pub struct VecAbuseRule;
 
 impl Rule for VecAbuseRule {
@@ -58,7 +58,7 @@ impl Rule for VecAbuseRule {
         let mut visitor = VecAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
-        // 检查内容中的 Vec 使用模式
+        // Check Vec usage patterns in content
         let vec_new_count = content.matches("Vec::new()").count();
         let _vec_with_capacity_count = content.matches("Vec::with_capacity(").count();
         let _vec_macro_count = content.matches("vec![").count();
@@ -71,7 +71,7 @@ impl Rule for VecAbuseRule {
     }
 }
 
-/// 检测用循环代替迭代器的情况
+/// Detect using loops instead of iterators
 pub struct IteratorAbuseRule;
 
 impl Rule for IteratorAbuseRule {
@@ -92,7 +92,7 @@ impl Rule for IteratorAbuseRule {
     }
 }
 
-/// 检测可以用 if let 的复杂 match
+/// Detect complex match that could use if let
 pub struct MatchAbuseRule;
 
 impl Rule for MatchAbuseRule {
@@ -114,7 +114,7 @@ impl Rule for MatchAbuseRule {
 }
 
 // ============================================================================
-// Visitor 实现
+// Visitor implementations
 // ============================================================================
 
 struct StringAbuseVisitor {
@@ -241,7 +241,7 @@ impl<'ast> Visit<'ast> for StringAbuseVisitor {
 }
 
 // ============================================================================
-// Vec 滥用检测
+// Vec abuse detection
 // ============================================================================
 
 struct VecAbuseVisitor {
@@ -290,7 +290,7 @@ impl VecAbuseVisitor {
 
 impl<'ast> Visit<'ast> for VecAbuseVisitor {
     fn visit_expr_method_call(&mut self, method_call: &'ast ExprMethodCall) {
-        // 检测 Vec::new() 调用
+        // Detect Vec::new() calls
         if let Expr::Path(path_expr) = &*method_call.receiver {
             if let Some(segment) = path_expr.path.segments.last() {
                 if segment.ident == "Vec" && method_call.method == "new" {
@@ -328,7 +328,7 @@ impl<'ast> Visit<'ast> for VecAbuseVisitor {
 }
 
 // ============================================================================
-// 迭代器滥用检测
+// Iterator abuse detection
 // ============================================================================
 
 struct IteratorAbuseVisitor {
@@ -347,14 +347,14 @@ impl IteratorAbuseVisitor {
     }
 
     fn check_simple_for_loop(&mut self, for_loop: &ExprForLoop) {
-        // 检测简单的 for 循环，可能可以用迭代器替代
+        // Detect simple for loops that could use iterators instead
         if let Pat::Ident(PatIdent { ident, .. }) = for_loop.pat.as_ref() {
             let _var_name = ident.to_string();
 
-            // 检测常见的可以用迭代器替代的模式
+            // Detect common patterns replaceable with iterators
             let loop_body = format!("{:?}", for_loop.body);
 
-            // 如果循环体很简单，建议用迭代器
+            // If loop body is simple, suggest using iterators
             if loop_body.lines().count() < 5 {
                 let messages = if self.lang == "zh-CN" {
                     vec![
@@ -395,7 +395,7 @@ impl<'ast> Visit<'ast> for IteratorAbuseVisitor {
 }
 
 // ============================================================================
-// Match 滥用检测
+// Match abuse detection
 // ============================================================================
 
 struct MatchAbuseVisitor {
@@ -416,11 +416,11 @@ impl MatchAbuseVisitor {
     fn check_simple_match(&mut self, match_expr: &ExprMatch) {
         let arms_count = match_expr.arms.len();
 
-        // 检测只有两个分支的 match，可能可以用 if let 替代
+        // Detect two-arm match that could use if let instead
         if arms_count == 2 {
             let match_str = format!("{match_expr:?}");
 
-            // 检测 Option 或 Result 的简单匹配
+            // Detect simple Option or Result matching
             if match_str.contains("Some") && match_str.contains("None") {
                 let messages = if self.lang == "zh-CN" {
                     vec![

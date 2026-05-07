@@ -1,3 +1,9 @@
 /target
 
 /coverage/
+
+plan/
+
+.claude/
+.vscode/
+..codeartsdoer/

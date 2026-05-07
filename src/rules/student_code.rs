@@ -5,7 +5,7 @@ use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
-/// 检测到处都是 println! 调试语句
+/// Detect println! debugging statements everywhere
 pub struct PrintlnDebuggingRule;
 
 impl Rule for PrintlnDebuggingRule {
@@ -23,7 +23,7 @@ impl Rule for PrintlnDebuggingRule {
         let mut visitor = PrintlnDebuggingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
-        // 同时检查内容中的 println! 数量
+        // Also check the count of println! in content
         let println_count = content.matches("println!").count();
         if println_count > 5 {
             visitor.add_excessive_println_issue(println_count);
@@ -33,7 +33,7 @@ impl Rule for PrintlnDebuggingRule {
     }
 }
 
-/// 检测随意使用 panic! 和 unwrap()
+/// Detect casual use of panic! and unwrap()
 pub struct PanicAbuseRule;
 
 impl Rule for PanicAbuseRule {
@@ -51,7 +51,7 @@ impl Rule for PanicAbuseRule {
         let mut visitor = PanicAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
-        // 检查内容中的 panic! 和 unwrap 使用
+        // Check panic! and unwrap usage in content
         let panic_count = content.matches("panic!").count();
         let unwrap_count = content.matches(".unwrap()").count();
 
@@ -66,7 +66,7 @@ impl Rule for PanicAbuseRule {
     }
 }
 
-/// 检测过多的 TODO 注释
+/// Detect excessive TODO comments
 pub struct TodoCommentRule;
 
 impl Rule for TodoCommentRule {
@@ -83,7 +83,7 @@ impl Rule for TodoCommentRule {
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
 
-        // 检查各种 TODO 模式
+        // Check various TODO patterns
         let todo_patterns = [
             "TODO",
             "FIXME",
@@ -151,7 +151,7 @@ impl Rule for TodoCommentRule {
 }
 
 // ============================================================================
-// Visitor 实现
+// Visitor implementations
 // ============================================================================
 
 struct PrintlnDebuggingVisitor {
@@ -243,7 +243,7 @@ impl<'ast> Visit<'ast> for PrintlnDebuggingVisitor {
 }
 
 // ============================================================================
-// Panic 滥用检测
+// Panic abuse detection
 // ============================================================================
 
 struct PanicAbuseVisitor {

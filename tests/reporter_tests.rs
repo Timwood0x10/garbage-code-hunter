@@ -1,4 +1,6 @@
-use garbage_code_hunter::{CodeAnalyzer, CodeIssue, Reporter, RoastLevel, Severity};
+use garbage_code_hunter::{
+    CodeAnalyzer, CodeIssue, LocalRoastProvider, Reporter, RoastLevel, Severity,
+};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -46,6 +48,7 @@ fn test_reporter_creation() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     // Just test that creation doesn't panic
@@ -64,6 +67,7 @@ fn test_reporter_harsh_mode() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
@@ -84,6 +88,7 @@ fn test_reporter_summary_only() {
         true,    // summary_only - should skip detailed output
         false,   // markdown
         "zh-CN", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
@@ -101,6 +106,7 @@ fn test_reporter_markdown_output() {
         false,   // summary_only
         true,    // markdown - should output markdown format
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
@@ -118,6 +124,7 @@ fn test_reporter_chinese_output() {
         false,   // summary_only
         false,   // markdown
         "zh-CN", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
@@ -135,6 +142,7 @@ fn test_reporter_empty_issues() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let empty_issues = vec![];
@@ -154,6 +162,7 @@ fn test_reporter_limited_issues_per_file() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     // Create multiple issues for the same file
@@ -209,7 +218,15 @@ fn main() {
 
     for (harsh, savage, verbose, top, max_issues, summary, markdown, lang) in configurations {
         let reporter = Reporter::new(
-            harsh, savage, verbose, top, max_issues, summary, markdown, lang,
+            harsh,
+            savage,
+            verbose,
+            top,
+            max_issues,
+            summary,
+            markdown,
+            lang,
+            Box::new(LocalRoastProvider),
         );
         reporter.report(issues.clone());
         println!("--- Configuration tested ---");
@@ -251,6 +268,16 @@ fn test_reporter_with_different_severities() {
         roast_level: RoastLevel::Gentle,
     });
 
-    let reporter = Reporter::new(false, false, true, 5, 5, false, false, "en-US");
+    let reporter = Reporter::new(
+        false,
+        false,
+        true,
+        5,
+        5,
+        false,
+        false,
+        "en-US",
+        Box::new(LocalRoastProvider),
+    );
     reporter.report(issues);
 }

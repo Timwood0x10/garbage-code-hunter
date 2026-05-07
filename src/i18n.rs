@@ -7,7 +7,7 @@ pub struct I18n {
 
 impl I18n {
     pub fn new(lang: &str) -> Self {
-        // 标准化语言代码
+        // Normalize language code
         let normalized_lang = match lang.to_lowercase().replace("_", "-").as_str() {
             "en" | "en-us" | "english" => "en-US",
             "zh" | "zh-cn" | "chinese" => "zh-CN",
@@ -133,7 +133,7 @@ impl I18n {
             .and_then(|lang_map| lang_map.get(key))
             .cloned()
             .unwrap_or_else(|| {
-                // 回退到英文
+                // Fallback to English
                 self.messages
                     .get("en-US")
                     .and_then(|lang_map| lang_map.get(key))
@@ -333,7 +333,7 @@ impl I18n {
                 "这函数的复杂度已经超越人类理解范围".to_string(),
                 "建议拆分函数，或者直接重写".to_string(),
             ],
-            // 英文版本
+            // English versions
             ("en-US", "terrible-naming") => vec![
                 "This variable name is more abstract than my programming skills, and I can't even write Hello World correctly".to_string(),
                 "This name tells me you've given up on life and should probably sell hotdogs instead".to_string(),

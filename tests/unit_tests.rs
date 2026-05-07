@@ -104,8 +104,8 @@ fn test_suggestions_chinese() {
         "Suggestions should be empty as they're now handled by --suggestions flag"
     );
     // assert!(
-    //     suggestions.iter().any(|s| s.contains("变量名")),
-    //     "Should have naming suggestions in Chinese"
+    //     suggestions.iter().any(|s| s.contains("variable name")),
+    //     "Should have naming suggestions"
     // );
     // assert!(
     //     suggestions.iter().any(|s| s.contains("unwrap")),

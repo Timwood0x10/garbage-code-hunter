@@ -1,6 +1,6 @@
 // Additional tests to improve code coverage
 
-use garbage_code_hunter::{CodeAnalyzer, I18n, Reporter};
+use garbage_code_hunter::{CodeAnalyzer, I18n, LocalRoastProvider, Reporter};
 use std::fs;
 use tempfile::TempDir;
 
@@ -105,7 +105,15 @@ fn main() {
 
     for (harsh, savage, verbose, top, max_issues, summary, markdown, lang) in configurations {
         let reporter = Reporter::new(
-            harsh, savage, verbose, top, max_issues, summary, markdown, lang,
+            harsh,
+            savage,
+            verbose,
+            top,
+            max_issues,
+            summary,
+            markdown,
+            lang,
+            Box::new(LocalRoastProvider),
         );
         reporter.report(issues.clone());
     }

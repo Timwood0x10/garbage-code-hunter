@@ -5,7 +5,7 @@ use crate::analyzer::{CodeIssue, RoastLevel, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
-/// 检测无意义的占位符命名：foo, bar, baz, qux, test, temp 等
+/// Detect meaningless placeholder names: foo, bar, baz, qux, test, temp, etc.
 pub struct MeaninglessNamingRule;
 
 impl Rule for MeaninglessNamingRule {
@@ -26,7 +26,7 @@ impl Rule for MeaninglessNamingRule {
     }
 }
 
-/// 检测过时的匈牙利命名法：strName, intCount, bIsValid 等
+/// Detect outdated Hungarian notation: strName, intCount, bIsValid, etc.
 pub struct HungarianNotationRule;
 
 impl Rule for HungarianNotationRule {
@@ -47,7 +47,7 @@ impl Rule for HungarianNotationRule {
     }
 }
 
-/// 检测过度缩写：mgr, ctrl, btn, usr, pwd 等
+/// Detect excessive abbreviations: mgr, ctrl, btn, usr, pwd, etc.
 pub struct AbbreviationAbuseRule;
 
 impl Rule for AbbreviationAbuseRule {
@@ -69,7 +69,7 @@ impl Rule for AbbreviationAbuseRule {
 }
 
 // ============================================================================
-// Visitor 实现
+// Visitor implementations
 // ============================================================================
 
 struct MeaninglessNamingVisitor {
@@ -89,14 +89,14 @@ impl MeaninglessNamingVisitor {
 
     fn is_meaningless_name(&self, name: &str) -> bool {
         let meaningless_names = [
-            // 经典占位符
+            // Classic placeholders
             "foo",
             "bar",
             "baz",
             "qux",
             "quux",
             "quuz",
-            // 无意义的通用词
+            // Meaningless generic words
             "data",
             "info",
             "obj",
@@ -109,12 +109,12 @@ impl MeaninglessNamingVisitor {
             "test",
             "example",
             "sample",
-            // 管理器后缀滥用
+            // Manager suffix abuse
             "manager",
             "handler",
             "processor",
             "controller",
-            // 中文拼音（常见的）
+            // Chinese pinyin (common ones)
             "yonghu",
             "mima",
             "denglu",
@@ -177,7 +177,7 @@ impl<'ast> Visit<'ast> for MeaninglessNamingVisitor {
 }
 
 // ============================================================================
-// 匈牙利命名法检测
+// Hungarian notation detection
 // ============================================================================
 
 struct HungarianNotationVisitor {
@@ -197,23 +197,23 @@ impl HungarianNotationVisitor {
 
     fn is_hungarian_notation(&self, name: &str) -> bool {
         let hungarian_prefixes = [
-            // 类型前缀
+            // Type prefixes
             "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
-            // 作用域前缀
-            "g_", "m_", "s_", "p_", // 其他常见前缀
+            // Scope prefixes
+            "g_", "m_", "s_", "p_", // Other common prefixes
             "b", "n", "sz", "lp", "dw",
         ];
 
-        // 检查是否以匈牙利前缀开头
+        // Check if starts with a Hungarian prefix
         for prefix in hungarian_prefixes {
             if name.starts_with(prefix) && name.len() > prefix.len() {
-                // 检查前缀后是否跟着大写字母（驼峰命名）
+                // Check if prefix is followed by uppercase letter (camelCase)
                 if let Some(next_char) = name.chars().nth(prefix.len()) {
                     if next_char.is_uppercase() {
                         return true;
                     }
                 }
-                // 检查下划线分隔的情况
+                // Check underscore-separated case
                 if name.starts_with(&format!("{prefix}_")) {
                     return true;
                 }
@@ -278,7 +278,7 @@ impl<'ast> Visit<'ast> for HungarianNotationVisitor {
 }
 
 // ============================================================================
-// 过度缩写检测
+// Excessive abbreviation detection
 // ============================================================================
 
 struct AbbreviationAbuseVisitor {
@@ -298,31 +298,31 @@ impl AbbreviationAbuseVisitor {
 
     fn is_bad_abbreviation(&self, name: &str) -> Option<&'static str> {
         let bad_abbreviations = [
-            // 管理相关
+            // Management related
             ("mgr", "manager"),
             ("mngr", "manager"),
             ("ctrl", "controller"),
             ("proc", "processor"),
             ("hdlr", "handler"),
-            // 用户相关
+            // User related
             ("usr", "user"),
             ("pwd", "password"),
             ("auth", "authentication"),
             ("cfg", "config"),
             ("prefs", "preferences"),
-            // 界面相关
+            // UI related
             ("btn", "button"),
             ("lbl", "label"),
             ("txt", "text"),
             ("img", "image"),
             ("pic", "picture"),
-            // 数据相关
+            // Data related
             ("db", "database"),
             ("tbl", "table"),
             ("col", "column"),
             ("idx", "index"),
             ("cnt", "count"),
-            // 其他常见缩写
+            // Other common abbreviations
             ("calc", "calculate"),
             ("init", "initialize"),
             ("exec", "execute"),

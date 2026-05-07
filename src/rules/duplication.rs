@@ -86,7 +86,10 @@ impl DuplicationVisitor {
                 // 3 times or more duplicate
                 let messages = if self.lang == "zh-CN" {
                     vec![
-                        format!("检测到 {} 次重复代码！你是复制粘贴大师吗？", line_numbers.len()),
+                        format!(
+                            "检测到 {} 次重复代码！你是复制粘贴大师吗？",
+                            line_numbers.len()
+                        ),
                         format!("这行代码重复了 {} 次，建议提取成函数", line_numbers.len()),
                         format!("重复代码警报！{} 次重复让维护变成噩梦", line_numbers.len()),
                         format!("复制粘贴忍者出现！{} 行相同代码", line_numbers.len()),
@@ -94,11 +97,26 @@ impl DuplicationVisitor {
                     ]
                 } else {
                     vec![
-                        format!("Copy-paste ninja detected! {} identical lines found", line_numbers.len()),
-                        format!("DRY principle violation: {} duplicated lines", line_numbers.len()),
-                        format!("Code duplication alert! {} repetitions found", line_numbers.len()),
-                        format!("This line repeated {} times - consider extracting to function", line_numbers.len()),
-                        format!("Maintenance nightmare: {} duplicate lines detected", line_numbers.len()),
+                        format!(
+                            "Copy-paste ninja detected! {} identical lines found",
+                            line_numbers.len()
+                        ),
+                        format!(
+                            "DRY principle violation: {} duplicated lines",
+                            line_numbers.len()
+                        ),
+                        format!(
+                            "Code duplication alert! {} repetitions found",
+                            line_numbers.len()
+                        ),
+                        format!(
+                            "This line repeated {} times - consider extracting to function",
+                            line_numbers.len()
+                        ),
+                        format!(
+                            "Maintenance nightmare: {} duplicate lines detected",
+                            line_numbers.len()
+                        ),
                     ]
                 };
 
@@ -149,10 +167,19 @@ impl DuplicationVisitor {
                     ]
                 } else {
                     vec![
-                        format!("Similar code blocks detected: {} instances", block_indices.len()),
-                        format!("Refactoring opportunity: {} similar blocks found", block_indices.len()),
+                        format!(
+                            "Similar code blocks detected: {} instances",
+                            block_indices.len()
+                        ),
+                        format!(
+                            "Refactoring opportunity: {} similar blocks found",
+                            block_indices.len()
+                        ),
                         "Code block duplication too high, DRY principle is crying".to_string(),
-                        format!("Maintenance alert: {} similar blocks need attention", block_indices.len()),
+                        format!(
+                            "Maintenance alert: {} similar blocks need attention",
+                            block_indices.len()
+                        ),
                     ]
                 };
 

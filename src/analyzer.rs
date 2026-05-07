@@ -14,7 +14,6 @@ pub struct CodeIssue {
     pub rule_name: String,
     pub message: String,
     pub severity: Severity,
-    #[allow(dead_code)]
     pub roast_level: RoastLevel,
 }
 

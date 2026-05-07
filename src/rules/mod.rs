@@ -13,10 +13,10 @@ pub mod garbage_naming;
 pub mod naming;
 pub mod rust_patterns;
 pub mod rust_specific;
+pub mod struct_patterns;
 pub mod student_code;
 
 pub trait Rule {
-    #[allow(dead_code)]
     fn name(&self) -> &'static str;
     fn check(
         &self,
@@ -80,9 +80,9 @@ impl RuleEngine {
             Box::new(comprehensive_rust::MacroAbuseRule),
             Box::new(comprehensive_rust::ModuleComplexityRule),
             Box::new(comprehensive_rust::PatternMatchingAbuseRule),
-            Box::new(comprehensive_rust::ReferenceAbuseRule),
-            Box::new(comprehensive_rust::BoxAbuseRule),
-            Box::new(comprehensive_rust::SliceAbuseRule),
+            Box::new(struct_patterns::ReferenceAbuseRule),
+            Box::new(struct_patterns::BoxAbuseRule),
+            Box::new(struct_patterns::SliceAbuseRule),
             // Add file structure rules
             Box::new(file_structure::FileStructureRule),
             Box::new(file_structure::ImportChaosRule),

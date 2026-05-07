@@ -187,21 +187,18 @@ impl HallOfShame {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_worst_files(&self, limit: usize) -> Vec<&ShameEntry> {
         let mut sorted_entries: Vec<&ShameEntry> = self.entries.iter().collect();
         sorted_entries.sort_by(|a, b| b.shame_score.partial_cmp(&a.shame_score).unwrap());
         sorted_entries.into_iter().take(limit).collect()
     }
 
-    #[allow(dead_code)]
     pub fn get_most_common_patterns(&self, limit: usize) -> Vec<&PatternStats> {
         let mut patterns: Vec<&PatternStats> = self.pattern_stats.values().collect();
         patterns.sort_by(|a, b| b.count.cmp(&a.count));
         patterns.into_iter().take(limit).collect()
     }
 
-    #[allow(dead_code)]
     pub fn generate_shame_heatmap(&self) -> HashMap<String, f64> {
         // Generate a "heatmap" of shame density by file extension or directory
         let mut heatmap = HashMap::new();
@@ -321,7 +318,6 @@ impl Default for HallOfShame {
 }
 
 /// Generate anonymous team member statistics (for team environments)
-#[allow(dead_code)]
 pub fn generate_anonymous_stats(shame_entries: &[ShameEntry]) -> HashMap<String, usize> {
     // This would typically integrate with git blame or similar
     // For now, we'll create a simple hash-based anonymization
