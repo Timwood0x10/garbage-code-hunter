@@ -1,9 +1,11 @@
 # 🗑️ Garbage Code Hunter
 
+[English](README.md) | [中文](README_zh.md)
+
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/garbage-code-hunter.svg)](https://crates.io/crates/garbage-code-hunter)
-[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-133%20passing-brightgreen.svg)]()
 
 A humorous Rust code quality detector that roasts your garbage code with style! 🔥
 
@@ -26,6 +28,7 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 - 🔧 **Highly Configurable**: Customize output, filtering, and analysis depth
 - 📝 **Markdown Export**: Perfect for documentation and CI/CD integration
 - 🚀 **Fast & Lightweight**: Built with Rust for maximum performance
+- 🤖 **LLM-Powered Roasts**: Generate context-aware, creative roasts using local LLMs via Ollama or any OpenAI-compatible API
 
 ### 🆕 **Enhanced Features**
 
@@ -35,6 +38,45 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 - 📈 **Advanced Scoring**: Comprehensive quality metrics with category breakdown
 - 🎨 **Beautiful UI**: Card-style layouts with progress bars and visual indicators
 - 🔍 **File Structure Analysis**: Detects overly long files, import chaos, and deep module nesting
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    CLI["CLI (clap)"] --> Config["AppConfig<br/>config.rs"]
+    Config --> Analyzer["CodeAnalyzer<br/>analyzer.rs"]
+
+    Analyzer --> WalkDir["WalkDir<br/>.rs files"]
+    WalkDir --> SynParse["syn::parse_file"]
+    SynParse --> RuleEngine["RuleEngine<br/>rules/mod.rs"]
+
+    RuleEngine --> Naming["Naming Rules<br/>naming.rs, garbage_naming.rs"]
+    RuleEngine --> Complexity["Complexity Rules<br/>complexity.rs"]
+    RuleEngine --> RustRules["Rust Rules<br/>rust_specific.rs, rust_patterns.rs"]
+    RuleEngine --> Smells["Code Smells<br/>code_smells.rs, student_code.rs"]
+    RuleEngine --> Advanced["Advanced Rust<br/>advanced_rust.rs, struct_patterns.rs"]
+    RuleEngine --> Features["Rust Features<br/>comprehensive_rust.rs"]
+    RuleEngine --> Structure["File Structure<br/>file_structure.rs"]
+    RuleEngine --> Duplication["Duplication<br/>duplication.rs"]
+
+    RuleEngine --> CodeIssues["Vec of CodeIssue"]
+
+    CodeIssues --> RoastProvider{"RoastProvider"}
+    RoastProvider -->|Local| LocalRoast["LocalRoastProvider<br/>i18n.rs"]
+    RoastProvider -->|LLM| LlmRoast["LlmRoastProvider<br/>llm/provider.rs"]
+    LlmRoast --> LlmClient["LlmClient<br/>llm/client.rs"]
+    LlmClient --> Ollama["Ollama API"]
+    LlmClient --> OpenAI["OpenAI-Compatible API"]
+
+    CodeIssues --> Scorer["CodeScorer<br/>scoring.rs"]
+    Scorer --> Reporter["Reporter<br/>reporter/mod.rs"]
+    Reporter --> TextOut["Text Output"]
+    Reporter --> MarkdownOut["Markdown Output"]
+    Reporter --> JsonOut["JSON Output"]
+
+    CodeIssues --> Educational["EducationalAdvisor<br/>educational.rs"]
+    CodeIssues --> HallOfShame["HallOfShame<br/>hall_of_shame.rs"]
+```
 
 ## 🎯 Detection Features
 
@@ -48,7 +90,7 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 
 ### 🔧 **Code Complexity Analysis**
 
-- **Deep Nesting**: Detects nesting deeper than 3 levels
+- **Deep Nesting**: Detects nesting deeper than 5 levels
 - **Long Functions**: Finds functions with too many lines
 - **God Functions**: Identifies overly complex functions doing too much
 
@@ -58,8 +100,6 @@ Unlike traditional linters that give you dry, boring warnings, Garbage Code Hunt
 - **Unnecessary Clone**: Finds avoidable clone() calls
 - **String Abuse**: Identifies places where `&str` should be used instead of `String`
 - **Vec Abuse**: Detects unnecessary Vec allocations
-- **Iterator Abuse**: Finds traditional loops that could use iterator chains
-- **Match Abuse**: Identifies complex matches that could be simplified with `if let`
 
 ### 💩 **Code Smell Detection**
 
@@ -94,7 +134,7 @@ Our tool currently includes **20+ detection rules** covering the following categ
 | ---------------------------- | ----------- | ------------------------------------- |
 | **Naming Conventions** | 5           | Various naming issues detection       |
 | **Code Complexity**    | 3           | Code structure complexity analysis    |
-| **Rust-Specific**      | 6           | Rust language-specific issue patterns |
+| **Rust-Specific**      | 4           | Rust language-specific issue patterns |
 | **Code Smells**        | 4           | General code quality problems         |
 | **Student Code**       | 3           | Common beginner code patterns         |
 | **File Structure**     | 3           | File organization and import analysis |
@@ -231,32 +271,12 @@ The scoring system is designed to be:
 - **Actionable**: Provides specific improvement areas
 - **Consistent**: Reproducible results across runs
 
-## 🎪 What It Detects
-
-### Naming Disasters
-
-- Terrible variable names (`data`, `temp`, `info`, `obj`)
-- Single-letter variables (except common loop counters)
-- Generic meaningless identifiers
-
-### Code Structure Issues
-
-- Deep nesting (Russian doll syndrome)
-- Overly long functions
-- Complex conditional logic
-
-### Rust-Specific Anti-patterns
-
-- `unwrap()` abuse (panic bombs 💣)
-- Unnecessary `clone()` calls (memory waste)
-- Poor error handling patterns
-
 ## 🚀 Installation
 
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/garbage-code-hunter.git
+git clone https://github.com/TimWood0x10/garbage-code-hunter.git
 cd garbage-code-hunter
 make install
 ```
@@ -287,7 +307,7 @@ make demo
 ### Language Options
 
 ```bash
-# Chinese output (default)
+# Chinese output
 garbage-code-hunter --lang zh-CN src/
 
 # English output
@@ -319,7 +339,7 @@ garbage-code-hunter --harsh src/
 # Educational mode - provides detailed explanations and improvement suggestions for each issue type
 cargo run -- src/ --educational
 
-# Hall of Shame - shows statistics of worst files and most common issues  
+# Hall of Shame - shows statistics of worst files and most common issues
 cargo run -- src/ --hall-of-shame
 
 # Smart suggestions - generates targeted improvement recommendations based on actual issues
@@ -327,12 +347,6 @@ cargo run -- src/ --suggestions
 
 # Combine features for comprehensive analysis report
 cargo run -- src/ --hall-of-shame --suggestions --educational
-
-# Example: Complete project analysis with all enhanced features
-cargo run -- . --hall-of-shame --suggestions --lang en
-
-# Quick analysis with suggestions only
-cargo run -- src/ --suggestions --lang zh-CN
 ```
 
 #### 🎓 Educational Mode (`--educational`)
@@ -362,9 +376,38 @@ Generates intelligent, data-driven recommendations:
 - **Actionable steps**: Specific, implementable suggestions
 - **Progress tracking**: Measurable improvement goals
 
-## 🎨 Sample Output
+### 🤖 LLM-Powered Roasts (`--llm`)
 
-### English Mode
+Generate creative, context-aware roast messages using a local LLM instead of hardcoded responses. Requires [Ollama](https://ollama.com) or any OpenAI-compatible API.
+
+```bash
+# Use Ollama with gemma4 (recommended for best roasts)
+garbage-code-hunter --llm --llm-model gemma4:e2b --markdown src/
+
+# Use Ollama with llama3.2
+garbage-code-hunter --llm --llm-model llama3.2 --markdown src/
+
+# Use OpenAI-compatible endpoint (e.g., LM Studio)
+garbage-code-hunter --llm --llm-provider openai-compatible --llm-endpoint http://localhost:1234 --llm-model my-model --markdown src/
+```
+
+**Sample LLM Roasts** (generated by gemma4:e2b):
+
+```
+- "Nesting so deep, trying to dig to the Earth's core? That's not structure, that's a geological fault line."
+- "Variable 'value' - congrats on inventing the most meaningless identifier"
+- "More dangerous memory ops than my reckless driving! Unsafe code is a ticking time bomb."
+- "Copy-paste ninja detected! 23 identical lines found. You've duplicated logic instead of abstracting it."
+```
+
+**Requirements:**
+- Ollama running locally (default: `http://localhost:11434`)
+- A model pulled via `ollama pull <model>` (e.g., `gemma4:e2b`, `llama3.2`)
+- For OpenAI-compatible providers: any endpoint implementing the `/v1/chat/completions` API
+
+**Note:** LLM roasts are displayed in `--markdown` output mode. In text mode, the tool falls back to local roasts for compact display.
+
+## 🎨 Sample Output
 
 ```
 🗑️  Garbage Code Hunter 🗑️
@@ -419,7 +462,7 @@ Found some areas for improvement:
 │                                                      │
 │  Score: 63.0/100  ████████████▒▒▒▒▒▒▒▒  (😞 Poor)│
 │                                                      │
-│  Files analyzed: 2    Total issues: 420                           │
+│  Files analyzed: 2    Total issues: 420              │
 │                                                      │
 ╰──────────────────────────────────────────────────────╯
 
@@ -447,90 +490,6 @@ Found some areas for improvement:
 Keep working to make your code better! 🚀
 ```
 
-### Chinese Mode
-
-```
-🗑️  垃圾代码猎人 🗑️
-正在准备吐槽你的代码...
-
-📊 垃圾代码检测报告
-──────────────────────────────────────────────────
-发现了一些需要改进的地方：
-
-📈 问题统计:
-   8 🔥 核弹级问题 (需要立即修复)
-   202 🌶️  辣眼睛问题 (建议修复)
-   210 😐 轻微问题 (可以忽略)
-   420 📝 总计
-
-🏆 代码质量评分
-──────────────────────────────────────────────────
-   📊 总分: 63.0/100 😞
-   🎯 等级: 较差
-   📏 代码行数: 512
-   📁 文件数量: 2
-   🔍 问题密度: 82 问题/千行
-
-   🎭 问题分布:
-      💥 核弹级: 8
-      🌶️  严重: 202
-      😐 轻微: 210
-
-🏆 问题最多的文件
-──────────────────────────────────────────────────
-   1. func.rs (231 issues)
-   2. ultimate_garbage_code_example.rs (189 issues)
-
-📁 func.rs
-  📦 嵌套深度问题: 20 (深度嵌套)
-  🔄 代码重复问题: 9 (6 instances)
-  🏷️ 变量命名问题: 22 (temp, temp, data, data, data, ...)
-  ⚠️ println 调试: 1
-  🏷️ 变量命名问题: 128 (a, b, c, d, e, ...)
-
-📁 ultimate_garbage_code_example.rs
-  📦 嵌套深度问题: 11 (深度嵌套)
-  ⚠️ panic 滥用: 1
-  🔄 代码重复问题: 5 (多个代码块)
-  ⚠️ 上帝函数: 1
-  ⚠️ 魔法数字: 16
-
-
-🏆 代码质量报告
-════════════════════════════════════════════════════════════
-╭─ 📊 总体评分 ─────────────────────────────────────────╮
-│                                                      │
-│  总分: 63.0/100  ████████████▒▒▒▒▒▒▒▒  (😞 较差)│
-│                                                      │
-│  分析文件: 2 个    问题总数: 420 个                              │
-│                                                      │
-╰──────────────────────────────────────────────────────╯
-
-📋 分类评分详情
-────────────────────────────────────────────────────────────
-   ⚠ 🏷️ 命名规范 [ 90分] ██████████████████▒▒ 糟糕，急需修复
-       💬 变量名的创意程度超越了我的理解 🚀
-   ⚠ 🧩 复杂度 [ 90分] ██████████████████▒▒ 糟糕，急需修复
-       💬 函数长度已经突破天际 🚀
-   ⚠ 🔄 代码重复 [ 90分] ██████████████████▒▒ 糟糕，急需修复
-       💬 建议改名为copy-paste.rs 📋
-   ✓✓ 🦀 Rust基础 [  0分] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 优秀，继续保持
-   ✓✓ ⚡ 高级特性 [  0分] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 优秀，继续保持
-   ⚠ 🚀 Rust功能 [ 90分] ██████████████████▒▒ 糟糕，急需修复
-       💬 建议重新学习 Rust 最佳实践 🎓
-   ✓✓ 🏗️ 代码结构 [  0分] ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 优秀，继续保持
-
-
-📏 评分标准 (分数越高代码越烂)
-────────────────────────────────────────
-   💀 81-100分: 糟糕，急需重写    🔥 61-80分: 较差，建议重构
-   ⚠️  41-60分: 一般，需要改进    ✅ 21-40分: 良好，还有提升空间
-   🌟 0-20分: 优秀，继续保持
-
-继续努力，让代码变得更好！🚀
-
-```
-
 ## 🛠️ Command Line Options
 
 | Option                | Short          | Description                                    |
@@ -547,6 +506,12 @@ Keep working to make your code better! 🚀
 | `--suggestions`     |                | Show suggestion for optimizing code            |
 | `--educational`     |                | Show educational advice for each issue type    |
 | `--hall-of-shame`   |                | Show hall of shame (worst files and patterns)  |
+| `--llm`             |                | Enable LLM-powered roast generation            |
+| `--llm-provider`    |                | LLM provider type: `ollama` or `openai-compatible` |
+| `--llm-model`       |                | LLM model name (e.g., `gemma4:e2b`, `llama3.2`) |
+| `--llm-endpoint`    |                | LLM API endpoint URL                           |
+| `--llm-api-key`     |                | LLM API key (for OpenAI-compatible providers)  |
+| `--llm-timeout`     |                | LLM request timeout in seconds (default: 30)   |
 
 ## 🔧 Development
 

@@ -166,7 +166,7 @@ impl FunctionLengthVisitor {
 
                 // Count opening braces in the same line
                 brace_count += line.matches('{').count();
-                brace_count -= line.matches('}').count();
+                brace_count = brace_count.saturating_sub(line.matches('}').count());
 
                 if brace_count == 0 && line.contains('{') && line.contains('}') {
                     // Single line function
@@ -178,7 +178,7 @@ impl FunctionLengthVisitor {
             if found_function && in_function {
                 line_count += 1;
                 brace_count += line.matches('{').count();
-                brace_count -= line.matches('}').count();
+                brace_count = brace_count.saturating_sub(line.matches('}').count());
 
                 // Function ends when braces are balanced
                 if brace_count == 0 {

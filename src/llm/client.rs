@@ -134,7 +134,7 @@ impl LlmClient {
 
     async fn call_async(&self, prompt: &str) -> Result<String> {
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(self.config.timeout_secs))
+            .timeout(std::time::Duration::from_secs(self.config.timeout_secs.max(120)))
             .build()
             .context("Failed to build HTTP client")?;
 
@@ -151,8 +151,13 @@ impl LlmClient {
             model: self.config.model.clone(),
             prompt: prompt.to_string(),
             stream: false,
-            format: Some("json".to_string()),
+            // Don't force JSON format — some models (gemma, etc.) return empty
+            // responses when the json format flag is set. Instead, we instruct
+            // JSON output in the prompt and parse it from the free-form response.
+            format: None,
         };
+
+        tracing::debug!("Ollama request: model={}, endpoint={}", self.config.model, self.config.endpoint);
 
         let resp = client
             .post(&url)
@@ -165,6 +170,8 @@ impl LlmClient {
             .json()
             .await
             .context("Failed to parse Ollama response")?;
+
+        tracing::debug!("Ollama raw response ({} chars): {}", body.response.len(), &body.response[..body.response.len().min(500)]);
 
         Ok(body.response)
     }

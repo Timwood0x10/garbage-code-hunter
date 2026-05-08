@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::fs;
 use std::path::PathBuf;
+use tracing_subscriber::EnvFilter;
 use walkdir::WalkDir;
 
 mod analyzer;
@@ -112,6 +113,14 @@ struct Args {
 }
 
 fn main() {
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("warn")),
+        )
+        .init();
+
     let args = Args::parse();
 
     // Load config file and merge with CLI arguments

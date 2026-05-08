@@ -81,22 +81,25 @@ impl RoastProvider for LlmRoastProvider {
         let contexts = extract_code_contexts(issues);
         let prompt = build_roast_prompt(issues, &contexts, lang);
 
+        tracing::debug!("Calling LLM with {} issues...", issues.len());
+        tracing::debug!("Prompt (first 500 chars): {}", &prompt[..prompt.len().min(500)]);
+
         match self.client.call_blocking(&prompt) {
-            Ok(response) => match parse_llm_response(&response, issues) {
-                Ok(roasts) => roasts,
-                Err(e) => {
-                    eprintln!(
-                        "Warning: Failed to parse LLM response: {}. Falling back to local roasts.",
-                        e
-                    );
-                    self.fallback.generate_roasts(issues, lang)
+            Ok(response) => {
+                tracing::debug!("LLM response received ({} chars)", response.len());
+                match parse_llm_response(&response, issues) {
+                    Ok(roasts) => {
+                        tracing::debug!("Parsed {} roasts from LLM", roasts.len());
+                        roasts
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to parse LLM response: {:#}. Falling back to local roasts.", e);
+                        self.fallback.generate_roasts(issues, lang)
+                    }
                 }
-            },
+            }
             Err(e) => {
-                eprintln!(
-                    "Warning: LLM call failed: {}. Falling back to local roasts.",
-                    e
-                );
+                tracing::warn!("LLM call failed: {:#}. Falling back to local roasts.", e);
                 self.fallback.generate_roasts(issues, lang)
             }
         }
@@ -157,7 +160,9 @@ fn extract_code_contexts(issues: &[CodeIssue]) -> HashMap<String, String> {
 /// where keys are issue indices (0-based) matching the order in the prompt.
 fn parse_llm_response(response: &str, issues: &[CodeIssue]) -> Result<RoastMap, anyhow::Error> {
     let json_str = extract_json_from_response(response);
-    let parsed: HashMap<String, String> = serde_json::from_str(json_str)?;
+    // LLMs often produce trailing commas in JSON — strip them for robustness
+    let cleaned = fix_trailing_commas(json_str);
+    let parsed: HashMap<String, String> = serde_json::from_str(&cleaned)?;
 
     let mut roasts = RoastMap::new();
     for (idx_str, roast) in parsed {
@@ -190,6 +195,19 @@ fn extract_json_from_response(response: &str) -> &str {
         }
     }
 
+    // Handle ``` ... ``` wrapper (without json tag)
+    if let Some(start) = response.find("```") {
+        let fence_start = start + 3;
+        // Skip the optional language tag on the same line
+        let content_start = response[fence_start..]
+            .find('\n')
+            .map(|n| fence_start + n + 1)
+            .unwrap_or(fence_start);
+        if let Some(end) = response[content_start..].find("```") {
+            return response[content_start..content_start + end].trim();
+        }
+    }
+
     // Handle plain JSON object
     if let Some(start) = response.find('{') {
         if let Some(end) = response.rfind('}') {
@@ -198,6 +216,31 @@ fn extract_json_from_response(response: &str) -> &str {
     }
 
     response
+}
+
+/// Remove trailing commas from JSON before closing braces/brackets.
+///
+/// LLMs frequently produce invalid JSON like `{"a": 1, "b": 2,}` —
+/// this function strips the trailing comma to make it valid.
+fn fix_trailing_commas(json: &str) -> String {
+    let mut result = String::with_capacity(json.len());
+    let bytes = json.as_bytes();
+    let len = bytes.len();
+
+    for i in 0..len {
+        if bytes[i] == b',' {
+            // Look ahead past whitespace for `}` or `]`
+            let rest = &json[i + 1..];
+            let trimmed = rest.trim_start();
+            if trimmed.starts_with('}') || trimmed.starts_with(']') {
+                // Skip this comma
+                continue;
+            }
+        }
+        result.push(bytes[i] as char);
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -332,5 +375,54 @@ mod tests {
             roast, "nested deeper than inception",
             "Roast content must match the JSON value"
         );
+    }
+
+    #[test]
+    fn test_fix_trailing_commas_before_brace() {
+        let input = r#"{"0": "a", "1": "b",}"#;
+        let result = fix_trailing_commas(input);
+        assert_eq!(result, r#"{"0": "a", "1": "b"}"#);
+    }
+
+    #[test]
+    fn test_fix_trailing_commas_before_bracket() {
+        let input = r#"["a", "b",]"#;
+        let result = fix_trailing_commas(input);
+        assert_eq!(result, r#"["a", "b"]"#);
+    }
+
+    #[test]
+    fn test_fix_trailing_commas_preserves_valid_json() {
+        let input = r#"{"0": "a", "1": "b"}"#;
+        let result = fix_trailing_commas(input);
+        assert_eq!(result, input, "Valid JSON should be unchanged");
+    }
+
+    #[test]
+    fn test_fix_trailing_commas_handles_whitespace() {
+        // " ,  \n}" -> comma removed -> "   \n}" (space before comma + spaces after)
+        let input = "{\"0\": \"a\" ,  \n}";
+        let result = fix_trailing_commas(input);
+        assert!(!result.contains(",}"), "Trailing comma must be removed");
+        assert!(result.contains("\"a\""), "Content must be preserved");
+    }
+
+    #[test]
+    fn test_parse_response_with_trailing_comma() {
+        // Objective: Verify LLM output with trailing commas is handled.
+        // Invariants: Trailing commas must be stripped before parsing.
+        let issues = vec![make_issue("unwrap-abuse", 10), make_issue("deep-nesting", 25)];
+        let response = "```json\n{\"0\": \"nice unwrap\", \"1\": \"so deep\",}\n```";
+        let roasts = parse_llm_response(response, &issues).unwrap();
+
+        assert_eq!(roasts.len(), 2, "Should parse both roasts despite trailing comma");
+    }
+
+    #[test]
+    fn test_extract_json_from_generic_code_fence() {
+        // Objective: Verify JSON in ``` fences (without json tag) is extracted.
+        let response = "Here:\n```\n{\"0\": \"roast\"}\n```";
+        let result = extract_json_from_response(response);
+        assert_eq!(result, "{\"0\": \"roast\"}");
     }
 }
