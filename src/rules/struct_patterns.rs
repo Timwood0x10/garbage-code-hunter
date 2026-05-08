@@ -42,8 +42,11 @@ impl Rule for BoxAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = BoxVisitor::new();
         visitor.visit_file(syntax_tree);
 
@@ -93,8 +96,11 @@ impl Rule for SliceAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = SliceVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -203,7 +209,8 @@ impl<'ast> Visit<'ast> for SliceVisitor {
     fn visit_type_slice(&mut self, _slice_type: &'ast TypeSlice) {
         self.slice_count += 1;
 
-        if self.slice_count > 15 {
+        // Only report once per file when slice count is very high
+        if self.slice_count == 30 {
             let messages = if self.lang == "zh-CN" {
                 [
                     "切片比我切菜还频繁",

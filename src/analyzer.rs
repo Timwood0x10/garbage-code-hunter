@@ -35,7 +35,27 @@ impl CodeAnalyzer {
     }
 
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
-        let patterns = exclude_patterns
+        // Default exclude patterns for common build/dependency directories
+        let default_excludes = [
+            "target",
+            "node_modules",
+            ".git",
+            ".svn",
+            ".hg",
+            "build",
+            "dist",
+            "out",
+            "__pycache__",
+            ".DS_Store",
+        ];
+
+        let mut all_patterns: Vec<String> = default_excludes
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        all_patterns.extend(exclude_patterns.iter().cloned());
+
+        let patterns = all_patterns
             .iter()
             .filter_map(|pattern| {
                 // Convert glob patterns to regular expressions
@@ -105,12 +125,58 @@ impl CodeAnalyzer {
 
     fn is_test_file(path: &Path, content: &str) -> bool {
         let path_str = path.to_string_lossy();
+        // Normalize: strip leading "./" for consistent matching
+        let normalized = path_str.strip_prefix("./").unwrap_or(&path_str);
+
         // Check file path patterns
-        if path_str.contains("/tests/")
-            || path_str.contains("\\tests\\")
-            || path_str.ends_with("_test.rs")
-            || path_str.ends_with("_tests.rs")
-            || path_str.contains("test_")
+        if normalized.contains("/tests/")
+            || normalized.contains("\\tests\\")
+            || normalized.starts_with("tests/")
+            || normalized.starts_with("tests\\")
+            || normalized.ends_with("_test.rs")
+            || normalized.ends_with("_tests.rs")
+        {
+            return true;
+        }
+        // Check for example files (singular and plural)
+        if normalized.contains("/examples/")
+            || normalized.contains("\\examples\\")
+            || normalized.starts_with("examples/")
+            || normalized.starts_with("examples\\")
+            || normalized.contains("/example/")
+            || normalized.contains("\\example\\")
+            || normalized.starts_with("example/")
+            || normalized.starts_with("example\\")
+            || normalized.ends_with("_example.rs")
+            || normalized.ends_with("_examples.rs")
+        {
+            return true;
+        }
+        // Check for benchmark files
+        if normalized.contains("/benches/")
+            || normalized.contains("\\benches\\")
+            || normalized.starts_with("benches/")
+            || normalized.starts_with("benches\\")
+            || normalized.ends_with("_bench.rs")
+            || normalized.ends_with("_benches.rs")
+        {
+            return true;
+        }
+        // Check for test-files directories
+        if normalized.contains("/test-files/")
+            || normalized.contains("\\test-files\\")
+            || normalized.starts_with("test-files/")
+            || normalized.starts_with("test-files\\")
+            || normalized.contains("/test_files/")
+            || normalized.contains("\\test_files\\")
+        {
+            return true;
+        }
+        // Check for fixture/mock directories
+        if normalized.contains("/fixtures/")
+            || normalized.contains("\\fixtures\\")
+            || normalized.contains("/mocks/")
+            || normalized.contains("\\mocks\\")
         {
             return true;
         }

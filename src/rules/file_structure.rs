@@ -1,5 +1,5 @@
 use std::path::Path;
-use syn::{visit::Visit, File, ItemMod, ItemUse};
+use syn::{visit::Visit, File, ItemMod};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
@@ -18,12 +18,13 @@ impl Rule for FileStructureRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
         let line_count = content.lines().count();
 
-        if line_count > 1000 {
+        let threshold = if is_test_file { 2000 } else { 1000 };
+        if line_count > threshold {
             let messages_zh = [
                 "这个文件比我的毕业论文还长！建议拆分成多个模块 📚",
                 "文件长度突破天际！是想创造吉尼斯纪录吗？ 🚀",
@@ -82,13 +83,16 @@ impl Rule for ImportChaosRule {
     fn check(
         &self,
         file_path: &Path,
-        syntax_tree: &File,
+        _syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut visitor = ImportChaosVisitor::new(file_path.to_path_buf(), lang);
-        visitor.visit_file(syntax_tree);
+        if is_test_file {
+            return Vec::new();
+        }
+
+        let mut issues = Vec::new();
 
         // Check for duplicate use statements
         let use_lines: Vec<&str> = content
@@ -97,23 +101,37 @@ impl Rule for ImportChaosRule {
             .collect();
 
         if use_lines.len() > 1 {
-            let mut sorted_uses = use_lines.clone();
-            sorted_uses.sort();
-
-            if use_lines != sorted_uses {
-                visitor.add_unordered_imports_issue();
-            }
-
             // Check for duplicate imports
             let mut seen_imports = std::collections::HashSet::new();
             for use_line in &use_lines {
                 if !seen_imports.insert(use_line) {
-                    visitor.add_duplicate_import_issue();
+                    let messages = if lang == "zh-CN" {
+                        [
+                            "重复的 import！是想强调重要性吗？ 🔄",
+                            "同样的 use 语句出现了多次，建议去重 🗑️",
+                            "重复 import 比我重复的话还多 💬",
+                        ]
+                    } else {
+                        [
+                            "Duplicate imports! Trying to emphasize importance? 🔄",
+                            "Same use statement appears multiple times, consider deduplication 🗑️",
+                            "More duplicate imports than my repeated words 💬",
+                        ]
+                    };
+
+                    issues.push(CodeIssue {
+                        file_path: file_path.to_path_buf(),
+                        line: 1,
+                        column: 1,
+                        rule_name: "duplicate-imports".to_string(),
+                        message: messages[issues.len() % messages.len()].to_string(),
+                        severity: Severity::Mild,
+                    });
                 }
             }
         }
 
-        visitor.issues
+        issues
     }
 }
 
@@ -131,98 +149,11 @@ impl Rule for ModuleNestingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut visitor = ModuleNestingVisitor::new(file_path.to_path_buf(), lang);
+        let mut visitor = ModuleNestingVisitor::new(file_path.to_path_buf(), lang, is_test_file);
         visitor.visit_file(syntax_tree);
         visitor.issues
-    }
-}
-
-struct ImportChaosVisitor {
-    file_path: std::path::PathBuf,
-    lang: String,
-    issues: Vec<CodeIssue>,
-    use_count: usize,
-}
-
-impl ImportChaosVisitor {
-    fn new(file_path: std::path::PathBuf, lang: &str) -> Self {
-        Self {
-            file_path,
-            lang: lang.to_string(),
-            issues: Vec::new(),
-            use_count: 0,
-        }
-    }
-
-    fn add_unordered_imports_issue(&mut self) {
-        let messages_zh = [
-            "import 顺序比我的房间还乱！建议按字母顺序排列 🔤",
-            "这些 use 语句的顺序让我想起了洗牌后的扑克牌 🃏",
-            "import 排序混乱，建议使用 rustfmt 整理一下 🧹",
-            "use 语句顺序比我的作息时间还乱 ⏰",
-        ];
-
-        let messages_en = [
-            "Import order is messier than my room! Consider alphabetical sorting 🔤",
-            "These use statements remind me of shuffled playing cards 🃏",
-            "Import sorting is chaotic, consider using rustfmt 🧹",
-            "Use statement order is more chaotic than my sleep schedule ⏰",
-        ];
-
-        let messages = if self.lang == "zh-CN" {
-            &messages_zh
-        } else {
-            &messages_en
-        };
-        let message = messages[self.issues.len() % messages.len()];
-
-        self.issues.push(CodeIssue {
-            file_path: self.file_path.clone(),
-            line: 1,
-            column: 1,
-            rule_name: "unordered-imports".to_string(),
-            message: message.to_string(),
-            severity: Severity::Mild,
-        });
-    }
-
-    fn add_duplicate_import_issue(&mut self) {
-        let messages_zh = [
-            "重复的 import！是想强调重要性吗？ 🔄",
-            "同样的 use 语句出现了多次，建议去重 🗑️",
-            "重复 import 比我重复的话还多 💬",
-        ];
-
-        let messages_en = [
-            "Duplicate imports! Trying to emphasize importance? 🔄",
-            "Same use statement appears multiple times, consider deduplication 🗑️",
-            "More duplicate imports than my repeated words 💬",
-        ];
-
-        let messages = if self.lang == "zh-CN" {
-            &messages_zh
-        } else {
-            &messages_en
-        };
-        let message = messages[self.issues.len() % messages.len()];
-
-        self.issues.push(CodeIssue {
-            file_path: self.file_path.clone(),
-            line: 1,
-            column: 1,
-            rule_name: "duplicate-imports".to_string(),
-            message: message.to_string(),
-            severity: Severity::Mild,
-        });
-    }
-}
-
-impl<'ast> Visit<'ast> for ImportChaosVisitor {
-    fn visit_item_use(&mut self, use_item: &'ast ItemUse) {
-        self.use_count += 1;
-        syn::visit::visit_item_use(self, use_item);
     }
 }
 
@@ -232,21 +163,24 @@ struct ModuleNestingVisitor {
     issues: Vec<CodeIssue>,
     nesting_depth: usize,
     max_depth: usize,
+    is_test_file: bool,
 }
 
 impl ModuleNestingVisitor {
-    fn new(file_path: std::path::PathBuf, lang: &str) -> Self {
+    fn new(file_path: std::path::PathBuf, lang: &str, is_test_file: bool) -> Self {
         Self {
             file_path,
             lang: lang.to_string(),
             issues: Vec::new(),
             nesting_depth: 0,
             max_depth: 0,
+            is_test_file,
         }
     }
 
     fn check_nesting_depth(&mut self) {
-        if self.nesting_depth > 3 {
+        let threshold = if self.is_test_file { 6 } else { 4 };
+        if self.nesting_depth > threshold {
             let messages_zh = [
                 "模块嵌套比俄罗斯套娃还深！建议扁平化结构 🪆",
                 "这个嵌套深度需要GPS导航才能找到出口 🗺️",
@@ -268,7 +202,7 @@ impl ModuleNestingVisitor {
             };
             let message = messages[self.issues.len() % messages.len()];
 
-            let severity = if self.nesting_depth > 5 {
+            let severity = if self.nesting_depth > threshold + 2 {
                 Severity::Spicy
             } else {
                 Severity::Mild

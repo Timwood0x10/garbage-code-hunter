@@ -19,8 +19,12 @@ impl Rule for MagicNumberRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = MagicNumberVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -41,8 +45,11 @@ impl Rule for GodFunctionRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = GodFunctionVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -63,8 +70,11 @@ impl Rule for CommentedCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
 
@@ -137,16 +147,41 @@ impl Rule for DeadCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
+        let mut dead_code_start: Option<usize> = None;
 
         for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
 
-            // Detect obvious dead code patterns
-            if is_dead_code_pattern(trimmed) {
+            // Check if this line is a control flow terminator
+            if is_control_flow_terminator(trimmed) {
+                // Mark that subsequent lines are dead code
+                dead_code_start = Some(line_num + 1);
+                continue;
+            }
+
+            // If we're in a dead code region and this line has actual code
+            if dead_code_start.is_some() {
+                // Skip empty lines and comments
+                if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") {
+                    continue;
+                }
+
+                // Check if this line closes a block (could be end of if/match/etc)
+                if trimmed == "}" || trimmed == "} else {" || trimmed == "} else if" {
+                    // Reset dead code region - we've exited the block
+                    dead_code_start = None;
+                    continue;
+                }
+
+                // This is actual dead code after a terminator
                 let messages = if lang == "zh-CN" {
                     vec![
                         "发现死代码，这行永远不会执行",
@@ -173,6 +208,9 @@ impl Rule for DeadCodeRule {
                     message: messages[line_num % messages.len()].to_string(),
                     severity: Severity::Mild,
                 });
+
+                // Only report one dead code block per terminator
+                dead_code_start = None;
             }
         }
 
@@ -266,19 +304,21 @@ fn create_commented_code_issue(
     }
 }
 
-fn is_dead_code_pattern(line: &str) -> bool {
-    // Detect obvious dead code patterns
-    let dead_patterns = [
-        "return;",
-        "return ", // Code after return
-        "break;",
-        "continue;", // Code after break/continue
-        "panic!(",
-        "unreachable!(", // Code after panic
-        "std::process::exit(",
-    ];
-
-    dead_patterns.iter().any(|&pattern| line.contains(pattern))
+fn is_control_flow_terminator(line: &str) -> bool {
+    // Check if this line is a pure control flow terminator
+    // (the line itself terminates execution, not just contains these keywords)
+    matches!(
+        line,
+        "return;" |
+        "break;" |
+        "continue;" |
+        "unreachable!()" |
+        "unreachable!();" |
+        "std::process::exit(0);" |
+        "std::process::exit(1);"
+    ) || line.starts_with("return ") && line.ends_with(';') && !line.contains("//")
+        || line.starts_with("panic!(") && line.ends_with(';')
+        || line.starts_with("unreachable!(") && line.ends_with(')')
 }
 
 // ============================================================================
@@ -301,8 +341,37 @@ impl MagicNumberVisitor {
     }
 
     fn is_magic_number(&self, value: i64) -> bool {
-        // Common non-magic numbers
-        !matches!(value, -1 | 0 | 1 | 2 | 10 | 100 | 1000)
+        // Common non-magic numbers (powers of 2, common sizes, etc.)
+        !matches!(
+            value,
+            -1 | 0
+                | 1
+                | 2
+                | 3
+                | 4
+                | 5
+                | 6
+                | 7
+                | 8
+                | 9
+                | 10
+                | 12
+                | 16
+                | 24
+                | 32
+                | 64
+                | 100
+                | 128
+                | 256
+                | 512
+                | 1000
+                | 1024
+                | 2048
+                | 4096
+                | 8192
+                | 10000
+                | 65536
+        )
     }
 
     fn create_magic_number_issue(&self, value: i64, line: usize, column: usize) -> CodeIssue {

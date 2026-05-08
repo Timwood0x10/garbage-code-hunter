@@ -64,7 +64,7 @@ struct NamingVisitor {
 
 impl NamingVisitor {
     fn new(file_path: std::path::PathBuf, lang: &str) -> Self {
-        let terrible_names = Regex::new(r"^(data|info|temp|tmp|val|value|item|thing|stuff|obj|object|manager|handler|helper|util|utils|a|b|c|d|e|f|g|h|test|func|function)(\d+)?$").unwrap();
+        let terrible_names = Regex::new(r"^(data|info|temp|tmp|val|value|item|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").unwrap();
 
         Self {
             file_path,
@@ -180,8 +180,8 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
     fn visit_pat_ident(&mut self, pat_ident: &'ast syn::PatIdent) {
         let name = pat_ident.ident.to_string();
 
-        // Exclude common single-letter variables (like loop counters i, j, k, and closure params e)
-        if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z" | "e") {
+        // Exclude common single-letter variables (loop counters, closure params, etc.)
+        if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z" | "e" | "a" | "b" | "c" | "d" | "f" | "n" | "r" | "s" | "t" | "v" | "w") {
             let messages = if self.lang == "zh-CN" {
                 [
                     format!("单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"),

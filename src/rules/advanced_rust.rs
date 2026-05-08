@@ -17,8 +17,11 @@ impl Rule for ComplexClosureRule {
         syntax_tree: &File,
         _content: &str,
         _lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = ClosureVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -63,8 +66,11 @@ impl Rule for TraitComplexityRule {
         syntax_tree: &File,
         _content: &str,
         _lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = TraitVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -84,8 +90,11 @@ impl Rule for GenericAbuseRule {
         syntax_tree: &File,
         _content: &str,
         _lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = GenericVisitor::new(file_path.to_path_buf());
         visitor.visit_file(syntax_tree);
         visitor.issues

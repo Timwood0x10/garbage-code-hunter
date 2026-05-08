@@ -27,8 +27,11 @@ impl Rule for ChannelAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = ChannelVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -55,8 +58,11 @@ impl Rule for AsyncAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = AsyncVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -74,8 +80,11 @@ impl Rule for DynTraitAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = DynTraitVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -93,8 +102,11 @@ impl Rule for UnsafeAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = UnsafeVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -115,8 +127,11 @@ impl Rule for FFIAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = FFIVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -137,8 +152,12 @@ impl Rule for MacroAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = MacroVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -156,8 +175,11 @@ impl Rule for ModuleComplexityRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = ModuleVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -175,8 +197,21 @@ impl Rule for PatternMatchingAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
+        // Skip i18n/internationalization files (they legitimately have many match branches)
+        let file_name = file_path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or("");
+        if file_name.contains("i18n") || file_name.contains("locale") || file_name.contains("lang") {
+            return Vec::new();
+        }
+
         let mut visitor = PatternVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -838,7 +873,8 @@ impl<'ast> Visit<'ast> for MacroVisitor {
     fn visit_macro(&mut self, _macro: &'ast Macro) {
         self.macro_count += 1;
 
-        if self.macro_count > 10 {
+        // Only flag if there are many macros (threshold raised from 10 to 20)
+        if self.macro_count > 20 && self.issues.is_empty() {
             let messages = if self.lang == "zh-CN" {
                 [
                     "宏定义比我的借口还多",
@@ -996,7 +1032,8 @@ impl<'ast> Visit<'ast> for PatternVisitor {
     }
 
     fn visit_expr_match(&mut self, match_expr: &'ast ExprMatch) {
-        if match_expr.arms.len() > 10 {
+        // Only flag if there are many match arms (threshold raised from 10 to 20)
+        if match_expr.arms.len() > 20 {
             let messages = if self.lang == "zh-CN" {
                 [
                     "Match 分支比我的人生选择还多",

@@ -16,21 +16,80 @@ impl Rule for PrintlnDebuggingRule {
     fn check(
         &self,
         file_path: &Path,
-        syntax_tree: &File,
+        _syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut visitor = PrintlnDebuggingVisitor::new(file_path.to_path_buf(), lang);
-        visitor.visit_file(syntax_tree);
-
-        // Also check the count of println! in content
-        let println_count = content.matches("println!").count();
-        if println_count > 5 {
-            visitor.add_excessive_println_issue(println_count);
+        if is_test_file {
+            return Vec::new();
         }
 
-        visitor.issues
+        let mut issues = Vec::new();
+
+        // Check if this is a main.rs or lib.rs file (CLI tools legitimately use println!)
+        let file_name = file_path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or("");
+        let is_main_file = file_name == "main.rs" || file_name == "lib.rs";
+
+        // Count println! calls
+        let println_count = content.matches("println!").count();
+
+        // Only flag if there are many println! calls (likely debugging)
+        // or if it's not a main/lib file (where println! is usually for output)
+        if !is_main_file && println_count > 0 {
+            // Flag println! in non-main files as potential debugging
+            let messages = if lang == "zh-CN" {
+                vec![
+                    format!("发现 {} 个 println!，这是调试代码吗？", println_count),
+                    format!("{} 个 println! 可能是调试残留", println_count),
+                    format!("println! 出现在非主文件中，考虑使用 logging",),
+                ]
+            } else {
+                vec![
+                    format!("Found {} println! statements - is this debugging code?", println_count),
+                    format!("{} println!s might be debug leftovers", println_count),
+                    format!("println! in non-main file - consider using logging",),
+                ]
+            };
+
+            issues.push(CodeIssue {
+                file_path: file_path.to_path_buf(),
+                line: 1,
+                column: 1,
+                rule_name: "println-debugging".to_string(),
+                message: messages[println_count % messages.len()].clone(),
+                severity: Severity::Mild,
+            });
+        } else if is_main_file && println_count > 10 {
+            // Flag excessive println! even in main files
+            let messages = if lang == "zh-CN" {
+                vec![
+                    format!("{} 个 println!？你是在开演唱会吗？", println_count),
+                    format!("这么多 println!，控制台都要被刷屏了",),
+                    format!("{} 个打印语句，建议学学 debugger 的使用", println_count),
+                ]
+            } else {
+                vec![
+                    format!("{} println! statements? Are you hosting a concert?", println_count),
+                    format!("So many println!s, the console is crying"),
+                    format!("{} print statements - time to learn about debuggers", println_count),
+                ]
+            };
+
+            issues.push(CodeIssue {
+                file_path: file_path.to_path_buf(),
+                line: 1,
+                column: 1,
+                rule_name: "println-debugging".to_string(),
+                message: messages[println_count % messages.len()].clone(),
+                severity: Severity::Spicy,
+            });
+        }
+
+        issues
     }
 }
 
@@ -48,8 +107,11 @@ impl Rule for PanicAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = PanicAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -82,8 +144,11 @@ impl Rule for TodoCommentRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut issues = Vec::new();
 
         // Check various TODO patterns
@@ -149,96 +214,6 @@ impl Rule for TodoCommentRule {
         }
 
         issues
-    }
-}
-
-// ============================================================================
-// Visitor implementations
-// ============================================================================
-
-struct PrintlnDebuggingVisitor {
-    file_path: std::path::PathBuf,
-    issues: Vec<CodeIssue>,
-    lang: String,
-    println_count: usize,
-}
-
-impl PrintlnDebuggingVisitor {
-    fn new(file_path: std::path::PathBuf, lang: &str) -> Self {
-        Self {
-            file_path,
-            issues: Vec::new(),
-            lang: lang.to_string(),
-            println_count: 0,
-        }
-    }
-
-    fn add_excessive_println_issue(&mut self, count: usize) {
-        let messages = if self.lang == "zh-CN" {
-            vec![
-                format!("{} 个 println! 调试？你是在开演唱会吗？", count),
-                format!("这么多 println!，控制台都要被刷屏了",),
-                format!("{} 个打印语句，建议学学 debugger 的使用", count),
-                format!("println! 用得比我说话还频繁",),
-                format!("代码里的 println! 比注释还多，这是什么操作？",),
-            ]
-        } else {
-            vec![
-                format!("{} println! statements? Are you hosting a concert?", count),
-                format!("So many println!s, the console is crying"),
-                format!("{} print statements - time to learn about debuggers", count),
-                format!("You use println! more than I use excuses"),
-                format!("More println!s than comments - what's the strategy here?"),
-            ]
-        };
-
-        self.issues.push(CodeIssue {
-            file_path: self.file_path.clone(),
-            line: 1,
-            column: 1,
-            rule_name: "println-debugging".to_string(),
-            message: messages[count % messages.len()].clone(),
-            severity: Severity::Spicy,
-        });
-    }
-}
-
-impl<'ast> Visit<'ast> for PrintlnDebuggingVisitor {
-    fn visit_expr_macro(&mut self, expr_macro: &'ast ExprMacro) {
-        if let Some(ident) = expr_macro.mac.path.get_ident() {
-            if ident == "println" {
-                self.println_count += 1;
-
-                let messages = if self.lang == "zh-CN" {
-                    vec![
-                        "又一个 println! 调试，专业！",
-                        "println! 调试大法好，但是...",
-                        "看到这个 println!，我想起了我的学生时代",
-                        "println! 调试：简单粗暴，但不优雅",
-                        "这个 println! 是临时的，对吧？对吧？",
-                    ]
-                } else {
-                    vec![
-                        "Another println! debug - so professional!",
-                        "println! debugging strikes again",
-                        "This println! brings back student memories",
-                        "println! debugging: simple, crude, but effective",
-                        "This println! is temporary, right? Right?",
-                    ]
-                };
-
-                let (line, column) = get_position(expr_macro);
-                self.issues.push(CodeIssue {
-                    file_path: self.file_path.clone(),
-                    line,
-                    column,
-                    rule_name: "println-debugging".to_string(),
-                    message: messages[self.println_count % messages.len()].to_string(),
-                    severity: Severity::Mild,
-                });
-            }
-        }
-        syn::visit::visit_expr_macro(self, expr_macro);
     }
 }
 

@@ -45,8 +45,11 @@ impl Rule for HungarianNotationRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = HungarianNotationVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -67,8 +70,11 @@ impl Rule for AbbreviationAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = AbbreviationAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -96,14 +102,14 @@ impl MeaninglessNamingVisitor {
 
     fn is_meaningless_name(&self, name: &str) -> bool {
         let meaningless_names = [
-            // Classic placeholders
+            // Classic placeholders - truly meaningless
             "foo",
             "bar",
             "baz",
             "qux",
             "quux",
             "quuz",
-            // Meaningless generic words
+            // Generic words with no context
             "data",
             "info",
             "obj",
@@ -311,34 +317,23 @@ impl AbbreviationAbuseVisitor {
 
     fn is_bad_abbreviation(&self, name: &str) -> Option<&'static str> {
         let bad_abbreviations = [
-            // Management related
+            // Management related - these are truly unclear
             ("mgr", "manager"),
             ("mngr", "manager"),
             ("ctrl", "controller"),
-            ("proc", "processor"),
             ("hdlr", "handler"),
             // User related
             ("usr", "user"),
             ("pwd", "password"),
-            ("auth", "authentication"),
-            ("cfg", "config"),
             ("prefs", "preferences"),
             // UI related
             ("btn", "button"),
             ("lbl", "label"),
-            ("txt", "text"),
-            ("img", "image"),
             ("pic", "picture"),
             // Data related
-            ("db", "database"),
             ("tbl", "table"),
             ("col", "column"),
-            ("idx", "index"),
             ("cnt", "count"),
-            // Other common abbreviations
-            ("calc", "calculate"),
-            ("exec", "execute"),
-            ("util", "utility"),
         ];
 
         let name_lower = name.to_lowercase();

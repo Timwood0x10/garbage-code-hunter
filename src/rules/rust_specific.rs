@@ -17,8 +17,11 @@ impl Rule for UnwrapAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = UnwrapVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -38,8 +41,11 @@ impl Rule for UnnecessaryCloneRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        _is_test_file: bool,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = CloneVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -134,8 +140,8 @@ impl<'ast> Visit<'ast> for CloneVisitor {
         if method_call.method == "clone" {
             self.clone_count += 1;
 
-            // Simple heuristic detection: if there are multiple clones on the same line or nearby, they might be unnecessary
-            if self.clone_count > 3 {
+            // Only report once per file when clone count is very high
+            if self.clone_count == 15 {
                 let messages = if self.lang == "zh-CN" {
                     [
                         "clone() 狂魔！你是想把内存用完吗？",
@@ -156,7 +162,7 @@ impl<'ast> Visit<'ast> for CloneVisitor {
 
                 self.issues.push(CodeIssue {
                     file_path: self.file_path.clone(),
-                    line: 1, // Simplified handling
+                    line: 1,
                     column: 1,
                     rule_name: "unnecessary-clone".to_string(),
                     message: messages[self.issues.len() % messages.len()].to_string(),

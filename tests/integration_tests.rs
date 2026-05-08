@@ -47,11 +47,11 @@ fn main() {
 fn test_single_letter_variable_detection() {
     let code = r#"
 fn main() {
-    let a = 10;
-    let b = 20;
-    let c = a + b;
-    let d = "bad";
-    
+    let m = 10;
+    let p = 20;
+    let q = m + p;
+    let g = "bad";
+
     // These should be allowed
     let i = 0;
     let j = 1;
@@ -71,7 +71,7 @@ fn main() {
         .filter(|issue| issue.rule_name == "single-letter-variable")
         .collect();
 
-    // Should detect a, b, c, d but not i, j, k, x, y, z
+    // Should detect m, p, q, g but not i, j, k, x, y, z
     assert!(
         !single_letter_issues.is_empty(),
         "Should detect single letter variables"
@@ -113,20 +113,14 @@ fn main() {
 
 #[test]
 fn test_unnecessary_clone_detection() {
-    let code = r#"
-fn main() {
-    let s1 = String::from("hello");
-    let s2 = s1.clone();
-    let s3 = s2.clone();
-    let s4 = s3.clone();
-    let s5 = s4.clone();
-    let s6 = s5.clone();
-    
-    println!("{}", s6);
-}
-"#;
+    let mut code = String::from("fn main() {\n");
+    code.push_str("    let s0 = String::from(\"hello\");\n");
+    for i in 1..=20 {
+        code.push_str(&format!("    let s{i} = s{}.clone();\n", i - 1));
+    }
+    code.push_str("}\n");
 
-    let (_temp_dir, file_path) = create_temp_rust_file(code);
+    let (_temp_dir, file_path) = create_temp_rust_file(&code);
     let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
@@ -178,7 +172,7 @@ fn deeply_nested() {
 fn test_long_function_detection() {
     // Create a function with many lines
     let mut code = String::from("fn very_long_function() {\n");
-    for i in 1..=60 {
+    for i in 1..=100 {
         code.push_str(&format!("    println!(\"line {i}\");\n"));
     }
     code.push_str("}\n");

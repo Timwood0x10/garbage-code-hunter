@@ -78,6 +78,11 @@ impl DuplicationVisitor {
                 continue;
             }
 
+            // Skip lines that are inside string literals (format! args, messages, etc.)
+            if is_string_literal_line(trimmed) {
+                continue;
+            }
+
             let normalized = normalize_line(trimmed);
             self.line_hashes
                 .entry(normalized)
@@ -87,8 +92,8 @@ impl DuplicationVisitor {
 
         // find duplicate lines
         for line_numbers in self.line_hashes.values() {
-            if line_numbers.len() >= 3 {
-                // 3 times or more duplicate
+            if line_numbers.len() >= 10 {
+                // 10 times or more duplicate
                 let messages = if self.lang == "zh-CN" {
                     vec![
                         format!(
@@ -125,9 +130,9 @@ impl DuplicationVisitor {
                     ]
                 };
 
-                let severity = if line_numbers.len() >= 5 {
+                let severity = if line_numbers.len() >= 20 {
                     Severity::Nuclear
-                } else if line_numbers.len() >= 4 {
+                } else if line_numbers.len() >= 15 {
                     Severity::Spicy
                 } else {
                     Severity::Mild
@@ -150,7 +155,7 @@ impl DuplicationVisitor {
         let mut block_signatures = HashMap::new();
 
         for (i, block) in self.code_blocks.iter().enumerate() {
-            if block.len() > 150 {
+            if block.len() > 300 {
                 // only detect larger code blocks
                 let signature = generate_block_signature(block);
                 block_signatures
@@ -161,7 +166,8 @@ impl DuplicationVisitor {
         }
 
         for (_, block_indices) in block_signatures {
-            if block_indices.len() >= 2 {
+            if block_indices.len() >= 5 {
+                // 3 or more similar blocks (raised from 2)
                 let messages = if self.lang == "zh-CN" {
                     vec![
                         format!("发现 {} 个相似代码块，考虑重构成函数", block_indices.len()),
@@ -228,12 +234,35 @@ fn is_simple_statement(line: &str) -> bool {
     matches!(line.trim(), "{" | "}" | ";" | "(" | ")" | "[" | "]")
 }
 
+fn is_string_literal_line(line: &str) -> bool {
+    // Skip lines that are primarily string literal content (format args, messages, etc.)
+    // These are often intentionally similar across rules
+    let trimmed = line.trim();
+    // Lines that are just a string literal in a vec or format macro
+    if trimmed.starts_with('"') && trimmed.ends_with('"') {
+        return true;
+    }
+    if trimmed.starts_with('"') && (trimmed.ends_with("\",") || trimmed.ends_with('"')) {
+        return true;
+    }
+    // Lines with format! patterns
+    if trimmed.starts_with("format!") || trimmed.starts_with("format!(") {
+        return true;
+    }
+    // Lines inside vec![] that are just messages
+    if trimmed.starts_with("\"") && !trimmed.contains("fn ") && !trimmed.contains("let ") {
+        return true;
+    }
+    false
+}
+
 fn generate_block_signature(block: &str) -> String {
     // generate code block signature for similarity detection
+    // Use first 500 characters for more accurate matching
     block
         .chars()
         .filter(|c| !c.is_whitespace())
-        .take(100)
+        .take(500)
         .collect::<String>()
         .to_lowercase()
 }

@@ -198,8 +198,8 @@ fn main() {
         let rule = SingleLetterVariableRule;
         let code = r#"
 fn main() {
-    let a = 10;  // Should be detected
-    let b = 20;  // Should be detected
+    let m = 10;  // Should be detected
+    let p = 20;  // Should be detected
     let i = 0;   // Should NOT be detected (common loop variable)
     let j = 1;   // Should NOT be detected (common loop variable)
     let good_name = 42; // Should NOT be detected
@@ -210,7 +210,7 @@ fn main() {
         let path = Path::new("test.rs");
         let issues = rule.check(path, &syntax_tree, code, "en-US", false);
 
-        // Should detect 'a' and 'b' but not 'i', 'j', or 'good_name'
+        // Should detect 'm' and 'p' but not 'i', 'j', or 'good_name'
         assert!(!issues.is_empty(), "Should detect single letter variables");
         // Note: The exact count might vary based on implementation details
     }

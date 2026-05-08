@@ -20,7 +20,7 @@ fn test_analyzer_with_multiple_exclusions() {
     // Test with a directory that should be excluded
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let excluded_file = temp_dir.path().join("test_should_be_excluded.rs");
-    fs::write(&excluded_file, "fn main() { let data = \"test\"; }").expect("Failed to write file");
+    fs::write(&excluded_file, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
 
     let issues = analyzer.analyze_path(temp_dir.path());
     // Should have no issues because file is excluded
@@ -33,7 +33,7 @@ fn test_analyzer_with_empty_exclusions() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write file");
+    fs::write(&file_path, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
 
     let issues = analyzer.analyze_file(&file_path);
     assert!(
@@ -54,7 +54,7 @@ fn test_analyzer_with_invalid_exclusion_patterns() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write file");
+    fs::write(&file_path, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
 
     // Should still work even with invalid patterns
     let issues = analyzer.analyze_file(&file_path);
@@ -253,7 +253,7 @@ fn test_analyzer_with_mixed_files() {
     let rust_file = temp_dir.path().join("code.rs");
     let txt_file = temp_dir.path().join("readme.txt");
 
-    fs::write(&rust_file, "fn main() { let data = \"test\"; }").expect("Failed to write rust file");
+    fs::write(&rust_file, "fn main() { let thing = \"test\"; }").expect("Failed to write rust file");
     fs::write(&txt_file, "This is a text file").expect("Failed to write txt file");
 
     let analyzer = CodeAnalyzer::new(&[], "en-US");
