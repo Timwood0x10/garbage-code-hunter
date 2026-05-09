@@ -1,10 +1,17 @@
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::OnceLock;
+
+use regex::Regex;
 use syn::{visit::Visit, Block, File};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
+
+/// Static regex for string literal stripping, compiled once for performance.
+/// Matches content within double quotes for normalization purposes.
+static STRING_LITERAL_REGEX: OnceLock<Regex> = OnceLock::new();
 
 /// code duplication detection rule
 pub struct CodeDuplicationRule;
@@ -222,8 +229,8 @@ impl<'ast> Visit<'ast> for DuplicationVisitor {
 }
 
 fn normalize_line(line: &str) -> String {
-    use regex::Regex;
-    let re = Regex::new(r#""[^"]*""#).unwrap();
+    // Get or initialize the regex once, then reuse for all lines.
+    let re = STRING_LITERAL_REGEX.get_or_init(|| Regex::new(r#""[^"]*""#).unwrap());
     // normalize code line: strip string literals, remove variable name differences
     let stripped = re.replace_all(line.trim(), "STR");
     stripped

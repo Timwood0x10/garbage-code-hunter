@@ -325,7 +325,8 @@ fn create_commented_code_issue(
 fn is_control_flow_terminator(line: &str) -> bool {
     // Check if this line is a pure control flow terminator
     // (the line itself terminates execution, not just contains these keywords)
-    matches!(
+    // Explicit parentheses used to clarify operator precedence (&& binds tighter than ||)
+    let exact_matches = matches!(
         line,
         "return;"
             | "break;"
@@ -334,9 +335,16 @@ fn is_control_flow_terminator(line: &str) -> bool {
             | "unreachable!();"
             | "std::process::exit(0);"
             | "std::process::exit(1);"
-    ) || line.starts_with("return ") && line.ends_with(';') && !line.contains("//")
-        || line.starts_with("panic!(") && line.ends_with(';')
-        || line.starts_with("unreachable!(") && line.ends_with(')')
+    );
+
+    let has_return_statement =
+        line.starts_with("return ") && line.ends_with(';') && !line.contains("//");
+
+    let has_panic = line.starts_with("panic!(") && line.ends_with(';');
+
+    let has_unreachable = line.starts_with("unreachable!(") && line.ends_with(')');
+
+    exact_matches || has_return_statement || has_panic || has_unreachable
 }
 
 // ============================================================================

@@ -6,6 +6,8 @@ use walkdir::WalkDir;
 
 mod analyzer;
 mod config;
+mod context;
+mod cross_file;
 mod educational;
 mod hall_of_shame;
 mod i18n;

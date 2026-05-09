@@ -324,18 +324,6 @@ impl Reporter {
         println!("{}", title.bright_yellow().bold());
         println!("{}", "─".repeat(50).bright_black());
 
-        let _score_color = match quality_score.quality_level {
-            crate::scoring::QualityLevel::Excellent => {
-                quality_score.total_score.to_string().bright_green().bold()
-            }
-            crate::scoring::QualityLevel::Good => quality_score.total_score.to_string().green(),
-            crate::scoring::QualityLevel::Average => quality_score.total_score.to_string().yellow(),
-            crate::scoring::QualityLevel::Poor => quality_score.total_score.to_string().red(),
-            crate::scoring::QualityLevel::Terrible => {
-                quality_score.total_score.to_string().bright_red().bold()
-            }
-        };
-
         let (score_label, level_label) = match self.i18n.lang.as_str() {
             "zh-CN" => ("📊 总分", "🎯 等级"),
             _ => ("📊 Score", "🎯 Level"),
@@ -480,11 +468,6 @@ impl Reporter {
     ) {
         // Print detailed scoring breakdown
         self.print_scoring_breakdown(issues, quality_score);
-        let _nuclear_count = issues
-            .iter()
-            .filter(|i| matches!(i.severity, Severity::Nuclear))
-            .count();
-        let _total_count = issues.len();
 
         println!("{}", self.i18n.get("summary").bright_white().bold());
         println!("{}", "─".repeat(50).bright_black());
@@ -743,17 +726,7 @@ impl Reporter {
             .unwrap_or_default()
             .as_millis() as u64;
         let seed = timestamp + (score * 1000.0) as u64;
-        let roast_message = self.get_random_roast(category_name, score, seed);
-        let roasts = [roast_message.as_str()];
-
-        if roasts.is_empty() {
-            None
-        } else {
-            // select roast based on score (the higher the score, the more severe the roast)
-            let index = ((score - 60.0) / 10.0) as usize;
-            let roast_index = index.min(roasts.len() - 1);
-            Some(roasts[roast_index].to_string())
-        }
+        Some(self.get_random_roast(category_name, score, seed))
     }
 
     fn print_weighted_calculation(

@@ -267,8 +267,8 @@ impl<'ast> Visit<'ast> for CloneVisitor {
         if method_call.method == "clone" {
             self.clone_count += 1;
 
-            // Only report once per file when clone count is very high
-            if self.clone_count == 15 {
+            // Report once when clone count reaches threshold (>=15)
+            if self.clone_count >= 15 && self.issues.is_empty() {
                 let messages = if self.lang == "zh-CN" {
                     [
                         "clone() 狂魔！你是想把内存用完吗？",

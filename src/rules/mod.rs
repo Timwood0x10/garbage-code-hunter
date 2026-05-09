@@ -2,6 +2,7 @@ use std::path::Path;
 use syn::File;
 
 use crate::analyzer::CodeIssue;
+use crate::context::{FileContext, ProjectConfig};
 
 pub mod advanced_rust;
 pub mod code_smells;
@@ -18,6 +19,8 @@ pub mod student_code;
 
 pub trait Rule {
     fn name(&self) -> &'static str;
+
+    /// 原始检查方法（向后兼容）
     fn check(
         &self,
         file_path: &Path,
@@ -25,11 +28,37 @@ pub trait Rule {
         content: &str,
         lang: &str,
         is_test_file: bool,
-    ) -> Vec<CodeIssue>;
+    ) -> Vec<CodeIssue> {
+        self.check_with_context(
+            file_path,
+            syntax_tree,
+            content,
+            lang,
+            is_test_file,
+            &FileContext::from_path(file_path),
+            &ProjectConfig::default(),
+        )
+    }
+
+    /// 新方法：带上下文的检查（推荐使用）
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        _context: &FileContext,
+        _config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        // 默认实现：调用旧方法（向后兼容）
+        self.check(file_path, syntax_tree, content, lang, is_test_file)
+    }
 }
 
 pub struct RuleEngine {
     rules: Vec<Box<dyn Rule>>,
+    config: ProjectConfig,
 }
 
 impl Default for RuleEngine {
@@ -40,6 +69,10 @@ impl Default for RuleEngine {
 
 impl RuleEngine {
     pub fn new() -> Self {
+        Self::with_config(ProjectConfig::default())
+    }
+
+    pub fn with_config(config: ProjectConfig) -> Self {
         let rules: Vec<Box<dyn Rule>> = vec![
             // Add various detection rules
             Box::new(naming::TerribleNamingRule),
@@ -88,9 +121,43 @@ impl RuleEngine {
             Box::new(file_structure::ModuleNestingRule),
         ];
 
-        Self { rules }
+        Self { rules, config }
     }
 
+    /// 使用上下文感知的检查方法（推荐）
+    pub fn check_file_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+    ) -> Vec<CodeIssue> {
+        let context = FileContext::from_path(file_path);
+        let mut issues = Vec::new();
+
+        for rule in &self.rules {
+            if context.should_skip_rule(rule.name()) {
+                continue;
+            }
+
+            let rule_issues = rule.check_with_context(
+                file_path,
+                syntax_tree,
+                content,
+                lang,
+                is_test_file,
+                &context,
+                &self.config,
+            );
+
+            issues.extend(rule_issues);
+        }
+
+        issues
+    }
+
+    /// 旧版检查方法（向后兼容）
     pub fn check_file(
         &self,
         file_path: &Path,
@@ -99,13 +166,7 @@ impl RuleEngine {
         lang: &str,
         is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut issues = Vec::new();
-
-        for rule in &self.rules {
-            issues.extend(rule.check(file_path, syntax_tree, content, lang, is_test_file));
-        }
-
-        issues
+        self.check_file_with_context(file_path, syntax_tree, content, lang, is_test_file)
     }
 
     pub fn rule_names(&self) -> Vec<&'static str> {

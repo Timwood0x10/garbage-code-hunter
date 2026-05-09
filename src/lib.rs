@@ -3,6 +3,8 @@
 
 pub mod analyzer;
 pub mod config;
+pub mod context;
+pub mod cross_file;
 pub mod educational;
 pub mod hall_of_shame;
 pub mod i18n;

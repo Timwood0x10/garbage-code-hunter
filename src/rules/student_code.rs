@@ -156,7 +156,8 @@ impl Rule for PrintlnDebuggingRule {
         }
 
         // Heuristic: remaining println! are suspicious (ensure non-negative)
-        let suspicious_count = total_println.saturating_add(total_eprintln)
+        let suspicious_count = total_println
+            .saturating_add(total_eprintln)
             .saturating_sub(debug_count)
             .saturating_sub(output_count);
 

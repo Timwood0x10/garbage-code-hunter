@@ -5,18 +5,20 @@ use syn::parse_file;
 use walkdir::WalkDir;
 
 use crate::rules::RuleEngine;
+use crate::cross_file::{CrossFileAnalyzer, CrossFileConfig};
 
 #[derive(Debug, Clone)]
 pub struct CodeIssue {
     pub file_path: PathBuf,
     pub line: usize,
     pub column: usize,
+    #[allow(dead_code)]
     pub rule_name: String,
     pub message: String,
     pub severity: Severity,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Severity {
     Mild,    // Minor issues
     Spicy,   // Medium issues
@@ -91,13 +93,49 @@ impl CodeAnalyzer {
                 }
             }
         } else if path.is_dir() {
+            // Initialize cross-file analyzer for directory analysis
+            let mut cross_file = CrossFileAnalyzer::with_config(CrossFileConfig::default());
+
             for entry in WalkDir::new(path)
                 .into_iter()
                 .filter_map(|e| e.ok())
                 .filter(|e| !self.should_exclude(e.path()))
                 .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
             {
+                // Run standard single-file analysis
                 issues.extend(self.analyze_file(entry.path()));
+
+                // Also feed into cross-file analyzer for duplication detection
+                if let Ok(content) = fs::read_to_string(entry.path()) {
+                    if let Err(e) = cross_file.process_file(entry.path(), &content) {
+                        eprintln!(
+                            "Warning: Failed to process {} for cross-file analysis: {}",
+                            entry.path().display(),
+                            e
+                        );
+                    }
+                }
+            }
+
+            // Find cross-file duplicates and convert to CodeIssue format
+            let duplicates = cross_file.find_all_duplicates();
+            for dup in duplicates {
+                let severity = dup.severity.clone();
+                for location in &dup.fingerprint.locations {
+                    issues.push(CodeIssue {
+                        file_path: location.file_path.clone(),
+                        line: location.line_start,
+                        column: 0,
+                        rule_name: "cross-file-duplication".to_string(),
+                        message: format!(
+                            "Duplicated function '{}' found in {} files ({} occurrences)",
+                            dup.fingerprint.function_name,
+                            dup.file_count,
+                            dup.total_occurrences
+                        ),
+                        severity: severity.clone(),
+                    });
+                }
             }
         }
 

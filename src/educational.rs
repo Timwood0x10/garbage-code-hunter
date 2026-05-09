@@ -239,12 +239,9 @@ impl EducationalAdvisor {
     fn create_file_too_long_advice(&self) -> EducationalAdvice {
         if self.lang == "zh-CN" {
             EducationalAdvice {
-                why_bad: "过长的文件难以导航和维护，违反了单一职责原则，增加了代码的复杂性。"
-                    .to_string(),
+                why_bad: "过长的文件难以导航和维护，违反了单一职责原则，增加了代码复杂度。".to_string(),
                 how_to_fix: "将大文件拆分成多个小模块，每个模块负责特定的功能领域。".to_string(),
-                best_practice_tip: Some(
-                    "保持文件在 500-1000 行以内，超过时考虑按功能拆分模块。".to_string(),
-                ),
+                best_practice_tip: Some("保持文件在 500-1000 行以内，超出时考虑按功能拆分。".to_string()),
             }
         } else {
             EducationalAdvice {
@@ -257,93 +254,179 @@ impl EducationalAdvisor {
 
     // Add more advice creation methods for other rules...
     fn create_god_function_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Functions that do too much violate the single responsibility principle and are hard to test and maintain.".to_string(),
-            how_to_fix: "Break down large functions into smaller, focused functions that each do one thing well.".to_string(),
-            best_practice_tip: Some("Keep functions under 20-30 lines and focused on a single task.".to_string()),
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "做太多事情的函数违反了单一职责原则，难以测试和维护。".to_string(),
+                how_to_fix: "将大函数拆分成更小的、专注的函数，每个函数只做一件事。".to_string(),
+                best_practice_tip: Some("保持函数在 20-30 行以内，专注于单一任务。".to_string()),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Functions that do too much violate the single responsibility principle and are hard to test and maintain.".to_string(),
+                how_to_fix: "Break down large functions into smaller, focused functions that each do one thing well.".to_string(),
+                best_practice_tip: Some("Keep functions under 20-30 lines and focused on a single task.".to_string()),
+            }
         }
     }
 
     fn create_long_function_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Long functions are harder to understand, test, and maintain.".to_string(),
-            how_to_fix: "Extract logical blocks into separate functions with descriptive names."
-                .to_string(),
-            best_practice_tip: Some(
-                "If you can't see the entire function on your screen, it's probably too long."
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "长函数更难理解、测试和维护。".to_string(),
+                how_to_fix: "将逻辑块提取到具有描述性名称的独立函数中。".to_string(),
+                best_practice_tip: Some(
+                    "如果你无法在屏幕上看到整个函数，那它可能太长了。".to_string(),
+                ),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Long functions are harder to understand, test, and maintain.".to_string(),
+                how_to_fix: "Extract logical blocks into separate functions with descriptive names."
                     .to_string(),
-            ),
+                best_practice_tip: Some(
+                    "If you can't see the entire function on your screen, it's probably too long."
+                        .to_string(),
+                ),
+            }
         }
     }
 
     fn create_magic_number_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Magic numbers make code hard to understand and maintain.".to_string(),
-            how_to_fix: "Replace magic numbers with named constants that explain their purpose."
-                .to_string(),
-            best_practice_tip: Some(
-                "Use const declarations for values that have semantic meaning.".to_string(),
-            ),
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "魔法数字让代码难以理解和维护。".to_string(),
+                how_to_fix: "用能解释其用途的命名常量替换魔法数字。".to_string(),
+                best_practice_tip: Some(
+                    "对具有语义含义的值使用 const 声明。".to_string(),
+                ),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Magic numbers make code hard to understand and maintain.".to_string(),
+                how_to_fix: "Replace magic numbers with named constants that explain their purpose."
+                    .to_string(),
+                best_practice_tip: Some(
+                    "Use const declarations for values that have semantic meaning.".to_string(),
+                ),
+            }
         }
     }
 
     fn create_commented_code_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Commented-out code clutters the codebase and creates confusion about what's actually used.".to_string(),
-            how_to_fix: "Remove commented code - version control systems preserve history.".to_string(),
-            best_practice_tip: Some("Trust your version control system - delete dead code instead of commenting it out.".to_string()),
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "注释掉的代码会污染代码库，让人困惑哪些是真正在使用的代码。".to_string(),
+                how_to_fix: "删除注释掉的代码 - 版本控制系统会保留历史记录。".to_string(),
+                best_practice_tip: Some("相信你的版本控制系统 - 删除死代码而不是注释掉它。".to_string()),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Commented-out code clutters the codebase and creates confusion about what's actually used.".to_string(),
+                how_to_fix: "Remove commented code - version control systems preserve history.".to_string(),
+                best_practice_tip: Some("Trust your version control system - delete dead code instead of commenting it out.".to_string()),
+            }
         }
     }
 
     fn create_dead_code_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Dead code increases maintenance burden and can confuse developers."
-                .to_string(),
-            how_to_fix: "Remove unused functions, variables, and imports regularly.".to_string(),
-            best_practice_tip: Some(
-                "Use cargo clippy to detect dead code automatically.".to_string(),
-            ),
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "死代码增加了维护负担，会让开发者困惑。".to_string(),
+                how_to_fix: "定期删除未使用的函数、变量和导入。".to_string(),
+                best_practice_tip: Some(
+                    "使用 cargo clippy 自动检测死代码。".to_string(),
+                ),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Dead code increases maintenance burden and can confuse developers."
+                    .to_string(),
+                how_to_fix: "Remove unused functions, variables, and imports regularly.".to_string(),
+                best_practice_tip: Some(
+                    "Use cargo clippy to detect dead code automatically.".to_string(),
+                ),
+            }
         }
     }
 
     fn create_unnecessary_clone_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Unnecessary clones waste memory and CPU cycles.".to_string(),
-            how_to_fix: "Use references when possible, clone only when you need ownership."
-                .to_string(),
-            best_practice_tip: Some(
-                "Understand Rust's borrowing rules to minimize unnecessary allocations."
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "不必要的 clone 会浪费内存和 CPU 周期。".to_string(),
+                how_to_fix: "尽可能使用引用，只在需要所有权时才 clone。".to_string(),
+                best_practice_tip: Some(
+                    "理解 Rust 的借用规则以减少不必要的分配。".to_string(),
+                ),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Unnecessary clones waste memory and CPU cycles.".to_string(),
+                how_to_fix: "Use references when possible, clone only when you need ownership."
                     .to_string(),
-            ),
+                best_practice_tip: Some(
+                    "Understand Rust's borrowing rules to minimize unnecessary allocations."
+                        .to_string(),
+                ),
+            }
         }
     }
 
     fn create_iterator_abuse_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Manual loops are often less efficient and expressive than iterator chains.".to_string(),
-            how_to_fix: "Use iterator methods like map, filter, fold instead of manual loops when appropriate.".to_string(),
-            best_practice_tip: Some("Iterator chains are often more efficient due to lazy evaluation and compiler optimizations.".to_string()),
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "手动循环通常比迭代器链更低效且表达力差。".to_string(),
+                how_to_fix: "在适当的情况下使用 map、filter、fold 等迭代器方法代替手动循环。".to_string(),
+                best_practice_tip: Some(
+                    "迭代器链由于惰性求值和编译器优化，通常更高效。".to_string(),
+                ),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Manual loops are often less efficient and expressive than iterator chains.".to_string(),
+                how_to_fix: "Use iterator methods like map, filter, fold instead of manual loops when appropriate.".to_string(),
+                best_practice_tip: Some("Iterator chains are often more efficient due to lazy evaluation and compiler optimizations.".to_string()),
+            }
         }
     }
 
     fn create_panic_abuse_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Excessive panics make programs unreliable and hard to debug in production.".to_string(),
-            how_to_fix: "Use Result types for recoverable errors, reserve panics for truly unrecoverable situations.".to_string(),
-            best_practice_tip: Some("Panics should be used for programming errors, not for expected error conditions.".to_string()),
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "过度使用 panic 会让程序在生产环境中不可靠且难以调试。".to_string(),
+                how_to_fix: "对可恢复的错误使用 Result 类型，仅在真正无法恢复的情况下使用 panic。".to_string(),
+                best_practice_tip: Some(
+                    "Panic 应该用于编程错误，而不是预期的错误条件。".to_string(),
+                ),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Excessive panics make programs unreliable and hard to debug in production.".to_string(),
+                how_to_fix: "Use Result types for recoverable errors, reserve panics for truly unrecoverable situations.".to_string(),
+                best_practice_tip: Some("Panics should be used for programming errors, not for expected error conditions.".to_string()),
+            }
         }
     }
 
     fn create_todo_comment_advice(&self) -> EducationalAdvice {
-        EducationalAdvice {
-            why_bad: "Too many TODO comments indicate incomplete or poorly planned code."
-                .to_string(),
-            how_to_fix:
-                "Either implement the TODOs or create proper issue tracking for future work."
+        if self.lang == "zh-CN" {
+            EducationalAdvice {
+                why_bad: "过多的 TODO 注释表示代码不完整或规划不当。".to_string(),
+                how_to_fix: "要么实现这些 TODO，要么为未来的工作创建适当的问题跟踪。".to_string(),
+                best_practice_tip: Some(
+                    "谨慎使用 TODO，并始终附带具体的解决方案计划。".to_string(),
+                ),
+            }
+        } else {
+            EducationalAdvice {
+                why_bad: "Too many TODO comments indicate incomplete or poorly planned code."
                     .to_string(),
-            best_practice_tip: Some(
-                "Use TODO sparingly and always with a specific plan for resolution.".to_string(),
-            ),
+                how_to_fix:
+                    "Either implement the TODOs or create proper issue tracking for future work."
+                        .to_string(),
+                best_practice_tip: Some(
+                    "Use TODO sparingly and always with a specific plan for resolution.".to_string(),
+                ),
+            }
         }
     }
 

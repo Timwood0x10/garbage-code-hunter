@@ -8,9 +8,9 @@ pub struct ShameEntry {
     pub file_path: PathBuf,
     pub total_issues: usize,
     pub shame_score: f64,
-    pub _worst_offenses: Vec<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PatternStats {
     pub rule_name: String,
@@ -25,7 +25,6 @@ pub struct ProjectShameStats {
     pub total_issues: usize,
     pub garbage_density: f64,           // issues per 1000 lines of code
     pub hall_of_shame: Vec<ShameEntry>, // worst files
-    pub _shame_categories: HashMap<String, usize>,
 }
 
 pub struct HallOfShame {
@@ -58,7 +57,6 @@ impl HallOfShame {
         let mut nuclear_count = 0;
         let mut spicy_count = 0;
         let mut mild_count = 0;
-        let mut worst_offenses = Vec::new();
 
         // Analyze issues for this file
         for issue in issues {
@@ -70,11 +68,6 @@ impl HallOfShame {
 
             // Track pattern statistics
             self.update_pattern_stats(&issue.rule_name, &issue.severity, &file_path);
-
-            // Collect worst offenses (Nuclear and Spicy issues)
-            if matches!(issue.severity, Severity::Nuclear | Severity::Spicy) {
-                worst_offenses.push(format!("{}: {}", issue.rule_name, issue.message));
-            }
         }
 
         // Calculate shame score (weighted by severity)
@@ -85,7 +78,6 @@ impl HallOfShame {
             file_path,
             total_issues: issues.len(),
             shame_score,
-            _worst_offenses: worst_offenses,
         };
 
         self.entries.push(entry);
@@ -134,48 +126,11 @@ impl HallOfShame {
             0.0
         };
 
-        // Categorize shame by rule types
-        let mut shame_categories = HashMap::new();
-        for pattern in &most_common_patterns {
-            let category = self.categorize_rule(&pattern.rule_name);
-            *shame_categories.entry(category).or_insert(0) += pattern.count;
-        }
-
         ProjectShameStats {
             total_files_analyzed: self.entries.len(),
             total_issues,
             garbage_density,
             hall_of_shame,
-            _shame_categories: shame_categories,
-        }
-    }
-
-    fn categorize_rule(&self, rule_name: &str) -> String {
-        match rule_name {
-            name if name.contains("naming") => "Naming Issues".to_string(),
-            name if name.contains("complexity")
-                || name.contains("nesting")
-                || name.contains("function") =>
-            {
-                "Complexity Issues".to_string()
-            }
-            name if name.contains("unwrap")
-                || name.contains("panic")
-                || name.contains("string")
-                || name.contains("clone") =>
-            {
-                "Rust-specific Issues".to_string()
-            }
-            name if name.contains("println") || name.contains("todo") => {
-                "Student Code Issues".to_string()
-            }
-            name if name.contains("import") || name.contains("file") || name.contains("module") => {
-                "Structure Issues".to_string()
-            }
-            name if name.contains("magic") || name.contains("dead") || name.contains("comment") => {
-                "Code Smells".to_string()
-            }
-            _ => "Other Issues".to_string(),
         }
     }
 }
