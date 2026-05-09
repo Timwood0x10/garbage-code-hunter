@@ -1,5 +1,10 @@
 # 🗑️ Garbage Code Hunter
 
+[![CI/CD](https://github.com/yourusername/garbage-code-hunter/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/garbage-code-hunter/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/garbage-code-hunter.svg)](https://crates.io/crates/garbage-code-hunter)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust Version](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
+
 [English](README.md) | [中文](./README_zh.md)
 
 A humorous Rust code quality detector that roasts your garbage code with style!

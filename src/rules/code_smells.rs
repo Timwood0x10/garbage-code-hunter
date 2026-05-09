@@ -2,6 +2,7 @@ use std::path::Path;
 use syn::{visit::Visit, ExprLit, File, ItemFn, Lit};
 
 use crate::analyzer::{CodeIssue, Severity};
+use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -46,6 +47,52 @@ impl Rule for MagicNumberRule {
         let mut visitor = MagicNumberVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
+    }
+
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        context: &FileContext,
+        _config: &crate::context::ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        // Test/Documentation/Benchmark: 完全跳过
+        let weight = context.rule_weight_multiplier();
+        if weight < 0.3 {
+            return Vec::new();
+        }
+
+        // 获取所有问题
+        let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+
+        // UI/TUI 上下文：过滤掉常见的 UI 布局值
+        if matches!(context, FileContext::Business) {
+            let path_str = file_path.to_string_lossy().to_lowercase();
+            let is_ui_file = path_str.contains("ui")
+                || path_str.contains("tui")
+                || path_str.contains("gui")
+                || path_str.contains("view")
+                || path_str.contains("screen")
+                || path_str.contains("layout")
+                || path_str.contains("display")
+                || path_str.contains("render");
+
+            if is_ui_file {
+                return issues.into_iter()
+                    .filter(|issue| {
+                        matches!(
+                            issue.severity,
+                            Severity::Spicy | Severity::Nuclear
+                        )
+                    })
+                    .collect();
+            }
+        }
+
+        issues
     }
 }
 

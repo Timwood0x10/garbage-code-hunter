@@ -88,7 +88,7 @@ impl CodeScorer {
     ) -> CodeQualityScore {
         if issues.is_empty() {
             return CodeQualityScore {
-                total_score: 100.0, // Perfect score when no issues
+                total_score: 0.0, // Perfect score when no issues (0 = best)
                 category_scores: HashMap::new(),
                 file_count,
                 total_lines,

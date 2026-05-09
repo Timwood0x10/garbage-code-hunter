@@ -1,7 +1,6 @@
 use std::path::Path;
 
 /// 文件上下文类型 - 用于调整规则敏感度
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum FileContext {
     /// 业务代码（默认）- 正常检测强度

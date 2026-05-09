@@ -521,10 +521,4 @@ impl I18n {
             _ => vec!["Unknown issue detected".to_string()],
         }
     }
-
-    pub fn get_suggestions(&self, _rule_names: &[String]) -> Vec<String> {
-        // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-        // Return empty vector to avoid duplicate suggestions
-        vec![]
-    }
 }

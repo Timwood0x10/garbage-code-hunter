@@ -10,7 +10,6 @@ use super::fingerprint::{
     extract_fingerprint, jaccard_similarity, FileLocation, FunctionFingerprint,
 };
 
-#[allow(dead_code)]
 /// Configuration for cross-file analysis behavior
 #[derive(Debug, Clone)]
 pub struct CrossFileConfig {

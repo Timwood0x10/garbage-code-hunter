@@ -4,25 +4,15 @@ use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 use walkdir::WalkDir;
 
-mod analyzer;
-mod config;
-mod context;
-mod cross_file;
-mod educational;
-mod hall_of_shame;
-mod i18n;
-mod llm;
-mod reporter;
-mod rules;
-mod scoring;
-mod utils;
-
-use analyzer::CodeAnalyzer;
-use config::{AppConfig, AppMode};
-use educational::EducationalAdvisor;
-use hall_of_shame::HallOfShame;
-use llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider};
-use reporter::Reporter;
+// Use modules from library (lib.rs)
+use garbage_code_hunter::{
+    analyzer::{CodeAnalyzer, CodeIssue},
+    config::{AppConfig, AppMode},
+    educational::EducationalAdvisor,
+    hall_of_shame::HallOfShame,
+    llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
+    reporter::Reporter,
+};
 
 #[derive(Parser)]
 #[command(name = "garbage-code-hunter")]
@@ -137,11 +127,10 @@ fn main() {
         args.llm_endpoint.as_deref(),
         args.llm_model.as_deref(),
         args.llm_api_key.as_deref(),
-        args.llm_timeout,
+        Some(args.llm_timeout),  // Wrap in Option to allow explicit override
     );
 
     let analyzer = CodeAnalyzer::new(&args.exclude, &args.lang);
-    let _rule_count = analyzer.rule_names().len();
     let issues = analyzer.analyze_path(&args.path);
 
     // Calculate metrics for scoring
@@ -315,8 +304,8 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
 }
 
 fn group_issues_by_file(
-    issues: &[analyzer::CodeIssue],
-) -> std::collections::HashMap<std::path::PathBuf, Vec<analyzer::CodeIssue>> {
+    issues: &[CodeIssue],
+) -> std::collections::HashMap<std::path::PathBuf, Vec<CodeIssue>> {
     let mut grouped = std::collections::HashMap::new();
     for issue in issues {
         grouped
@@ -333,7 +322,7 @@ fn count_file_lines(file_path: &std::path::Path) -> usize {
         .unwrap_or(0)
 }
 
-fn output_json(issues: &[analyzer::CodeIssue]) {
+fn output_json(issues: &[CodeIssue]) {
     use serde_json;
 
     let json_issues: Vec<serde_json::Value> = issues

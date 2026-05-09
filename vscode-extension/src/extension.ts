@@ -146,13 +146,7 @@ function registerFileWatchers(context: vscode.ExtensionContext) {
         }
     });
 
-    // Listen for active editor changes
-    const onActiveEditorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (editor && editor.document.languageId === 'rust') {
-        }
-    });
-
-    context.subscriptions.push(onSaveListener, onActiveEditorChangeListener);
+    context.subscriptions.push(onSaveListener);
 }
 
 function registerConfigurationWatcher(context: vscode.ExtensionContext) {
@@ -211,8 +205,6 @@ async function analyzeWorkspace() {
                 const diagnostics = issuesToDiagnostics(fileIssues);
                 diagnosticCollection.set(uri, diagnostics);
             }
-
-            // Update inline decorations
 
             progress.report({ increment: 100, message: "Analysis complete!" });
 
@@ -380,11 +372,6 @@ async function executeAnalysis(document: vscode.TextDocument, requestId: number)
         }
         console.log(`🔬 [DIAG-DEBUG] ===== END TRACKING =====\n`);
 
-        // Update inline decorations for active editor
-        const editor = vscode.window.activeTextEditor;
-        if (editor && editor.document.uri.toString() === document.uri.toString()) {
-        }
-
     } catch (error) {
         console.error(`❌ [EXEC] Request #${requestId} failed:`, error);
     } finally {
@@ -460,7 +447,13 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
     console.log(`📝 Command: ${command}`);
 
     return new Promise((resolve, reject) => {
-        exec(command, { cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath }, (error, stdout, stderr) => {
+        exec(
+            command,
+            {
+                cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+                timeout: 30000, // 30 second timeout to prevent hanging
+            },
+            (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command execution error: ${error.message}`);
                 console.error(`Command: ${command}`);

@@ -2,6 +2,7 @@ use std::path::Path;
 use syn::{visit::Visit, ExprMethodCall, File};
 
 use crate::analyzer::{CodeIssue, Severity};
+use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -26,6 +27,35 @@ impl Rule for UnwrapAbuseRule {
         let mut visitor = UnwrapVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
+    }
+
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        context: &FileContext,
+        _config: &crate::context::ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        // Test/Benchmark/Documentation: 完全跳过（unwrap 在测试中很常见）
+        let weight = context.rule_weight_multiplier();
+        if weight < 0.5 {
+            return Vec::new();
+        }
+
+        // Example/Demo: 提高阈值到 >10 才报告
+        if weight < 0.7 {
+            let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+            // 仅当 unwrap 数量 > 10 时才报告
+            if issues.len() > 10 {
+                return issues;
+            }
+            return Vec::new();
+        }
+
+        self.check(file_path, syntax_tree, content, lang, is_test_file)
     }
 }
 

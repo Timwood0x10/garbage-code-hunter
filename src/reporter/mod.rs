@@ -423,22 +423,10 @@ impl Reporter {
         }
     }
 
-    fn print_footer(&self, issues: &[CodeIssue]) {
+    fn print_footer(&self, _issues: &[CodeIssue]) {
         println!();
         println!("{}", self.i18n.get("suggestions").bright_cyan().bold());
         println!("{}", "─".repeat(50).bright_black());
-
-        let rule_names: Vec<String> = issues
-            .iter()
-            .map(|issue| issue.rule_name.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        let suggestions = self.i18n.get_suggestions(&rule_names);
-        for suggestion in suggestions {
-            println!("   {}", suggestion.cyan());
-        }
 
         println!();
         let footer_message = if self.savage_mode {
@@ -695,16 +683,6 @@ impl Reporter {
         println!("## {}", self.i18n.get("suggestions"));
         println!();
 
-        let rule_names: Vec<String> = issues
-            .iter()
-            .map(|issue| issue.rule_name.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        let suggestions = self.i18n.get_suggestions(&rule_names);
-        for suggestion in suggestions {
-            println!("- {}", suggestion);
-        }
+        println!();
     }
 }

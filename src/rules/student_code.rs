@@ -2,6 +2,7 @@ use std::path::Path;
 use syn::{visit::Visit, ExprMacro, File};
 
 use crate::analyzer::{CodeIssue, Severity};
+use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::{count_non_comment_matches, find_line_of_str, get_position};
 
@@ -250,6 +251,35 @@ impl Rule for PrintlnDebuggingRule {
         }
 
         issues
+    }
+
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        context: &FileContext,
+        _config: &crate::context::ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        // Example, Test, Benchmark, Documentation: 完全跳过
+        let weight = context.rule_weight_multiplier();
+        if weight < 0.5 {
+            return Vec::new();
+        }
+
+        // main.rs/lib.rs 文件：允许更多 println（CLI 工具正常输出）
+        let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+        if file_name == "main.rs" || file_name == "lib.rs" {
+            // 对于入口文件，仅报告 Nuclear 级别问题（大量调试输出）
+            let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+            return issues.into_iter()
+                .filter(|issue| issue.severity == Severity::Nuclear)
+                .collect();
+        }
+
+        self.check(file_path, syntax_tree, content, lang, is_test_file)
     }
 }
 

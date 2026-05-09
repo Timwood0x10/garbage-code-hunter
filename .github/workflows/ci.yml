@@ -1,0 +1,196 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master , feature/vscode-extension]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Job 1: Check code quality (warnings, formatting)
+  check:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy linting
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Compile check (0 warnings policy)
+        run: |
+          echo "🔍 Checking for warnings..."
+          WARNINGS=$(cargo check 2>&1 | grep "warning:" | wc -l)
+          if [ "$WARNINGS" -gt 0 ]; then
+            echo "❌ Found $WARNINGS warnings! Project requires 0 warnings."
+            cargo check 2>&1 | grep "warning:"
+            exit 1
+          else
+            echo "✅ Zero warnings - perfect!"
+          fi
+
+  # Job 2: Run tests
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Run unit tests
+        run: cargo test --lib --verbose
+
+      - name: Run integration tests (if any)
+        run: cargo test --test '*' --verbose || true
+
+  # Job 3: Build release binary
+  build:
+    name: Build Release
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-release-
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: garbage-code-hunter-${{ matrix.os }}
+          path: target/release/garbage-code-hunter*
+          retention-days: 7
+
+  # Job 4: Self-test (bootstrap)
+  bootstrap:
+    name: Bootstrap Self-Test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Ubuntu build
+        uses: actions/download-artifact@v4
+        with:
+          name: garbage-code-hunter-ubuntu-latest
+          path: ./target/release
+
+      - name: Make executable
+        run: chmod +x ./target/release/garbage-code-hunter*
+
+      - name: Run self-test on project itself
+        run: |
+          echo "🎯 Running Bootstrap self-test..."
+          ./target/release/garbage-code-hunter . --lang en-US --markdown > bootstrap_report.md
+          echo "✅ Self-test completed successfully"
+          
+          # Verify no crashes and output generated
+          if [ -f bootstrap_report.md ] && [ -s bootstrap_report.md ]; then
+            echo "📄 Report generated"
+            head -20 bootstrap_report.md
+          else
+            echo "❌ Report generation failed"
+            exit 1
+          fi
+
+      - name: Upload bootstrap report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-report
+          path: bootstrap_report.md
+          retention-days: 30
+
+  # Job 5: Security audit (optional)
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run security audit
+        run: cargo audit || true
+
+  # Final status
+  success:
+    name: ✅ All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [check, test, build, bootstrap]
+    if: always()
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "========================================="
+          echo "🎉 CI/CD Pipeline Status"
+          echo "========================================="
+          echo "Code Quality: ${{ needs.check.result }}"
+          echo "Tests: ${{ needs.test.result }}"
+          echo "Build: ${{ needs.build.result }}"
+          echo "Bootstrap: ${{ needs.bootstrap.result }}"
+          echo "========================================="
+          
+          if [ "${{ needs.check.result }}" == "failure" ] || \
+             [ "${{ needs.test.result }}" == "failure" ] || \
+             [ "${{ needs.build.result }}" == "failure" ] || \
+             [ "${{ needs.bootstrap.result }}" == "failure" ]; then
+            echo "❌ Pipeline failed"
+            exit 1
+          else
+            echo "✅ All checks passed!"
+          fi

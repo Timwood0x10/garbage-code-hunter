@@ -10,7 +10,6 @@ pub struct ShameEntry {
     pub shame_score: f64,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PatternStats {
     pub rule_name: String,
@@ -112,11 +111,6 @@ impl HallOfShame {
 
         // Take top 10 worst files
         let hall_of_shame = sorted_entries.into_iter().take(10).collect();
-
-        // Sort patterns by frequency
-        let mut most_common_patterns: Vec<PatternStats> =
-            self.pattern_stats.values().cloned().collect();
-        most_common_patterns.sort_by_key(|b| std::cmp::Reverse(b.count));
 
         // Calculate garbage density (issues per 1000 lines)
         let total_issues: usize = self.entries.iter().map(|e| e.total_issues).sum();

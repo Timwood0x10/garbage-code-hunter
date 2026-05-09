@@ -12,7 +12,6 @@ pub struct CodeIssue {
     pub file_path: PathBuf,
     pub line: usize,
     pub column: usize,
-    #[allow(dead_code)]
     pub rule_name: String,
     pub message: String,
     pub severity: Severity,

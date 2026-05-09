@@ -34,7 +34,6 @@ impl Default for ProjectConfig {
     }
 }
 
-#[allow(dead_code)]
 impl ProjectConfig {
     /// 从文件加载配置，如果文件不存在返回默认配置
     pub fn load_from_file(path: &Path) -> Option<Self> {

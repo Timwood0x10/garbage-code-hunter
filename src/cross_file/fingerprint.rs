@@ -54,21 +54,17 @@ impl FunctionFingerprint {
     }
 
     /// Add another location where this pattern appears
-    #[allow(dead_code)]
     pub fn add_location(&mut self, location: FileLocation) {
         self.locations.push(location);
     }
 }
 
 /// Location of a function occurrence in source code
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileLocation {
-    #[allow(dead_code)]
     pub file_path: PathBuf,
     pub line_start: usize,
     pub line_end: usize,
-    #[allow(dead_code)]
     pub function_name: String,
 }
 

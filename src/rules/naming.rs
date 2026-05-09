@@ -3,6 +3,7 @@ use std::path::Path;
 use syn::{visit::Visit, File, Ident};
 
 use crate::analyzer::{CodeIssue, Severity};
+use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -28,6 +29,25 @@ impl Rule for TerribleNamingRule {
         let mut visitor = NamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
+    }
+
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        context: &FileContext,
+        _config: &crate::context::ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        // Example/Demo/Documentation: 完全跳过
+        let weight = context.rule_weight_multiplier();
+        if weight < 0.5 {
+            return Vec::new();
+        }
+
+        self.check(file_path, syntax_tree, content, lang, is_test_file)
     }
 }
 
