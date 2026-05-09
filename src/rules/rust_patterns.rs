@@ -3,6 +3,7 @@ use syn::File;
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::{count_non_import_matches, find_line_of_str_non_import};
 
 /// Detect using String everywhere instead of &str
 pub struct StringAbuseRule;
@@ -26,10 +27,10 @@ impl Rule for StringAbuseRule {
 
         let mut issues = Vec::new();
 
-        // Check String usage patterns in content
-        let string_new_count = content.matches("String::new()").count();
-        let string_from_count = content.matches("String::from(").count();
-        let to_string_count = content.matches(".to_string()").count();
+        // Check String usage patterns in content (excluding comments and imports)
+        let string_new_count = count_non_import_matches(content, "String::new()");
+        let string_from_count = count_non_import_matches(content, "String::from(");
+        let to_string_count = count_non_import_matches(content, ".to_string()");
         let total = string_new_count + string_from_count + to_string_count;
 
         if total > 15 {
@@ -43,7 +44,10 @@ impl Rule for StringAbuseRule {
                 ]
             } else {
                 vec![
-                    format!("{} String conversions? Are you running a string factory?", total),
+                    format!(
+                        "{} String conversions? Are you running a string factory?",
+                        total
+                    ),
                     format!("So many String allocations, memory is crying"),
                     format!("{} String conversions - consider using &str", total),
                     format!("You use String more than I change clothes"),
@@ -51,9 +55,21 @@ impl Rule for StringAbuseRule {
                 ]
             };
 
+            let candidates = [
+                find_line_of_str_non_import(content, "String::from("),
+                find_line_of_str_non_import(content, "String::new()"),
+                find_line_of_str_non_import(content, ".to_string()"),
+            ];
+            let line = candidates
+                .iter()
+                .copied()
+                .filter(|&l| l > 1)
+                .min()
+                .unwrap_or(1);
+
             issues.push(CodeIssue {
                 file_path: file_path.to_path_buf(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "string-abuse".to_string(),
                 message: messages[total % messages.len()].clone(),
@@ -87,8 +103,8 @@ impl Rule for VecAbuseRule {
 
         let mut issues = Vec::new();
 
-        // Check Vec usage patterns in content
-        let vec_new_count = content.matches("Vec::new()").count();
+        // Check Vec usage patterns in content (excluding comments and imports)
+        let vec_new_count = count_non_import_matches(content, "Vec::new()");
 
         if vec_new_count > 15 {
             let messages = if lang == "zh-CN" {
@@ -102,14 +118,19 @@ impl Rule for VecAbuseRule {
                 vec![
                     format!("{} Vec::new()s? What are you collecting?", vec_new_count),
                     format!("So many Vec allocations - consider arrays or slices"),
-                    format!("{} Vec allocations - memory allocator is busy", vec_new_count),
+                    format!(
+                        "{} Vec allocations - memory allocator is busy",
+                        vec_new_count
+                    ),
                     format!("So many Vecs - sure you need all these dynamic arrays?"),
                 ]
             };
 
+            let line = find_line_of_str_non_import(content, "Vec::new()");
+
             issues.push(CodeIssue {
                 file_path: file_path.to_path_buf(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "vec-abuse".to_string(),
                 message: messages[vec_new_count % messages.len()].clone(),

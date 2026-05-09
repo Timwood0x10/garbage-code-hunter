@@ -32,17 +32,32 @@ interface GarbageIssue {
 // Global diagnostic collection
 let diagnosticCollection: vscode.DiagnosticCollection;
 
+// Inline decoration types (ErrorLens-style: separate by severity)
+const decorationTypes = {
+    error: null as vscode.TextEditorDecorationType | null,
+    warning: null as vscode.TextEditorDecorationType | null,
+    information: null as vscode.TextEditorDecorationType | null,
+    hint: null as vscode.TextEditorDecorationType | null,
+};
+
+// Track last set decorations to detect duplicates
+let lastDecorationsUri: string | null = null;
+let lastDecorationsHash: string = '';
+
 // Output channel for educational mode
 let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('🗑️ Garbage Code Hunter is now active!');
 
-    // Create diagnostic collection (this works correctly, no duplicates!)
+    // Create diagnostic collection
     diagnosticCollection = vscode.languages.createDiagnosticCollection('garbage-hunter');
 
     // Create output channel for educational/score reports
     outputChannel = vscode.window.createOutputChannel('Garbage Hunter');
+
+    // Create inline decoration type (ErrorLens-style)
+    createInlineDecorationTypes();
 
     // Check CLI availability on startup
     checkCliAvailability();
@@ -94,6 +109,52 @@ async function checkCliAvailability() {
     });
 }
 
+function createInlineDecorationTypes() {
+    // Dispose old decoration types to prevent memory leaks and duplicate rendering
+    Object.values(decorationTypes).forEach(type => {
+        if (type) {
+            type.dispose();
+        }
+    });
+
+    console.log(`🗑️ [DECOR-TYPE] Disposing old decoration types`);
+
+    // Create separate decoration types for each severity level (like ErrorLens)
+    decorationTypes.error = vscode.window.createTextEditorDecorationType({
+        after: {
+            margin: '0 0 0 1em',
+            fontStyle: 'italic',
+            color: new vscode.ThemeColor('errorForeground'),
+        }
+    });
+
+    decorationTypes.warning = vscode.window.createTextEditorDecorationType({
+        after: {
+            margin: '0 0 0 1em',
+            fontStyle: 'italic',
+            color: new vscode.ThemeColor('editorWarning.foreground'),
+        }
+    });
+
+    decorationTypes.information = vscode.window.createTextEditorDecorationType({
+        after: {
+            margin: '0 0 0 1em',
+            fontStyle: 'italic',
+            color: new vscode.ThemeColor('editorInfo.foreground'),
+        }
+    });
+
+    decorationTypes.hint = vscode.window.createTextEditorDecorationType({
+        after: {
+            margin: '0 0 0 1em',
+            fontStyle: 'italic',
+            color: '#888888',
+        }
+    });
+
+    console.log(`✅ [DECOR-TYPE] Created 4 decoration types (error/warning/info/hint)`);
+}
+
 function registerCommands(context: vscode.ExtensionContext) {
     // Analyze current file
     const analyzeFileCommand = vscode.commands.registerCommand(
@@ -112,6 +173,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         'garbageHunter.clearDiagnostics',
         () => {
             diagnosticCollection.clear();
+            clearInlineDecorations();
             vscode.window.showInformationMessage('🧹 All roasts cleared!');
         }
     );
@@ -149,6 +211,7 @@ function registerFileWatchers(context: vscode.ExtensionContext) {
     // Listen for active editor changes
     const onActiveEditorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
         if (editor && editor.document.languageId === 'rust') {
+            updateInlineDecorations(editor);
         }
     });
 
@@ -159,6 +222,7 @@ function registerConfigurationWatcher(context: vscode.ExtensionContext) {
     const configWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('garbageHunter')) {
             // Recreate decoration types on config change
+            createInlineDecorationTypes();
 
             // Re-analyze all open files
             analyzeOpenRustFiles();
@@ -213,6 +277,7 @@ async function analyzeWorkspace() {
             }
 
             // Update inline decorations
+            updateAllInlineDecorations();
 
             progress.report({ increment: 100, message: "Analysis complete!" });
 
@@ -383,6 +448,7 @@ async function executeAnalysis(document: vscode.TextDocument, requestId: number)
         // Update inline decorations for active editor
         const editor = vscode.window.activeTextEditor;
         if (editor && editor.document.uri.toString() === document.uri.toString()) {
+            updateInlineDecorations(editor);
         }
 
     } catch (error) {
@@ -669,6 +735,180 @@ function severityToVSCodeSeverity(severity: string): vscode.DiagnosticSeverity {
     }
 }
 
+function updateInlineDecorations(editor: vscode.TextEditor) {
+    const config = vscode.workspace.getConfiguration('garbageHunter');
+    if (!config.get('showInlineMessages', true)) {
+        return;
+    }
+
+    console.log(`🎨 [DECOR] ===== DECORATION UPDATE TRIGGERED =====`);
+    console.log(`🎨 [DECOR] File: ${editor.document.fileName}`);
+    console.log(`🎨 [DECOR] Call stack:`, new Error().stack?.split('\n').slice(1, 5).join('\n'));
+
+    const diagnostics = diagnosticCollection.get(editor.document.uri);
+    console.log(`🎨 [DECOR] Diagnostics from collection: ${diagnostics?.length || 0}`);
+
+    if (!diagnostics || diagnostics.length === 0) {
+        console.log(`🎨 [DECOR] No diagnostics, clearing decorations`);
+        // Clear all decoration types (like ErrorLens)
+        Object.values(decorationTypes).forEach(type => {
+            if (type) {
+                editor.setDecorations(type, []);
+            }
+        });
+        return;
+    }
+
+    const maxLength = config.get<number>('maxInlineMessageLength', 100);
+
+    // SEPARATE BY SEVERITY (ErrorLens-style)
+    const decorationsBySeverity: Record<string, vscode.DecorationOptions[]> = {
+        error: [],
+        warning: [],
+        information: [],
+        hint: []
+    };
+
+    // CRITICAL: Track which lines already have decorations to prevent duplicates
+    const linesWithDecorations = new Set<number>();
+
+    for (const diagnostic of diagnostics) {
+        let message = diagnostic.message;
+        if (message.length > maxLength) {
+            message = message.substring(0, maxLength - 3) + '...';
+        }
+
+        // ErrorLens-style: show message at end of line, not at issue location
+        const line = diagnostic.range.start.line;
+
+        // Ensure line number is valid
+        if (line >= editor.document.lineCount) {
+            continue;
+        }
+
+        // ANTI-DUPLICATE: Skip if this line already has a decoration
+        if (linesWithDecorations.has(line)) {
+            console.log(`  🚫 [DECOR] Skipping duplicate decoration for Line ${line + 1}: "${message}"`);
+            continue;
+        }
+        linesWithDecorations.add(line);
+
+        const lineText = editor.document.lineAt(line).text;
+        const endOfLinePosition = new vscode.Position(line, lineText.length);
+
+        const decoration: vscode.DecorationOptions = {
+            range: new vscode.Range(endOfLinePosition, endOfLinePosition),
+            renderOptions: {
+                after: {
+                    contentText: ` ${message}`,
+                    fontStyle: 'italic',
+                    margin: '0 0 0 1em',
+                }
+            }
+        };
+
+        // Add to appropriate severity bucket
+        const severityKey = getSeverityKey(diagnostic.severity);
+        decorationsBySeverity[severityKey].push(decoration);
+    }
+
+    const totalDecorations = Object.values(decorationsBySeverity).reduce((sum, arr) => sum + arr.length, 0);
+    console.log(`🎨 [DECOR] Total decorations to set: ${totalDecorations}`);
+
+    // ANTI-DUPLICATE: Calculate hash and skip if identical to last time
+    const currentUri = editor.document.uri.toString();
+    const currentHash = Object.entries(decorationsBySeverity)
+        .map(([severity, decors]) => 
+            `${severity}:${decors.map(d => `${d.range.start.line}|${d.renderOptions?.after?.contentText}`).join(',')}`
+        )
+        .join('|');
+
+    if (currentUri === lastDecorationsUri && currentHash === lastDecorationsHash) {
+        console.log(`⏭️ [DECOR] SKIP: Identical decorations to last time (hash match)`);
+        console.log(`🎨 [DECOR] ===== END DECORATION UPDATE (SKIPPED) =====\n`);
+        return;
+    }
+
+    console.log(`🎨 [DECOR] New decorations detected, updating...`);
+    lastDecorationsUri = currentUri;
+    lastDecorationsHash = currentHash;
+
+    // Log all decorations for debugging
+    if (totalDecorations > 0) {
+        console.log(`🎨 [DECOR] Decorations by severity:`);
+        Object.entries(decorationsBySeverity).forEach(([severity, decors]) => {
+            if (decors.length > 0) {
+                console.log(`  [${severity}]: ${decors.length} decorations`);
+                decors.slice(0, 5).forEach((d, idx) => {
+                    console.log(`    [${idx}] Line ${d.range.start.line + 1}: "${d.renderOptions?.after?.contentText}"`);
+                });
+                if (decors.length > 5) {
+                    console.log(`    ... and ${decors.length - 5} more`);
+                }
+            }
+        });
+    }
+
+    // SET DECORATIONS BY SEVERITY (ErrorLens-style - this is the key fix!)
+    console.log(`🎨 [DECOR] Setting decorations by severity level...`);
+    
+    if (decorationTypes.error) {
+        editor.setDecorations(decorationTypes.error, decorationsBySeverity.error);
+        console.log(`🎨 [DECOR]   error: ${decorationsBySeverity.error.length}`);
+    }
+    
+    if (decorationTypes.warning) {
+        editor.setDecorations(decorationTypes.warning, decorationsBySeverity.warning);
+        console.log(`🎨 [DECOR]   warning: ${decorationsBySeverity.warning.length}`);
+    }
+    
+    if (decorationTypes.information) {
+        editor.setDecorations(decorationTypes.information, decorationsBySeverity.information);
+        console.log(`🎨 [DECOR]   information: ${decorationsBySeverity.information.length}`);
+    }
+    
+    if (decorationTypes.hint) {
+        editor.setDecorations(decorationTypes.hint, decorationsBySeverity.hint);
+        console.log(`🎨 [DECOR]   hint: ${decorationsBySeverity.hint.length}`);
+    }
+
+    console.log(`🎨 [DECOR] ===== END DECORATION UPDATE =====\n`);
+}
+
+function getSeverityKey(severity: vscode.DiagnosticSeverity): string {
+    switch (severity) {
+        case vscode.DiagnosticSeverity.Error:
+            return 'error';
+        case vscode.DiagnosticSeverity.Warning:
+            return 'warning';
+        case vscode.DiagnosticSeverity.Information:
+            return 'information';
+        case vscode.DiagnosticSeverity.Hint:
+            return 'hint';
+        default:
+            return 'information';
+    }
+}
+
+function updateAllInlineDecorations() {
+    vscode.window.visibleTextEditors.forEach(editor => {
+        if (editor.document.languageId === 'rust') {
+            updateInlineDecorations(editor);
+        }
+    });
+}
+
+function clearInlineDecorations() {
+    vscode.window.visibleTextEditors.forEach(editor => {
+        // Clear all decoration types (like ErrorLens)
+        Object.values(decorationTypes).forEach(type => {
+            if (type) {
+                editor.setDecorations(type, []);
+            }
+        });
+    });
+}
+
 /**
  * Show quality score summary for the workspace or current file.
  */
@@ -794,8 +1034,14 @@ export function deactivate() {
     if (diagnosticCollection) {
         diagnosticCollection.dispose();
     }
-
-
+    
+    // Dispose all decoration types (like ErrorLens)
+    Object.values(decorationTypes).forEach(type => {
+        if (type) {
+            type.dispose();
+        }
+    });
+    
     if (outputChannel) {
         outputChannel.dispose();
     }

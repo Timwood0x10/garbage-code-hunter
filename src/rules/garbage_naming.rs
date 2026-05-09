@@ -224,7 +224,10 @@ impl HungarianNotationVisitor {
                         // by checking that the prefix is not part of a longer word
                         let rest = &name[prefix.len()..];
                         // If the rest starts with a common word continuation, skip
-                        if rest.starts_with("ify") || rest.starts_with("nal") || rest.starts_with("ean") {
+                        if rest.starts_with("ify")
+                            || rest.starts_with("nal")
+                            || rest.starts_with("ean")
+                        {
                             continue;
                         }
                         return true;

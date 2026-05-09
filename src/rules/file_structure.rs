@@ -3,6 +3,7 @@ use syn::{visit::Visit, File, ItemMod};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::find_line_of_str;
 
 /// Detects files that are too long (>1000 lines)
 pub struct FileStructureRule;
@@ -60,7 +61,7 @@ impl Rule for FileStructureRule {
 
             issues.push(CodeIssue {
                 file_path: file_path.to_path_buf(),
-                line: 1,
+                line: threshold,
                 column: 1,
                 rule_name: "file-too-long".to_string(),
                 message: format!("{} ({}行)", message, line_count),
@@ -121,7 +122,7 @@ impl Rule for ImportChaosRule {
 
                     issues.push(CodeIssue {
                         file_path: file_path.to_path_buf(),
-                        line: 1,
+                        line: find_line_of_str(content, "use "),
                         column: 1,
                         rule_name: "duplicate-imports".to_string(),
                         message: messages[issues.len() % messages.len()].to_string(),
@@ -147,11 +148,12 @@ impl Rule for ModuleNestingRule {
         &self,
         file_path: &Path,
         syntax_tree: &File,
-        _content: &str,
+        content: &str,
         lang: &str,
         is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut visitor = ModuleNestingVisitor::new(file_path.to_path_buf(), lang, is_test_file);
+        let mut visitor =
+            ModuleNestingVisitor::new(file_path.to_path_buf(), lang, is_test_file, content);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
@@ -164,10 +166,11 @@ struct ModuleNestingVisitor {
     nesting_depth: usize,
     max_depth: usize,
     is_test_file: bool,
+    content: String,
 }
 
 impl ModuleNestingVisitor {
-    fn new(file_path: std::path::PathBuf, lang: &str, is_test_file: bool) -> Self {
+    fn new(file_path: std::path::PathBuf, lang: &str, is_test_file: bool, content: &str) -> Self {
         Self {
             file_path,
             lang: lang.to_string(),
@@ -175,6 +178,7 @@ impl ModuleNestingVisitor {
             nesting_depth: 0,
             max_depth: 0,
             is_test_file,
+            content: content.to_string(),
         }
     }
 
@@ -210,7 +214,7 @@ impl ModuleNestingVisitor {
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line: find_line_of_str(&self.content, "mod "),
                 column: 1,
                 rule_name: "deep-module-nesting".to_string(),
                 message: format!("{} (深度: {})", message, self.nesting_depth),

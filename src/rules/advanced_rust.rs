@@ -3,6 +3,7 @@ use syn::{visit::Visit, ExprClosure, File, GenericParam, ItemImpl, ItemTrait, Li
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::get_position;
 
 pub struct ComplexClosureRule;
 
@@ -126,10 +127,11 @@ impl ClosureVisitor {
                 "闭包嵌套过深，建议拆分成独立函数",
             ];
 
+            let (line, column) = get_position(closure);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1, // Simplified handling
-                column: 1,
+                line,
+                column,
                 rule_name: "complex-closure".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -144,10 +146,11 @@ impl ClosureVisitor {
                 "这么多参数的闭包，建议改成正经函数",
             ];
 
+            let (line, column) = get_position(closure);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "complex-closure".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
@@ -199,10 +202,11 @@ impl<'ast> Visit<'ast> for LifetimeVisitor {
                 "生命周期多到让人怀疑人生",
             ];
 
+            let (line, column) = get_position(lifetime);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "lifetime-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -236,10 +240,11 @@ impl TraitVisitor {
                 "trait 臃肿，建议拆分成多个小 trait",
             ];
 
+            let (line, column) = get_position(trait_item);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "trait-complexity".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -254,10 +259,11 @@ impl TraitVisitor {
                 "泛型滥用，建议简化设计",
             ];
 
+            let (line, column) = get_position(trait_item);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "trait-complexity".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
@@ -295,10 +301,11 @@ impl GenericVisitor {
                 "泛型多到让人怀疑这还是 Rust 吗",
             ];
 
+            let (line, column) = get_position(generics);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "generic-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -316,10 +323,11 @@ impl GenericVisitor {
                         format!("用 '{name}' 做泛型名？建议用更有意义的名字"),
                     ];
 
+                    let (line, column) = get_position(type_param);
                     self.issues.push(CodeIssue {
                         file_path: self.file_path.clone(),
-                        line: 1,
-                        column: 1,
+                        line,
+                        column,
                         rule_name: "generic-abuse".to_string(),
                         message: messages[self.issues.len() % messages.len()].clone(),
                         severity: Severity::Mild,

@@ -5,11 +5,12 @@ version = "0.1.2"
 edition = "2021"
 description = "A humorous Rust code quality detector that roasts your garbage code"
 repository = "https://github.com/TimWood0x10/garbage-code-hunter"
-license = "MIT"
+license = "Apache-2.0"
 
 
 [dependencies]
 syn = { version = "2.0", features = ["full", "parsing", "extra-traits", "visit"] }
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quote = "1.0"
 walkdir = "2.0"
 clap = { version = "4.0", features = ["derive"] }

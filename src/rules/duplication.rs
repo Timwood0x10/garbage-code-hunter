@@ -4,6 +4,7 @@ use syn::{visit::Visit, Block, File};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::get_position;
 
 /// code duplication detection rule
 pub struct CodeDuplicationRule;
@@ -34,7 +35,7 @@ impl Rule for CodeDuplicationRule {
 struct DuplicationVisitor {
     file_path: std::path::PathBuf,
     content: String,
-    code_blocks: Vec<String>,
+    code_blocks: Vec<(String, usize)>,
     line_hashes: HashMap<String, Vec<usize>>,
     lang: String,
 }
@@ -152,12 +153,12 @@ impl DuplicationVisitor {
 
     fn detect_block_duplications(&self, issues: &mut Vec<CodeIssue>) {
         // simple block duplication detection
-        let mut block_signatures = HashMap::new();
+        let mut block_signatures: HashMap<String, Vec<usize>> = HashMap::new();
 
-        for (i, block) in self.code_blocks.iter().enumerate() {
-            if block.len() > 300 {
+        for (i, (block_str, _line)) in self.code_blocks.iter().enumerate() {
+            if block_str.len() > 300 {
                 // only detect larger code blocks
-                let signature = generate_block_signature(block);
+                let signature = generate_block_signature(block_str);
                 block_signatures
                     .entry(signature)
                     .or_insert_with(Vec::new)
@@ -193,9 +194,11 @@ impl DuplicationVisitor {
                     ]
                 };
 
+                let line = self.code_blocks[block_indices[0]].1;
+
                 issues.push(CodeIssue {
                     file_path: self.file_path.clone(),
-                    line: 1,
+                    line,
                     column: 1,
                     rule_name: "code-duplication".to_string(),
                     message: messages[issues.len() % messages.len()].clone(),
@@ -211,7 +214,8 @@ impl<'ast> Visit<'ast> for DuplicationVisitor {
         // collect code blocks for duplication detection
         let block_str = format!("{block:?}");
         if block_str.len() > 20 {
-            self.code_blocks.push(block_str);
+            let (line, _) = get_position(block);
+            self.code_blocks.push((block_str, line));
         }
         syn::visit::visit_block(self, block);
     }

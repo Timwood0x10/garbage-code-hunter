@@ -105,9 +105,15 @@ fn main() {
         .collect();
 
     assert!(!unwrap_issues.is_empty(), "Should detect unwrap abuse");
+    // unwrap-abuse now reports a single issue with total count
+    assert_eq!(
+        unwrap_issues.len(),
+        1,
+        "Should report one unwrap-abuse issue with count"
+    );
     assert!(
-        unwrap_issues.len() >= 3,
-        "Should detect multiple unwrap calls"
+        unwrap_issues[0].message.contains("5"),
+        "Should mention 5 unwrap()s in message"
     );
 }
 

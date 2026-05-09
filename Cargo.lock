@@ -378,6 +378,7 @@ dependencies = [
  "clap",
  "colored",
  "criterion",
+ "proc-macro2",
  "quote",
  "regex",
  "reqwest",

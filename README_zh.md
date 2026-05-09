@@ -3,7 +3,7 @@
 [English](README.md) | [中文](README_zh.md)
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/garbage-code-hunter.svg)](https://crates.io/crates/garbage-code-hunter)
 [![Tests](https://img.shields.io/badge/tests-133%20passing-brightgreen.svg)]()
 
@@ -563,7 +563,7 @@ fi
 
 ## 📝 许可证
 
-本项目基于 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
+本项目基于 Apache License 2.0 - 详见 [LICENSE](LICENSE) 文件。
 
 ## 🙏 致谢
 

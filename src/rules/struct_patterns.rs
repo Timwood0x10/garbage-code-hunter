@@ -3,6 +3,7 @@ use syn::{visit::Visit, File, TypeReference, TypeSlice};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::{find_line_of_str_non_import, get_position};
 
 pub struct ReferenceAbuseRule;
 pub struct BoxAbuseRule;
@@ -71,9 +72,19 @@ impl Rule for BoxAbuseRule {
                 ]
             };
 
+            let candidates = [
+                find_line_of_str_non_import(content, "Box::new"),
+                find_line_of_str_non_import(content, "Box<"),
+            ];
+            let line = candidates
+                .iter()
+                .copied()
+                .filter(|&l| l > 1)
+                .min()
+                .unwrap_or(1);
             visitor.issues.push(CodeIssue {
                 file_path: file_path.to_path_buf(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "box-abuse".to_string(),
                 message: messages[0].to_string(),
@@ -157,10 +168,11 @@ impl<'ast> Visit<'ast> for ReferenceVisitor {
                 ]
             };
 
+            let (line, column) = get_position(ref_type);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "reference-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
@@ -206,7 +218,7 @@ impl SliceVisitor {
 }
 
 impl<'ast> Visit<'ast> for SliceVisitor {
-    fn visit_type_slice(&mut self, _slice_type: &'ast TypeSlice) {
+    fn visit_type_slice(&mut self, slice_type: &'ast TypeSlice) {
         self.slice_count += 1;
 
         // Only report once per file when slice count is very high
@@ -227,16 +239,17 @@ impl<'ast> Visit<'ast> for SliceVisitor {
                 ]
             };
 
+            let (line, column) = get_position(slice_type);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "slice-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
             });
         }
 
-        syn::visit::visit_type_slice(self, _slice_type);
+        syn::visit::visit_type_slice(self, slice_type);
     }
 }

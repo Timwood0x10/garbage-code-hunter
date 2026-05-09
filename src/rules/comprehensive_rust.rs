@@ -6,6 +6,7 @@ use syn::{
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::{count_non_import_matches, find_line_of_str, get_position};
 
 pub struct ChannelAbuseRule;
 pub struct AsyncAbuseRule;
@@ -35,14 +36,14 @@ impl Rule for ChannelAbuseRule {
         let mut visitor = ChannelVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
-        // Also check for channel-related imports and usage in content
+        // Also check for channel-related usage in content (excluding imports)
         if content.contains("std::sync::mpsc") || content.contains("tokio::sync") {
-            visitor.channel_count += content.matches("channel").count();
-            visitor.channel_count += content.matches("Sender").count();
-            visitor.channel_count += content.matches("Receiver").count();
+            visitor.channel_count += count_non_import_matches(content, "channel");
+            visitor.channel_count += count_non_import_matches(content, "Sender");
+            visitor.channel_count += count_non_import_matches(content, "Receiver");
         }
 
-        visitor.check_channel_overuse();
+        visitor.check_channel_overuse(content);
         visitor.issues
     }
 }
@@ -204,11 +205,9 @@ impl Rule for PatternMatchingAbuseRule {
         }
 
         // Skip i18n/internationalization files (they legitimately have many match branches)
-        let file_name = file_path
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or("");
-        if file_name.contains("i18n") || file_name.contains("locale") || file_name.contains("lang") {
+        let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+        if file_name.contains("i18n") || file_name.contains("locale") || file_name.contains("lang")
+        {
             return Vec::new();
         }
 
@@ -224,6 +223,7 @@ struct ChannelVisitor {
     issues: Vec<CodeIssue>,
     channel_count: usize,
     lang: String,
+    last_position: (usize, usize),
 }
 
 impl ChannelVisitor {
@@ -233,10 +233,11 @@ impl ChannelVisitor {
             issues: Vec::new(),
             channel_count: 0,
             lang: lang.to_string(),
+            last_position: (1, 1),
         }
     }
 
-    fn check_channel_overuse(&mut self) {
+    fn check_channel_overuse(&mut self, content: &str) {
         if self.channel_count > 5 {
             let messages = if self.lang == "zh-CN" {
                 [
@@ -256,9 +257,21 @@ impl ChannelVisitor {
                 ]
             };
 
+            let candidates = [
+                find_line_of_str(content, "channel"),
+                find_line_of_str(content, "Sender"),
+                find_line_of_str(content, "Receiver"),
+            ];
+            let line = candidates
+                .iter()
+                .copied()
+                .filter(|&l| l > 1)
+                .min()
+                .unwrap_or(1);
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "channel-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -276,6 +289,7 @@ impl<'ast> Visit<'ast> for ChannelVisitor {
             || path_str.contains("channel")
         {
             self.channel_count += 1;
+            self.last_position = get_position(type_path);
         }
         syn::visit::visit_type_path(self, type_path);
     }
@@ -288,6 +302,7 @@ struct AsyncVisitor {
     async_count: usize,
     await_count: usize,
     lang: String,
+    last_position: (usize, usize),
 }
 
 impl AsyncVisitor {
@@ -298,6 +313,7 @@ impl AsyncVisitor {
             async_count: 0,
             await_count: 0,
             lang: lang.to_string(),
+            last_position: (1, 1),
         }
     }
 
@@ -319,10 +335,11 @@ impl AsyncVisitor {
                 ]
             };
 
+            let (line, column) = self.last_position;
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "async-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -346,10 +363,11 @@ impl AsyncVisitor {
                 ]
             };
 
+            let (line, column) = self.last_position;
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "async-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
@@ -361,12 +379,14 @@ impl AsyncVisitor {
 impl<'ast> Visit<'ast> for AsyncVisitor {
     fn visit_expr_async(&mut self, _async_expr: &'ast ExprAsync) {
         self.async_count += 1;
+        self.last_position = get_position(_async_expr);
         self.check_async_abuse();
         syn::visit::visit_expr_async(self, _async_expr);
     }
 
     fn visit_expr_await(&mut self, _await_expr: &'ast ExprAwait) {
         self.await_count += 1;
+        self.last_position = get_position(_await_expr);
         self.check_async_abuse();
         syn::visit::visit_expr_await(self, _await_expr);
     }
@@ -414,10 +434,11 @@ impl<'ast> Visit<'ast> for DynTraitVisitor {
                 ]
             };
 
+            let (line, column) = get_position(trait_object);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "dyn-trait-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -488,10 +509,15 @@ impl UnsafeVisitor {
             dangerous_op_count += content.matches(op).count();
         }
 
-        self.generate_unsafe_issues(raw_ptr_count, dangerous_op_count);
+        self.generate_unsafe_issues(content, raw_ptr_count, dangerous_op_count);
     }
 
-    fn generate_unsafe_issues(&mut self, raw_ptr_count: usize, dangerous_op_count: usize) {
+    fn generate_unsafe_issues(
+        &mut self,
+        content: &str,
+        raw_ptr_count: usize,
+        dangerous_op_count: usize,
+    ) {
         // Check for excessive unsafe functions
         if self.unsafe_fn_count > 2 {
             let messages = if self.lang == "zh-CN" {
@@ -510,9 +536,10 @@ impl UnsafeVisitor {
                 ]
             };
 
+            let line = find_line_of_str(content, "unsafe fn");
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "unsafe-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -538,9 +565,10 @@ impl UnsafeVisitor {
                 ]
             };
 
+            let line = find_line_of_str(content, "*const");
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "unsafe-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -566,9 +594,12 @@ impl UnsafeVisitor {
                 ]
             };
 
+            let line = find_line_of_str(content, "std::ptr::write")
+                .max(find_line_of_str(content, "std::mem::transmute"))
+                .max(find_line_of_str(content, "from_raw"));
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "unsafe-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -606,10 +637,11 @@ impl<'ast> Visit<'ast> for UnsafeVisitor {
             Severity::Spicy
         };
 
+        let (line, column) = get_position(_unsafe_expr);
         self.issues.push(CodeIssue {
             file_path: self.file_path.clone(),
-            line: 1,
-            column: 1,
+            line,
+            column,
             rule_name: "unsafe-abuse".to_string(),
             message: messages[self.issues.len() % messages.len()].to_string(),
             severity,
@@ -677,10 +709,10 @@ impl FFIVisitor {
             dll_count += content.matches(op).count();
         }
 
-        self.generate_ffi_issues(c_ops_count, dll_count);
+        self.generate_ffi_issues(content, c_ops_count, dll_count);
     }
 
-    fn generate_ffi_issues(&mut self, c_ops_count: usize, dll_count: usize) {
+    fn generate_ffi_issues(&mut self, content: &str, c_ops_count: usize, dll_count: usize) {
         // Check for excessive extern blocks
         if self.extern_block_count > 2 {
             let messages = if self.lang == "zh-CN" {
@@ -699,9 +731,10 @@ impl FFIVisitor {
                 ]
             };
 
+            let line = find_line_of_str(content, "extern \"C\"");
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -727,9 +760,11 @@ impl FFIVisitor {
                 ]
             };
 
+            let line =
+                find_line_of_str(content, "CString").max(find_line_of_str(content, "std::ffi"));
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -755,9 +790,11 @@ impl FFIVisitor {
                 ]
             };
 
+            let line =
+                find_line_of_str(content, "libloading").max(find_line_of_str(content, "dlopen"));
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -783,9 +820,10 @@ impl FFIVisitor {
                 ]
             };
 
+            let line = find_line_of_str(content, "#[repr(C)]");
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
+                line,
                 column: 1,
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
@@ -824,10 +862,11 @@ impl<'ast> Visit<'ast> for FFIVisitor {
                 ]
             };
 
+            let (line, column) = get_position(foreign_mod);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "ffi-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -893,10 +932,11 @@ impl<'ast> Visit<'ast> for MacroVisitor {
                 ]
             };
 
+            let (line, column) = get_position(_macro);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "macro-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
@@ -950,10 +990,11 @@ impl<'ast> Visit<'ast> for ModuleVisitor {
                 ]
             };
 
+            let (line, column) = get_position(_module);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "module-complexity".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,
@@ -971,6 +1012,7 @@ struct PatternVisitor {
     issues: Vec<CodeIssue>,
     complex_pattern_count: usize,
     lang: String,
+    last_position: (usize, usize),
 }
 
 impl PatternVisitor {
@@ -980,6 +1022,7 @@ impl PatternVisitor {
             issues: Vec::new(),
             complex_pattern_count: 0,
             lang: lang.to_string(),
+            last_position: (1, 1),
         }
     }
 
@@ -1008,10 +1051,11 @@ impl PatternVisitor {
                 ]
             };
 
+            let (line, column) = self.last_position;
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "pattern-matching-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Mild,
@@ -1022,11 +1066,13 @@ impl PatternVisitor {
 
 impl<'ast> Visit<'ast> for PatternVisitor {
     fn visit_pat_tuple(&mut self, _tuple_pat: &'ast PatTuple) {
+        self.last_position = get_position(_tuple_pat);
         self.check_pattern_complexity("元组");
         syn::visit::visit_pat_tuple(self, _tuple_pat);
     }
 
     fn visit_pat_slice(&mut self, _slice_pat: &'ast PatSlice) {
+        self.last_position = get_position(_slice_pat);
         self.check_pattern_complexity("切片");
         syn::visit::visit_pat_slice(self, _slice_pat);
     }
@@ -1050,10 +1096,11 @@ impl<'ast> Visit<'ast> for PatternVisitor {
                 ]
             };
 
+            let (line, column) = get_position(match_expr);
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column,
                 rule_name: "pattern-matching-abuse".to_string(),
                 message: messages[self.issues.len() % messages.len()].to_string(),
                 severity: Severity::Spicy,

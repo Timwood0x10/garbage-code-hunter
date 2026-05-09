@@ -82,7 +82,10 @@ impl RoastProvider for LlmRoastProvider {
         let prompt = build_roast_prompt(issues, &contexts, lang);
 
         tracing::debug!("Calling LLM with {} issues...", issues.len());
-        tracing::debug!("Prompt (first 500 chars): {}", &prompt[..prompt.len().min(500)]);
+        tracing::debug!(
+            "Prompt (first 500 chars): {}",
+            &prompt[..prompt.len().min(500)]
+        );
 
         match self.client.call_blocking(&prompt) {
             Ok(response) => {
@@ -93,7 +96,10 @@ impl RoastProvider for LlmRoastProvider {
                         roasts
                     }
                     Err(e) => {
-                        tracing::warn!("Failed to parse LLM response: {:#}. Falling back to local roasts.", e);
+                        tracing::warn!(
+                            "Failed to parse LLM response: {:#}. Falling back to local roasts.",
+                            e
+                        );
                         self.fallback.generate_roasts(issues, lang)
                     }
                 }
@@ -411,11 +417,18 @@ mod tests {
     fn test_parse_response_with_trailing_comma() {
         // Objective: Verify LLM output with trailing commas is handled.
         // Invariants: Trailing commas must be stripped before parsing.
-        let issues = vec![make_issue("unwrap-abuse", 10), make_issue("deep-nesting", 25)];
+        let issues = vec![
+            make_issue("unwrap-abuse", 10),
+            make_issue("deep-nesting", 25),
+        ];
         let response = "```json\n{\"0\": \"nice unwrap\", \"1\": \"so deep\",}\n```";
         let roasts = parse_llm_response(response, &issues).unwrap();
 
-        assert_eq!(roasts.len(), 2, "Should parse both roasts despite trailing comma");
+        assert_eq!(
+            roasts.len(),
+            2,
+            "Should parse both roasts despite trailing comma"
+        );
     }
 
     #[test]

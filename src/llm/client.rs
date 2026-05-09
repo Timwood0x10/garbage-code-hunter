@@ -134,7 +134,9 @@ impl LlmClient {
 
     async fn call_async(&self, prompt: &str) -> Result<String> {
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(self.config.timeout_secs.max(120)))
+            .timeout(std::time::Duration::from_secs(
+                self.config.timeout_secs.max(120),
+            ))
             .build()
             .context("Failed to build HTTP client")?;
 
@@ -157,7 +159,11 @@ impl LlmClient {
             format: None,
         };
 
-        tracing::debug!("Ollama request: model={}, endpoint={}", self.config.model, self.config.endpoint);
+        tracing::debug!(
+            "Ollama request: model={}, endpoint={}",
+            self.config.model,
+            self.config.endpoint
+        );
 
         let resp = client
             .post(&url)
@@ -171,7 +177,11 @@ impl LlmClient {
             .await
             .context("Failed to parse Ollama response")?;
 
-        tracing::debug!("Ollama raw response ({} chars): {}", body.response.len(), &body.response[..body.response.len().min(500)]);
+        tracing::debug!(
+            "Ollama raw response ({} chars): {}",
+            body.response.len(),
+            &body.response[..body.response.len().min(500)]
+        );
 
         Ok(body.response)
     }

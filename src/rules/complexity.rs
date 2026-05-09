@@ -41,7 +41,8 @@ impl Rule for LongFunctionRule {
         lang: &str,
         is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut visitor = FunctionLengthVisitor::new(file_path.to_path_buf(), content, lang, is_test_file);
+        let mut visitor =
+            FunctionLengthVisitor::new(file_path.to_path_buf(), content, lang, is_test_file);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
@@ -257,10 +258,12 @@ impl<'ast> Visit<'ast> for FunctionLengthVisitor {
                 Severity::Mild
             };
 
+            let (line, column) = get_position(func);
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1, // Simplified handling
-                column: 1,
+                line,
+                column,
                 rule_name: "long-function".to_string(),
                 message: messages[self.issues.len() % messages.len()].clone(),
                 severity,

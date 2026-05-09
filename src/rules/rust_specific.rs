@@ -3,6 +3,7 @@ use syn::{visit::Visit, ExprMethodCall, File};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::get_position;
 
 pub struct UnwrapAbuseRule;
 
@@ -56,6 +57,7 @@ struct UnwrapVisitor {
     file_path: std::path::PathBuf,
     issues: Vec<CodeIssue>,
     unwrap_count: usize,
+    first_position: (usize, usize),
     lang: String,
 }
 
@@ -65,6 +67,7 @@ impl UnwrapVisitor {
             file_path,
             issues: Vec::new(),
             unwrap_count: 0,
+            first_position: (1, 1),
             lang: lang.to_string(),
         }
     }
@@ -73,47 +76,171 @@ impl UnwrapVisitor {
 impl<'ast> Visit<'ast> for UnwrapVisitor {
     fn visit_expr_method_call(&mut self, method_call: &'ast ExprMethodCall) {
         if method_call.method == "unwrap" {
+            if self.unwrap_count == 0 {
+                self.first_position = get_position(method_call);
+            }
             self.unwrap_count += 1;
+        }
 
-            let messages = if self.lang == "zh-CN" {
-                [
-                    "又一个 unwrap()！你是想让程序在生产环境里爆炸吗？",
-                    "unwrap() 大师！错误处理是什么？能吃吗？",
-                    "看到这个 unwrap()，我仿佛听到了程序崩溃的声音",
-                    "unwrap() 使用者，恭喜你获得了'程序炸弹制造专家'称号",
-                    "这个 unwrap() 就像定时炸弹，不知道什么时候会爆",
-                    "又见 unwrap()！建议使用 match 或 if let，除非你喜欢 panic",
-                ]
-            } else {
-                [
-                    "Another unwrap()! Trying to blow up production?",
-                    "unwrap() master! What's error handling? Can you eat it?",
-                    "Seeing this unwrap(), I can already hear the crash",
-                    "unwrap() user, congrats on the 'bomb-making expert' certificate",
-                    "This unwrap() is a ticking time bomb - no idea when it'll explode",
-                    "unwrap() again! Use match or if let, unless you enjoy panicking",
-                ]
-            };
+        syn::visit::visit_expr_method_call(self, method_call);
+    }
 
-            let severity = if self.unwrap_count > 5 {
-                Severity::Nuclear
-            } else if self.unwrap_count > 2 {
-                Severity::Spicy
+    fn visit_file(&mut self, file: &'ast syn::File) {
+        syn::visit::visit_file(self, file);
+        // After visiting, report a single issue with total count
+        if self.unwrap_count > 0 {
+            let (line, column) = self.first_position;
+
+            // Determine severity and message based on count
+            let (severity, message) = if self.unwrap_count > 15 {
+                let messages = if self.lang == "zh-CN" {
+                    vec![
+                        format!(
+                            "🚨 {} 个 unwrap()！这是在生产环境玩俄罗斯轮盘",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "{} 个 unwrap()，你的程序比我的感情生活还不稳定",
+                            self.unwrap_count
+                        ),
+                        format!("unwrap() 滥用警报：{} 处潜在崩溃点", self.unwrap_count),
+                        format!(
+                            "{} 个 unwrap() = {} 次潜在的 panic！立即修复！",
+                            self.unwrap_count, self.unwrap_count
+                        ),
+                    ]
+                } else {
+                    vec![
+                        format!(
+                            "🚨 {} unwrap()s! Playing Russian roulette in production?",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "{} unwrap()s - less stable than my love life",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "unwrap() abuse alert: {} potential crash points",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "{} unwrap()s = {} potential panics! Fix immediately!",
+                            self.unwrap_count, self.unwrap_count
+                        ),
+                    ]
+                };
+                (
+                    Severity::Nuclear,
+                    messages[self.issues.len() % messages.len()].clone(),
+                )
+            } else if self.unwrap_count > 8 {
+                let messages = if self.lang == "zh-CN" {
+                    vec![
+                        format!(
+                            "⚠️ {} 个 unwrap()，建议用 ? 运算符或 match 替代",
+                            self.unwrap_count
+                        ),
+                        format!("发现 {} 个 unwrap()，错误处理在哪里？", self.unwrap_count),
+                        format!("{} 个 unwrap()，程序健壮性堪忧", self.unwrap_count),
+                        format!("这么多 unwrap()，Rust 的类型系统在哭泣",),
+                    ]
+                } else {
+                    vec![
+                        format!(
+                            "⚠️ {} unwrap()s - consider using ? or match",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "Found {} unwrap()s - where's error handling?",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "{} unwrap()s - program robustness questionable",
+                            self.unwrap_count
+                        ),
+                        format!("So many unwrap()s, Rust's type system is crying",),
+                    ]
+                };
+                (
+                    Severity::Spicy,
+                    messages[self.issues.len() % messages.len()].clone(),
+                )
+            } else if self.unwrap_count > 3 {
+                let messages = if self.lang == "zh-CN" {
+                    vec![
+                        format!(
+                            "{} 个 unwrap()，建议使用 ? 运算符或 match 处理错误",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "发现 {} 个 unwrap()，考虑用 expect() 至少给个错误信息",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "{} 个 unwrap() 调用，可以用 .ok()? 或 .map_err()? 替代",
+                            self.unwrap_count
+                        ),
+                    ]
+                } else {
+                    vec![
+                        format!(
+                            "{} unwrap()s - consider using ? operator or match",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "Found {} unwrap()s - at least use expect() for error messages",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "{} unwrap() calls - can use .ok()? or .map_err()?",
+                            self.unwrap_count
+                        ),
+                    ]
+                };
+                (
+                    Severity::Mild,
+                    messages[self.issues.len() % messages.len()].clone(),
+                )
             } else {
-                Severity::Mild
+                // 1-3 unwraps: just a gentle reminder
+                let messages = if self.lang == "zh-CN" {
+                    vec![
+                        format!(
+                            "{} 个 unwrap()，小提醒：生产代码建议用 ? 运算符",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "检测到 {} 个 unwrap()，记得处理可能的 None/Err",
+                            self.unwrap_count
+                        ),
+                    ]
+                } else {
+                    vec![
+                        format!(
+                            "{} unwrap()s - reminder: use ? in production code",
+                            self.unwrap_count
+                        ),
+                        format!(
+                            "Detected {} unwrap()s - remember to handle None/Err",
+                            self.unwrap_count
+                        ),
+                    ]
+                };
+                (
+                    Severity::Mild,
+                    messages[self.issues.len() % messages.len()].clone(),
+                )
             };
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1, // Simplified handling
-                column: 1,
+                line,
+                column,
                 rule_name: "unwrap-abuse".to_string(),
-                message: messages[self.issues.len() % messages.len()].to_string(),
+                message,
                 severity,
             });
         }
-
-        syn::visit::visit_expr_method_call(self, method_call);
     }
 }
 
@@ -160,10 +287,12 @@ impl<'ast> Visit<'ast> for CloneVisitor {
                     ]
                 };
 
+                let (line, column) = get_position(method_call);
+
                 self.issues.push(CodeIssue {
                     file_path: self.file_path.clone(),
-                    line: 1,
-                    column: 1,
+                    line,
+                    column,
                     rule_name: "unnecessary-clone".to_string(),
                     message: messages[self.issues.len() % messages.len()].to_string(),
                     severity: Severity::Spicy,

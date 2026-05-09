@@ -4,6 +4,7 @@ use syn::{visit::Visit, File, Ident};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
+use crate::utils::get_position;
 
 pub struct TerribleNamingRule;
 
@@ -124,10 +125,12 @@ impl NamingVisitor {
                 (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize)
                     % messages.len();
 
+            let (line, column) = get_position(ident);
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: self.issues.len() + 2, // Simple line number estimation to avoid all being 1:1
-                column: (name.len() % 10) + 1, // Column based on name length
+                line,
+                column,
                 rule_name: "terrible-naming".to_string(),
                 message: messages[message_index].clone(),
                 severity: Severity::Spicy,
@@ -181,7 +184,30 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
         let name = pat_ident.ident.to_string();
 
         // Exclude common single-letter variables (loop counters, closure params, etc.)
-        if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z" | "e" | "a" | "b" | "c" | "d" | "f" | "n" | "r" | "s" | "t" | "v" | "w") {
+        if name.len() == 1
+            && !matches!(
+                name.as_str(),
+                "i" | "j"
+                    | "k"
+                    | "x"
+                    | "y"
+                    | "z"
+                    | "e"
+                    | "a"
+                    | "b"
+                    | "c"
+                    | "d"
+                    | "f"
+                    | "n"
+                    | "r"
+                    | "s"
+                    | "t"
+                    | "v"
+                    | "w"
+                    | "p"
+                    | "l"
+            )
+        {
             let messages = if self.lang == "zh-CN" {
                 [
                     format!("单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"),
@@ -204,10 +230,12 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
                 (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize)
                     % messages.len();
 
+            let (line, column) = get_position(&pat_ident.ident);
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: self.issues.len() + 10, // Different line number range
-                column: (name.len() % 5) + 1,
+                line,
+                column,
                 rule_name: "single-letter-variable".to_string(),
                 message: messages[message_index].clone(),
                 severity: Severity::Mild,

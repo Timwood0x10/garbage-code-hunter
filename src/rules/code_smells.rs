@@ -5,6 +5,24 @@ use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
+// ============================================================================
+// Magic number detection
+// ============================================================================
+
+/// Categories of magic numbers for better error messages
+enum MagicNumberCategory {
+    /// Timeout values in milliseconds (100, 500, 1000, etc.)
+    Timeout,
+    /// Buffer sizes (1024, 2048, 4096, etc.)
+    BufferSize,
+    /// Network port numbers (80, 443, 3000, 8080, etc.)
+    PortNumber,
+    /// Threshold/limit values (10, 50, 100, etc.)
+    Threshold,
+    /// Unclassified magic numbers
+    General,
+}
+
 /// Detect magic numbers (hardcoded numeric constants)
 pub struct MagicNumberRule;
 
@@ -309,13 +327,13 @@ fn is_control_flow_terminator(line: &str) -> bool {
     // (the line itself terminates execution, not just contains these keywords)
     matches!(
         line,
-        "return;" |
-        "break;" |
-        "continue;" |
-        "unreachable!()" |
-        "unreachable!();" |
-        "std::process::exit(0);" |
-        "std::process::exit(1);"
+        "return;"
+            | "break;"
+            | "continue;"
+            | "unreachable!()"
+            | "unreachable!();"
+            | "std::process::exit(0);"
+            | "std::process::exit(1);"
     ) || line.starts_with("return ") && line.ends_with(';') && !line.contains("//")
         || line.starts_with("panic!(") && line.ends_with(';')
         || line.starts_with("unreachable!(") && line.ends_with(')')
@@ -341,65 +359,136 @@ impl MagicNumberVisitor {
     }
 
     fn is_magic_number(&self, value: i64) -> bool {
-        // Common non-magic numbers (powers of 2, common sizes, etc.)
-        !matches!(
-            value,
-            -1 | 0
-                | 1
-                | 2
-                | 3
-                | 4
-                | 5
-                | 6
-                | 7
-                | 8
-                | 9
-                | 10
-                | 12
-                | 16
-                | 24
-                | 32
-                | 64
-                | 100
-                | 128
-                | 256
-                | 512
-                | 1000
-                | 1024
-                | 2048
-                | 4096
-                | 8192
-                | 10000
-                | 65536
-        )
+        // Common NON-magic numbers (powers of 2, common sizes, small counts, etc.)
+        // These are so common they're almost always intentional
+        let safe_numbers = [
+            -1,      // Sentinel/error value
+            0,       // Zero/initial/default
+            1,       // Single/first/true
+            2,       // Pair/dual/binary
+            3,       // Triple/RGB/xyz
+            4,       // Quad/nibble
+            5,       // Quint/count
+            6,       // Hex/week
+            7,       // Week/oct
+            8,       // Byte/octet
+            9,       // Max digit
+            10,      // Decimal base
+            12,      // Dozen/months
+            16,      // Nibble/4 bits
+            20,      // Score
+            24,      // Hours/day
+            32,      // 5 bits
+            64,      // 6 bits
+            100,     // Percent/century
+            128,     // 7 bits
+            256,     // Byte/8 bits
+            365,     // Days/year (approx)
+            512,     // 9 bits
+            1024,    // KB/10 bits
+            2048,    // 11 bits
+            4096,    // 12 bits / page size
+            8192,    // 13 bits
+            65536,   // u16 max / 16 bits
+            100000,  // 100K
+            1000000, // 1M
+        ];
+
+        !safe_numbers.contains(&value)
     }
 
     fn create_magic_number_issue(&self, value: i64, line: usize, column: usize) -> CodeIssue {
+        // Categorize the magic number for better messages
+        let category = self.categorize_magic_number(value);
+
         let messages = if self.lang == "zh-CN" {
-            vec![
-                format!("魔法数字 {}？这是什么咒语？", value),
-                format!("硬编码数字 {}，维护性-1", value),
-                format!("数字 {} 从天而降，没人知道它的含义", value),
-                format!("魔法数字 {}，建议定义为常量", value),
-                format!("看到数字 {}，我陷入了沉思", value),
-            ]
+            match category {
+                MagicNumberCategory::Timeout => vec![
+                    format!("超时值 {}？建议定义为常量如 TIMEOUT_MS", value),
+                    format!("硬编码超时 {}ms，维护性-1，建议用常量", value),
+                    format!("魔法数字 {} 看起来像超时，提取为命名常量", value),
+                ],
+                MagicNumberCategory::BufferSize => vec![
+                    format!("缓冲区大小 {}？这是什么咒语？", value),
+                    format!("硬编码缓冲区 {}，维护性-1", value),
+                    format!("缓冲区大小 {} 从天而降，没人知道它的含义", value),
+                ],
+                MagicNumberCategory::PortNumber => vec![
+                    format!("端口号 {}？硬编码端口不安全且难以维护", value),
+                    format!("发现硬编码端口 {}，建议使用配置文件或环境变量", value),
+                    format!("端口号 {} 应该定义为常量或从配置读取", value),
+                ],
+                MagicNumberCategory::Threshold => vec![
+                    format!("阈值 {}？这个数字有什么特殊含义？", value),
+                    format!("硬编码阈值 {}，建议定义为有意义的常量", value),
+                    format!("阈值 {} 缺乏语义，维护者会困惑", value),
+                ],
+                MagicNumberCategory::General => vec![
+                    format!("魔法数字 {}？这是什么咒语？", value),
+                    format!("硬编码数字 {}，维护性-1", value),
+                    format!("数字 {} 从天而降，没人知道它的含义", value),
+                    format!("魔法数字 {}，建议定义为常量", value),
+                    format!("看到数字 {}，我陷入了沉思", value),
+                ],
+            }
         } else {
-            vec![
-                format!("Magic number {}? What spell is this?", value),
-                format!("Hardcoded number {} - maintainability -1", value),
-                format!(
-                    "Number {} fell from the sky, nobody knows its meaning",
-                    value
-                ),
-                format!("Magic number {} - consider defining as a constant", value),
-                format!("Seeing number {}, I'm lost in thought", value),
-            ]
+            match category {
+                MagicNumberCategory::Timeout => vec![
+                    format!("Timeout value {}? Define as TIMEOUT_MS constant", value),
+                    format!("Hardcoded timeout {}ms - extract to constant", value),
+                    format!("Magic number {} looks like a timeout, name it", value),
+                ],
+                MagicNumberCategory::BufferSize => vec![
+                    format!("Buffer size {}? What spell is this?", value),
+                    format!("Hardcoded buffer {} - maintainability -1", value),
+                    format!("Buffer size {} fell from sky, no meaning", value),
+                ],
+                MagicNumberCategory::PortNumber => vec![
+                    format!("Port {}? Hardcoded ports are unmaintainable", value),
+                    format!("Hardcoded port {} - use config or env var", value),
+                    format!("Port {} should be constant or config-driven", value),
+                ],
+                MagicNumberCategory::Threshold => vec![
+                    format!("Threshold {}? What's special about this?", value),
+                    format!("Hardcoded threshold {} - define meaningful const", value),
+                    format!("Threshold {} lacks semantics, confusing", value),
+                ],
+                MagicNumberCategory::General => vec![
+                    format!("Magic number {}? What spell is this?", value),
+                    format!("Hardcoded number {} - maintainability -1", value),
+                    format!(
+                        "Number {} fell from the sky, nobody knows its meaning",
+                        value
+                    ),
+                    format!("Magic number {} - consider defining as a constant", value),
+                    format!("Seeing number {}, I'm lost in thought", value),
+                ],
+            }
         };
 
-        let severity = if !(-100..=1000).contains(&value) {
-            Severity::Spicy
-        } else {
-            Severity::Mild
+        // Severity based on value magnitude and category
+        let severity = match category {
+            MagicNumberCategory::Timeout | MagicNumberCategory::Threshold => {
+                if value > 1000 {
+                    Severity::Spicy
+                } else {
+                    Severity::Mild
+                }
+            }
+            MagicNumberCategory::PortNumber => Severity::Spicy, // Ports are always important to name
+            _ => {
+                if !(-100..=100).contains(&value)
+                    && value != 800
+                    && value != 1000
+                    && value != 2000
+                    && value != 3000
+                    && value != 5000
+                {
+                    Severity::Spicy
+                } else {
+                    Severity::Mild
+                }
+            }
         };
 
         CodeIssue {
@@ -410,6 +499,38 @@ impl MagicNumberVisitor {
             message: messages[self.issues.len() % messages.len()].clone(),
             severity,
         }
+    }
+
+    fn categorize_magic_number(&self, value: i64) -> MagicNumberCategory {
+        // Common timeout values (milliseconds)
+        if [
+            100, 200, 300, 500, 800, 1000, 1500, 2000, 3000, 5000, 10000, 30000, 60000,
+        ]
+        .contains(&value)
+        {
+            return MagicNumberCategory::Timeout;
+        }
+
+        // Common buffer sizes
+        if [1024, 2048, 4096, 8192, 16384, 32768, 65536].contains(&value) {
+            return MagicNumberCategory::BufferSize;
+        }
+
+        // Common port numbers
+        if (3000..=9999).contains(&value) || value == 80 || value == 443 || value == 8080 {
+            return MagicNumberCategory::PortNumber;
+        }
+
+        // Common threshold values
+        if [
+            10, 25, 50, 75, 90, 95, 99, 100, 150, 200, 250, 500, 750, 1000,
+        ]
+        .contains(&value)
+        {
+            return MagicNumberCategory::Threshold;
+        }
+
+        MagicNumberCategory::General
     }
 }
 

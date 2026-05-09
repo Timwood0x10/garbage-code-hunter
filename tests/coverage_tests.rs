@@ -253,7 +253,8 @@ fn test_analyzer_with_mixed_files() {
     let rust_file = temp_dir.path().join("code.rs");
     let txt_file = temp_dir.path().join("readme.txt");
 
-    fs::write(&rust_file, "fn main() { let thing = \"test\"; }").expect("Failed to write rust file");
+    fs::write(&rust_file, "fn main() { let thing = \"test\"; }")
+        .expect("Failed to write rust file");
     fs::write(&txt_file, "This is a text file").expect("Failed to write txt file");
 
     let analyzer = CodeAnalyzer::new(&[], "en-US");

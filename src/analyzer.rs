@@ -49,10 +49,8 @@ impl CodeAnalyzer {
             ".DS_Store",
         ];
 
-        let mut all_patterns: Vec<String> = default_excludes
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let mut all_patterns: Vec<String> =
+            default_excludes.iter().map(|s| s.to_string()).collect();
         all_patterns.extend(exclude_patterns.iter().cloned());
 
         let patterns = all_patterns

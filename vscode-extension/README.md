@@ -11,7 +11,10 @@ A humorous Rust code quality detector that roasts your garbage code with style! 
 - ⚡ **ErrorLens-style Display**: Inline messages show issues right next to your code
 - 🎯 **Contextual Actions**: Right-click to analyze specific files
 - 📈 **Workspace Analysis**: Analyze your entire project at once
-- 🔧 **Highly Configurable**: Customize roast intensity, language, and display options
+- 🤖 **LLM-Powered Roasts**: Generate creative roasts using local LLMs (Ollama/OpenAI-compatible)
+- 📊 **Quality Score**: View code quality score with detailed category breakdown
+- 🎓 **Educational Mode**: Get explanations and fix suggestions for detected issues
+- 🔧 **Highly Configurable**: Customize language, display options, and LLM settings
 
 ## 🚀 Quick Start
 
@@ -44,12 +47,14 @@ A humorous Rust code quality detector that roasts your garbage code with style! 
 ### Manual Analysis
 - **Current File**: Right-click → "🗑️ Roast This File"
 - **Entire Workspace**: Command Palette → "🔥 Roast Entire Workspace"
+- **Quality Score**: Command Palette → "📊 Show Quality Score"
+- **Educational Advice**: Command Palette → "🎓 Show Educational Advice"
 - **Clear Results**: Command Palette → "🧹 Clear All Roasts"
 
 ### Inline Messages (ErrorLens-style)
 Issues are displayed inline next to your code with:
 - 🔴 **Nuclear** issues (errors) - Red text
-- 🟠 **Spicy** issues (warnings) - Orange text  
+- 🟠 **Spicy** issues (warnings) - Orange text
 - 🔵 **Mild** issues (info) - Blue text
 
 ## ⚙️ Configuration
@@ -60,31 +65,56 @@ Access settings via: File → Preferences → Settings → Extensions → Garbag
 {
   // Enable/disable real-time analysis
   "garbageHunter.enableRealTimeAnalysis": true,
-  
-  // Roast intensity level
-  "garbageHunter.roastIntensity": "sarcastic", // gentle, sarcastic, savage
-  
+
   // Language for roast messages
-  "garbageHunter.language": "en-US", // en-US, zh-CN
-  
+  "garbageHunter.language": "en-US", // en-US, zh-CN, auto
+
   // Show inline messages like ErrorLens
   "garbageHunter.showInlineMessages": true,
-  
+
   // Maximum length of inline messages
   "garbageHunter.maxInlineMessageLength": 100,
-  
+
   // File patterns to exclude from analysis
   "garbageHunter.excludePatterns": [
     "**/target/**",
     "**/node_modules/**",
     "**/.git/**"
-  ]
+  ],
+
+  // LLM-powered roasts (requires Ollama or OpenAI-compatible API)
+  "garbageHunter.llm.enabled": false,
+  "garbageHunter.llm.provider": "ollama",
+  "garbageHunter.llm.model": "gemma4:e2b",
+  "garbageHunter.llm.endpoint": "",
+  "garbageHunter.llm.apiKey": ""
 }
 ```
 
-## 🎯 Detection Features
+## 🤖 LLM Integration
 
-The extension detects various "garbage code" patterns:
+Enable LLM-powered roast generation for creative, context-aware feedback:
+
+1. Install and start [Ollama](https://ollama.com):
+   ```bash
+   ollama pull gemma4:e2b
+   ```
+
+2. Enable LLM in VS Code settings:
+   ```json
+   {
+     "garbageHunter.llm.enabled": true,
+     "garbageHunter.llm.model": "gemma4:e2b"
+   }
+   ```
+
+3. Use `--markdown` mode in the CLI for best LLM roast display
+
+**Supported providers:**
+- Ollama (default: `http://localhost:11434`)
+- Any OpenAI-compatible API (LM Studio, vLLM, etc.)
+
+## 🎯 Detection Features
 
 ### 📝 Naming Issues
 - Meaningless variable names (`foo`, `bar`, `data`, `temp`)
@@ -92,7 +122,7 @@ The extension detects various "garbage code" patterns:
 - Excessive abbreviations (`mgr`, `ctrl`, `usr`)
 
 ### 🔧 Code Complexity
-- Deep nesting (>3 levels)
+- Deep nesting (>5 levels)
 - Long functions
 - God functions doing too much
 
@@ -100,26 +130,11 @@ The extension detects various "garbage code" patterns:
 - Unwrap abuse
 - Unnecessary clones
 - String vs &str misuse
-- Iterator pattern violations
 
 ### 🎓 Student Code Patterns
 - Printf debugging (`println!` everywhere)
 - Panic abuse
 - TODO comment overload
-
-## 🎨 Screenshots
-
-### Real-time Analysis
-![Real-time analysis](images/realtime-analysis.png)
-
-### Inline Messages
-![Inline messages](images/inline-messages.png)
-
-### Problems Panel
-![Problems panel](images/problems-panel.png)
-
-### Workspace Analysis
-![Workspace analysis](images/workspace-analysis.png)
 
 ## 🔧 Commands
 
@@ -128,6 +143,8 @@ The extension detects various "garbage code" patterns:
 | `garbageHunter.analyzeFile` | 🗑️ Roast This File |
 | `garbageHunter.analyzeWorkspace` | 🔥 Roast Entire Workspace |
 | `garbageHunter.clearDiagnostics` | 🧹 Clear All Roasts |
+| `garbageHunter.showScore` | 📊 Show Quality Score |
+| `garbageHunter.showEducational` | 🎓 Show Educational Advice |
 
 ## 🎭 Example Roasts
 
@@ -143,8 +160,16 @@ let data = get_user_info();
 // Your code:
 user.unwrap().name.unwrap()
 
-// Garbage Hunter says:  
+// Garbage Hunter says:
 🗑️ This unwrap() chain is more dangerous than a toddler with scissors
+```
+
+### LLM-Generated Roasts (with Ollama)
+
+```
+🗑️ Nesting so deep, trying to dig to the Earth's core? That's not structure, that's a geological fault line.
+🗑️ Variable 'value' - congrats on inventing the most meaningless identifier
+🗑️ Copy-paste ninja detected! 23 identical lines found. You've duplicated logic instead of abstracting it.
 ```
 
 ## 🐛 Known Issues
@@ -152,28 +177,29 @@ user.unwrap().name.unwrap()
 - Large workspaces may take some time to analyze
 - Requires the CLI tool to be installed separately
 - Analysis is currently limited to Rust files only
+- LLM roasts require a running Ollama instance or OpenAI-compatible API
 
 ## 🔄 Release Notes
+
+### 0.2.0
+- Added LLM-powered roast generation (Ollama / OpenAI-compatible)
+- Added quality score display command
+- Added educational advice command
+- Updated all comments to English
+- Updated license to Apache 2.0
+- Updated dependencies to latest versions
 
 ### 0.1.0
 - Initial release
 - Real-time analysis on file save
 - Inline message display (ErrorLens-style)
 - Workspace analysis
-- Configurable roast intensity and language
+- Configurable language and display options
 - Problems panel integration
-
-## 🤝 Contributing
-
-Found a bug or have a feature request? 
-
-- 🐛 [Report Issues](https://github.com/TimWood0x10/garbage-code-hunter/issues)
-- 💡 [Request Features](https://github.com/TimWood0x10/garbage-code-hunter/issues)
-- 🔧 [Contribute Code](https://github.com/TimWood0x10/garbage-code-hunter/pulls)
 
 ## 📄 License
 
-MIT License - see [LICENSE](https://github.com/TimWood0x10/garbage-code-hunter/blob/main/LICENSE) for details.
+Apache License 2.0 - see [LICENSE](https://github.com/TimWood0x10/garbage-code-hunter/blob/main/LICENSE) for details.
 
 ---
 

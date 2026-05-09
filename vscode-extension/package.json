@@ -2,10 +2,10 @@
   "name": "garbage-code-hunter",
   "displayName": "Garbage Code Hunter 🗑️",
   "description": "A humorous Rust code quality detector that roasts your garbage code with style!",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "garbage-code-hunter",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Linters",
@@ -16,7 +16,9 @@
     "linter",
     "code-quality",
     "humor",
-    "roast"
+    "roast",
+    "ai",
+    "llm"
   ],
   "activationEvents": [
     "onLanguage:rust"
@@ -37,6 +39,16 @@
       {
         "command": "garbageHunter.clearDiagnostics",
         "title": "🧹 Clear All Roasts",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.showScore",
+        "title": "📊 Show Quality Score",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.showEducational",
+        "title": "🎓 Show Educational Advice",
         "category": "Garbage Hunter"
       }
     ],
@@ -59,20 +71,15 @@
     "configuration": {
       "title": "Garbage Code Hunter",
       "properties": {
+        "garbageHunter.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to garbage-code-hunter CLI executable (leave empty to use PATH)"
+        },
         "garbageHunter.enableRealTimeAnalysis": {
           "type": "boolean",
           "default": true,
           "description": "Enable real-time analysis on file save"
-        },
-        "garbageHunter.roastIntensity": {
-          "type": "string",
-          "enum": [
-            "gentle",
-            "sarcastic", 
-            "savage"
-          ],
-          "default": "sarcastic",
-          "description": "How brutal should the roasts be?"
         },
         "garbageHunter.language": {
           "type": "string",
@@ -82,7 +89,7 @@
             "zh-CN"
           ],
           "default": "auto",
-          "description": "Language for roast messages (auto = smart detection based on comments)"
+          "description": "Language for roast messages (auto = detect from comments)"
         },
         "garbageHunter.excludePatterns": {
           "type": "array",
@@ -105,6 +112,35 @@
           "type": "number",
           "default": 100,
           "description": "Maximum length of inline messages"
+        },
+        "garbageHunter.llm.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable LLM-powered roast generation (requires Ollama or OpenAI-compatible API)"
+        },
+        "garbageHunter.llm.provider": {
+          "type": "string",
+          "enum": [
+            "ollama",
+            "openai-compatible"
+          ],
+          "default": "ollama",
+          "description": "LLM provider type"
+        },
+        "garbageHunter.llm.model": {
+          "type": "string",
+          "default": "gemma4:e2b",
+          "description": "LLM model name (e.g., gemma4:e2b, llama3.2)"
+        },
+        "garbageHunter.llm.endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "LLM API endpoint URL (leave empty for defaults)"
+        },
+        "garbageHunter.llm.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "LLM API key (for OpenAI-compatible providers)"
         }
       }
     }
@@ -120,13 +156,13 @@
     "publish": "vsce publish"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
-    "@types/node": "16.x",
-    "@typescript-eslint/eslint-plugin": "^5.45.0",
-    "@typescript-eslint/parser": "^5.45.0",
-    "eslint": "^8.28.0",
-    "typescript": "^4.9.4",
-    "@vscode/test-electron": "^2.2.0",
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0",
+    "@vscode/test-electron": "^2.3.0",
     "vsce": "^2.15.0"
   },
   "repository": {
@@ -137,5 +173,5 @@
     "url": "https://github.com/TimWood0x10/garbage-code-hunter/issues"
   },
   "homepage": "https://github.com/TimWood0x10/garbage-code-hunter#readme",
-  "license": "MIT"
+  "license": "Apache-2.0"
 }
