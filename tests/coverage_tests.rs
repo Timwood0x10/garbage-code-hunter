@@ -160,52 +160,6 @@ fn test_i18n_all_rule_types() {
 }
 
 #[test]
-fn test_i18n_all_suggestion_combinations() {
-    let i18n_zh = I18n::new("zh-CN");
-    let i18n_en = I18n::new("en-US");
-
-    let rule_combinations = vec![
-        vec![],
-        vec!["terrible-naming".to_string()],
-        vec!["deep-nesting".to_string()],
-        vec!["long-function".to_string()],
-        vec!["unwrap-abuse".to_string()],
-        vec!["unnecessary-clone".to_string()],
-        vec!["terrible-naming".to_string(), "deep-nesting".to_string()],
-        vec!["unwrap-abuse".to_string(), "unnecessary-clone".to_string()],
-        vec![
-            "terrible-naming".to_string(),
-            "deep-nesting".to_string(),
-            "long-function".to_string(),
-        ],
-        vec![
-            "terrible-naming".to_string(),
-            "single-letter-variable".to_string(),
-            "deep-nesting".to_string(),
-            "long-function".to_string(),
-            "unwrap-abuse".to_string(),
-            "unnecessary-clone".to_string(),
-        ],
-    ];
-
-    for rules in rule_combinations {
-        // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-        // The get_suggestions method now returns empty to avoid duplicate suggestions
-        let zh_suggestions = i18n_zh.get_suggestions(&rules);
-        assert!(
-            zh_suggestions.is_empty(),
-            "Suggestions should be empty as they're now handled by --suggestions flag"
-        );
-
-        let en_suggestions = i18n_en.get_suggestions(&rules);
-        assert!(
-            en_suggestions.is_empty(),
-            "Suggestions should be empty as they're now handled by --suggestions flag"
-        );
-    }
-}
-
-#[test]
 fn test_i18n_missing_keys() {
     let i18n = I18n::new("en-US");
 

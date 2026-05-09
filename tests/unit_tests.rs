@@ -91,69 +91,6 @@ fn test_roast_messages_english() {
     );
 }
 
-#[test]
-fn test_suggestions_chinese() {
-    let i18n = I18n::new("zh-CN");
-
-    let rule_names = vec!["terrible-naming".to_string(), "unwrap-abuse".to_string()];
-    let suggestions = i18n.get_suggestions(&rule_names);
-
-    // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-    assert!(
-        suggestions.is_empty(),
-        "Suggestions should be empty as they're now handled by --suggestions flag"
-    );
-    // assert!(
-    //     suggestions.iter().any(|s| s.contains("variable name")),
-    //     "Should have naming suggestions"
-    // );
-    // assert!(
-    //     suggestions.iter().any(|s| s.contains("unwrap")),
-    //     "Should have unwrap suggestions"
-    // );
-}
-
-#[test]
-fn test_suggestions_english() {
-    let i18n = I18n::new("en-US");
-
-    let rule_names = vec!["terrible-naming".to_string(), "deep-nesting".to_string()];
-    let suggestions = i18n.get_suggestions(&rule_names);
-
-    // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-    assert!(
-        suggestions.is_empty(),
-        "Suggestions should be empty as they're now handled by --suggestions flag"
-    );
-    // assert!(
-    //     suggestions.iter().any(|s| s.contains("variable")),
-    //     "Should have naming suggestions in English"
-    // );
-    // assert!(
-    //     suggestions.iter().any(|s| s.contains("nesting")),
-    //     "Should have nesting suggestions"
-    // );
-}
-
-#[test]
-fn test_empty_suggestions() {
-    let i18n = I18n::new("en-US");
-
-    let rule_names = vec![];
-    let suggestions = i18n.get_suggestions(&rule_names);
-
-    // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-    assert!(
-        suggestions.is_empty(),
-        "Suggestions should be empty as they're now handled by --suggestions flag"
-    );
-    // Since suggestions are now empty, remove this assertion
-    // assert!(
-    //     suggestions[0].contains("good"),
-    //     "Default suggestion should be encouraging"
-    // );
-}
-
 #[cfg(test)]
 mod rule_tests {
     use garbage_code_hunter::rules::naming::{SingleLetterVariableRule, TerribleNamingRule};

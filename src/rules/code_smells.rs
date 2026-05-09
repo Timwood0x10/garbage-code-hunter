@@ -68,28 +68,23 @@ impl Rule for MagicNumberRule {
         // 获取所有问题
         let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
 
-        // UI/TUI 上下文：过滤掉常见的 UI 布局值
-        if matches!(context, FileContext::Business) {
-            let path_str = file_path.to_string_lossy().to_lowercase();
-            let is_ui_file = path_str.contains("ui")
-                || path_str.contains("tui")
-                || path_str.contains("gui")
-                || path_str.contains("view")
-                || path_str.contains("screen")
-                || path_str.contains("layout")
-                || path_str.contains("display")
-                || path_str.contains("render");
+        // UI/TUI 文件过滤：检测到 UI 相关路径时，仅保留严重问题
+        let path_str = file_path.to_string_lossy().to_lowercase();
+        let is_ui_file = path_str.contains("ui")
+            || path_str.contains("tui")
+            || path_str.contains("gui")
+            || path_str.contains("view")
+            || path_str.contains("screen")
+            || path_str.contains("layout")
+            || path_str.contains("display")
+            || path_str.contains("render");
 
-            if is_ui_file {
-                return issues.into_iter()
-                    .filter(|issue| {
-                        matches!(
-                            issue.severity,
-                            Severity::Spicy | Severity::Nuclear
-                        )
-                    })
-                    .collect();
-            }
+        // 如果是 UI 上下文或 UI 文件，过滤掉 Mild 级别的 magic-number 问题
+        if matches!(context, FileContext::Business) && is_ui_file {
+            return issues
+                .into_iter()
+                .filter(|issue| matches!(issue.severity, Severity::Spicy | Severity::Nuclear))
+                .collect();
         }
 
         issues

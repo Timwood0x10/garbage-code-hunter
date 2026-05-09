@@ -242,7 +242,8 @@ fn main() {
 "#;
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
-    let file_path = temp_dir.path().join("test_file.rs");
+    // Use a filename that won't be classified as test/example to avoid context-based skipping
+    let file_path = temp_dir.path().join("sample_code.rs");
     fs::write(&file_path, code).expect("Failed to write test file");
 
     // Test without exclusion
@@ -250,11 +251,13 @@ fn main() {
     let issues_without_exclusion = analyzer.analyze_file(&file_path);
     assert!(
         !issues_without_exclusion.is_empty(),
-        "Should find issues without exclusion"
+        "Should find issues without exclusion, got {} issues. File path: {}",
+        issues_without_exclusion.len(),
+        file_path.display()
     );
 
     // Test with exclusion - use analyze_path instead of analyze_file for exclusion to work
-    let analyzer_with_exclusion = CodeAnalyzer::new(&["test_*".to_string()], "en-US");
+    let analyzer_with_exclusion = CodeAnalyzer::new(&["sample_*".to_string()], "en-US");
     let issues_with_exclusion = analyzer_with_exclusion.analyze_path(temp_dir.path());
     assert!(
         issues_with_exclusion.is_empty(),

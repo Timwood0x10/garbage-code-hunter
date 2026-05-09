@@ -127,7 +127,7 @@ fn main() {
         args.llm_endpoint.as_deref(),
         args.llm_model.as_deref(),
         args.llm_api_key.as_deref(),
-        Some(args.llm_timeout),  // Wrap in Option to allow explicit override
+        Some(args.llm_timeout), // Wrap in Option to allow explicit override
     );
 
     let analyzer = CodeAnalyzer::new(&args.exclude, &args.lang);

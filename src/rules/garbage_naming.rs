@@ -49,7 +49,8 @@ impl Rule for MeaninglessNamingRule {
         } else if weight < 0.7 {
             // Example/Demo: 仅报告 Nuclear 级别问题（极少）
             let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
-            return issues.into_iter()
+            return issues
+                .into_iter()
                 .filter(|issue| issue.severity == Severity::Nuclear)
                 .collect();
         }

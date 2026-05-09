@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use syn::parse_file;
 use walkdir::WalkDir;
 
-use crate::rules::RuleEngine;
 use crate::cross_file::{CrossFileAnalyzer, CrossFileConfig};
+use crate::rules::RuleEngine;
 
 #[derive(Debug, Clone)]
 pub struct CodeIssue {
@@ -128,9 +128,7 @@ impl CodeAnalyzer {
                         rule_name: "cross-file-duplication".to_string(),
                         message: format!(
                             "Duplicated function '{}' found in {} files ({} occurrences)",
-                            dup.fingerprint.function_name,
-                            dup.file_count,
-                            dup.total_occurrences
+                            dup.fingerprint.function_name, dup.file_count, dup.total_occurrences
                         ),
                         severity: severity.clone(),
                     });

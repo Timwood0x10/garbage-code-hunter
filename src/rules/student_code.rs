@@ -274,7 +274,8 @@ impl Rule for PrintlnDebuggingRule {
         if file_name == "main.rs" || file_name == "lib.rs" {
             // 对于入口文件，仅报告 Nuclear 级别问题（大量调试输出）
             let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
-            return issues.into_iter()
+            return issues
+                .into_iter()
                 .filter(|issue| issue.severity == Severity::Nuclear)
                 .collect();
         }

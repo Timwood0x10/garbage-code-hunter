@@ -239,9 +239,12 @@ impl EducationalAdvisor {
     fn create_file_too_long_advice(&self) -> EducationalAdvice {
         if self.lang == "zh-CN" {
             EducationalAdvice {
-                why_bad: "过长的文件难以导航和维护，违反了单一职责原则，增加了代码复杂度。".to_string(),
+                why_bad: "过长的文件难以导航和维护，违反了单一职责原则，增加了代码复杂度。"
+                    .to_string(),
                 how_to_fix: "将大文件拆分成多个小模块，每个模块负责特定的功能领域。".to_string(),
-                best_practice_tip: Some("保持文件在 500-1000 行以内，超出时考虑按功能拆分。".to_string()),
+                best_practice_tip: Some(
+                    "保持文件在 500-1000 行以内，超出时考虑按功能拆分。".to_string(),
+                ),
             }
         } else {
             EducationalAdvice {
@@ -281,8 +284,9 @@ impl EducationalAdvisor {
         } else {
             EducationalAdvice {
                 why_bad: "Long functions are harder to understand, test, and maintain.".to_string(),
-                how_to_fix: "Extract logical blocks into separate functions with descriptive names."
-                    .to_string(),
+                how_to_fix:
+                    "Extract logical blocks into separate functions with descriptive names."
+                        .to_string(),
                 best_practice_tip: Some(
                     "If you can't see the entire function on your screen, it's probably too long."
                         .to_string(),
@@ -296,15 +300,14 @@ impl EducationalAdvisor {
             EducationalAdvice {
                 why_bad: "魔法数字让代码难以理解和维护。".to_string(),
                 how_to_fix: "用能解释其用途的命名常量替换魔法数字。".to_string(),
-                best_practice_tip: Some(
-                    "对具有语义含义的值使用 const 声明。".to_string(),
-                ),
+                best_practice_tip: Some("对具有语义含义的值使用 const 声明。".to_string()),
             }
         } else {
             EducationalAdvice {
                 why_bad: "Magic numbers make code hard to understand and maintain.".to_string(),
-                how_to_fix: "Replace magic numbers with named constants that explain their purpose."
-                    .to_string(),
+                how_to_fix:
+                    "Replace magic numbers with named constants that explain their purpose."
+                        .to_string(),
                 best_practice_tip: Some(
                     "Use const declarations for values that have semantic meaning.".to_string(),
                 ),
@@ -317,7 +320,9 @@ impl EducationalAdvisor {
             EducationalAdvice {
                 why_bad: "注释掉的代码会污染代码库，让人困惑哪些是真正在使用的代码。".to_string(),
                 how_to_fix: "删除注释掉的代码 - 版本控制系统会保留历史记录。".to_string(),
-                best_practice_tip: Some("相信你的版本控制系统 - 删除死代码而不是注释掉它。".to_string()),
+                best_practice_tip: Some(
+                    "相信你的版本控制系统 - 删除死代码而不是注释掉它。".to_string(),
+                ),
             }
         } else {
             EducationalAdvice {
@@ -333,15 +338,14 @@ impl EducationalAdvisor {
             EducationalAdvice {
                 why_bad: "死代码增加了维护负担，会让开发者困惑。".to_string(),
                 how_to_fix: "定期删除未使用的函数、变量和导入。".to_string(),
-                best_practice_tip: Some(
-                    "使用 cargo clippy 自动检测死代码。".to_string(),
-                ),
+                best_practice_tip: Some("使用 cargo clippy 自动检测死代码。".to_string()),
             }
         } else {
             EducationalAdvice {
                 why_bad: "Dead code increases maintenance burden and can confuse developers."
                     .to_string(),
-                how_to_fix: "Remove unused functions, variables, and imports regularly.".to_string(),
+                how_to_fix: "Remove unused functions, variables, and imports regularly."
+                    .to_string(),
                 best_practice_tip: Some(
                     "Use cargo clippy to detect dead code automatically.".to_string(),
                 ),
@@ -354,9 +358,7 @@ impl EducationalAdvisor {
             EducationalAdvice {
                 why_bad: "不必要的 clone 会浪费内存和 CPU 周期。".to_string(),
                 how_to_fix: "尽可能使用引用，只在需要所有权时才 clone。".to_string(),
-                best_practice_tip: Some(
-                    "理解 Rust 的借用规则以减少不必要的分配。".to_string(),
-                ),
+                best_practice_tip: Some("理解 Rust 的借用规则以减少不必要的分配。".to_string()),
             }
         } else {
             EducationalAdvice {
@@ -375,7 +377,8 @@ impl EducationalAdvisor {
         if self.lang == "zh-CN" {
             EducationalAdvice {
                 why_bad: "手动循环通常比迭代器链更低效且表达力差。".to_string(),
-                how_to_fix: "在适当的情况下使用 map、filter、fold 等迭代器方法代替手动循环。".to_string(),
+                how_to_fix: "在适当的情况下使用 map、filter、fold 等迭代器方法代替手动循环。"
+                    .to_string(),
                 best_practice_tip: Some(
                     "迭代器链由于惰性求值和编译器优化，通常更高效。".to_string(),
                 ),
@@ -393,7 +396,8 @@ impl EducationalAdvisor {
         if self.lang == "zh-CN" {
             EducationalAdvice {
                 why_bad: "过度使用 panic 会让程序在生产环境中不可靠且难以调试。".to_string(),
-                how_to_fix: "对可恢复的错误使用 Result 类型，仅在真正无法恢复的情况下使用 panic。".to_string(),
+                how_to_fix: "对可恢复的错误使用 Result 类型，仅在真正无法恢复的情况下使用 panic。"
+                    .to_string(),
                 best_practice_tip: Some(
                     "Panic 应该用于编程错误，而不是预期的错误条件。".to_string(),
                 ),
@@ -424,7 +428,8 @@ impl EducationalAdvisor {
                     "Either implement the TODOs or create proper issue tracking for future work."
                         .to_string(),
                 best_practice_tip: Some(
-                    "Use TODO sparingly and always with a specific plan for resolution.".to_string(),
+                    "Use TODO sparingly and always with a specific plan for resolution."
+                        .to_string(),
                 ),
             }
         }

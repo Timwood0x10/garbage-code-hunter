@@ -98,10 +98,7 @@ impl FileContext {
         }
 
         // Check for example-like file names (but not in src/ main code)
-        let file_name = path_str
-            .rsplit('/')
-            .next()
-            .unwrap_or(path_str);
+        let file_name = path_str.rsplit('/').next().unwrap_or(path_str);
 
         // Message/example files (but exclude src/)
         if path_str.contains("/messages/") {
@@ -112,7 +109,7 @@ impl FileContext {
         (file_name.contains("example")
             || file_name.contains("demo")
             || file_name.contains("sample"))
-            && !path_str.contains("/src/")  // Exclude main source code
+            && !path_str.contains("/src/") // Exclude main source code
     }
 
     fn is_benchmark_file(path_str: &str) -> bool {

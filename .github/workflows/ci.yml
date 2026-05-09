@@ -2,9 +2,20 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ master , feature/vscode-extension]
+    branches: [ master, feature/vscode-extension ]
   pull_request:
     branches: [ master ]
+  workflow_call:  # Allow reuse by other workflows (e.g., release.yml)
+    inputs:
+      skip_tests:
+        description: 'Skip test job'
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      status:
+        description: "CI pipeline status"
+        value: ${{ jobs.check.outputs.status }}
 
 env:
   CARGO_TERM_COLOR: always

@@ -104,7 +104,7 @@ impl AppConfig {
         llm_endpoint: Option<&str>,
         llm_model: Option<&str>,
         llm_api_key: Option<&str>,
-        llm_timeout: Option<u64>,  // Use Option to distinguish "not set" from "explicitly set to 30"
+        llm_timeout: Option<u64>, // Use Option to distinguish "not set" from "explicitly set to 30"
     ) {
         // --llm flag overrides config file mode
         if llm_flag {
@@ -117,7 +117,7 @@ impl AppConfig {
                 endpoint: llm_endpoint.unwrap_or(default_endpoint).to_string(),
                 model: llm_model.unwrap_or(default_model).to_string(),
                 api_key: llm_api_key.map(String::from),
-                timeout_secs: llm_timeout.unwrap_or(30),  // Default to 30 if not set
+                timeout_secs: llm_timeout.unwrap_or(30), // Default to 30 if not set
                 provider,
             });
         }
@@ -279,7 +279,14 @@ provider = "ollama"
         assert!(matches!(config.mode, AppMode::Local));
 
         // CLI --llm flag should override local mode
-        config.merge_cli(true, "openai-compatible", None, None, Some("sk-key"), Some(60));
+        config.merge_cli(
+            true,
+            "openai-compatible",
+            None,
+            None,
+            Some("sk-key"),
+            Some(60),
+        );
         match config.mode {
             AppMode::Llm(llm) => {
                 assert_eq!(llm.provider, "openai-compatible");
