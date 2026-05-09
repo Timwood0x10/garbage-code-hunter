@@ -3,39 +3,28 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-/// 项目级配置 - 可通过 .garbage-code-hunter.toml 自定义
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// Project-level configuration - customizable via .garbage-code-hunter.toml
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ProjectConfig {
-    /// 项目类型提示（可选，辅助上下文推断）
+    /// Project type hint (optional, helps context inference)
     #[serde(default)]
     pub project_type: Option<ProjectType>,
 
-    /// 全局白名单配置
+    /// Global whitelist configuration
     #[serde(default)]
     pub whitelists: Whitelists,
 
-    /// 各个规则的独立配置
+    /// Individual rule configurations
     #[serde(default)]
     pub rules: RulesConfig,
 
-    /// 文件和目录级别的覆盖配置
+    /// File and directory-level override configuration
     #[serde(default)]
     pub overrides: Vec<OverrideConfig>,
 }
 
-impl Default for ProjectConfig {
-    fn default() -> Self {
-        Self {
-            project_type: None,
-            whitelists: Whitelists::default(),
-            rules: RulesConfig::default(),
-            overrides: Vec::new(),
-        }
-    }
-}
-
 impl ProjectConfig {
-    /// 从文件加载配置，如果文件不存在返回默认配置
+    /// Load configuration from file, returns default if file doesn't exist
     pub fn load_from_file(path: &Path) -> Option<Self> {
         if !path.exists() {
             return None;
@@ -45,11 +34,11 @@ impl ProjectConfig {
         toml::from_str(&content).ok()
     }
 
-    /// 在当前目录或父级目录中查找配置文件
+    /// Discover configuration in current directory or parent directories
     pub fn discover(start_dir: &Path) -> Self {
         let config_name = ".garbage-code-hunter.toml";
 
-        // 从当前目录向上查找
+        // Search upward from current directory
         let mut current = Some(start_dir);
         while let Some(dir) = current {
             let config_path = dir.join(config_name);
@@ -59,16 +48,16 @@ impl ProjectConfig {
             current = dir.parent();
         }
 
-        // 未找到，使用默认配置
+        // Not found, use default configuration
         Self::default()
     }
 
-    /// 获取指定路径的有效覆盖配置（合并所有匹配的 override）
+    /// Get effective override config for the given path (merge all matching overrides)
     pub fn get_override_for_path(&self, path: &Path) -> Option<&OverrideConfig> {
         let path_str = path.to_string_lossy();
 
         self.overrides.iter().find(|override_config| {
-            // 简单的字符串匹配（未来可改为 glob 匹配）
+            // Simple string matching (could be upgraded to glob matching in the future)
             path_str.contains(&override_config.pattern)
                 || path_str.starts_with(&override_config.pattern)
         })
@@ -90,19 +79,19 @@ pub enum ProjectType {
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct Whitelists {
-    /// 允许的魔法数字列表（不会报告这些数字）
+    /// Allowed magic numbers (won't report these)
     #[serde(default)]
     pub magic_numbers: Vec<i64>,
 
-    /// 允许的变量名列表（不会报告这些名称）
+    /// Allowed variable names (won't report these)
     #[serde(default)]
     pub variable_names: Vec<String>,
 
-    /// 降低敏感度的目录模式（glob 模式）
+    /// Directory patterns for sensitivity reduction (glob patterns)
     #[serde(default)]
     pub directories: Vec<String>,
 
-    /// 完全排除的目录或文件模式
+    /// Completely excluded directory or file patterns
     #[serde(default)]
     pub exclude_patterns: Vec<String>,
 }
@@ -110,19 +99,19 @@ pub struct Whitelists {
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct RulesConfig {
-    /// 命名规则配置
+    /// Naming rule configuration
     #[serde(default)]
     pub naming: NamingRuleConfig,
 
-    /// Unwrap 规则配置
+    /// Unwrap rule configuration
     #[serde(default)]
     pub unwrap: UnwrapRuleConfig,
 
-    /// Magic Number 规则配置
+    /// Magic Number rule configuration
     #[serde(default)]
     pub magic_number: MagicNumberRuleConfig,
 
-    /// println 规则配置
+    /// Println rule configuration
     #[serde(default)]
     pub println: PrintlnRuleConfig,
 }
@@ -135,7 +124,7 @@ pub struct NamingRuleConfig {
     #[serde(default = "default_severity_mild")]
     pub severity: SeverityOverride,
 
-    /// 额外的允许变量名
+    /// Additional allowed variable names
     #[serde(default)]
     pub allowed_names: Vec<String>,
 }
@@ -156,11 +145,11 @@ pub struct UnwrapRuleConfig {
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
-    /// 触发报告的最小 unwrap 数量（默认 1）
+    /// Minimum unwrap count to trigger report (default: 1)
     #[serde(default = "default_unwrap_threshold")]
     pub threshold: usize,
 
-    /// Nuclear 级别的阈值（默认 15）
+    /// Nuclear level threshold (default: 15)
     #[serde(default = "default_nuclear_threshold")]
     pub nuclear_threshold: usize,
 }
@@ -181,11 +170,11 @@ pub struct MagicNumberRuleConfig {
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
-    /// 额外允许的魔法数字
+    /// Additional allowed magic numbers
     #[serde(default)]
     pub allowed_numbers: Vec<i64>,
 
-    /// UI 布局常见值（自动添加到白名单）
+    /// Common UI layout values (automatically added to whitelist)
     #[serde(default = "default_ui_numbers")]
     pub ui_layout_numbers: Vec<i64>,
 }
@@ -206,11 +195,11 @@ pub struct PrintlnRuleConfig {
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
-    /// 是否在 main.rs/lib.rs 中允许 println
+    /// Whether to allow println in main.rs/lib.rs
     #[serde(default = "default_true")]
     pub allow_in_main_files: bool,
 
-    /// 触发报告的最小数量
+    /// Minimum count to trigger report
     #[serde(default = "default_println_threshold")]
     pub threshold: usize,
 }
@@ -228,18 +217,18 @@ impl Default for PrintlnRuleConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct OverrideConfig {
-    /// 匹配模式（glob 或路径前缀）
+    /// Matching pattern (glob or path prefix)
     pub pattern: String,
 
-    /// 强制使用的上下文类型
+    /// Forced context type
     #[serde(default)]
     pub context: Option<FileContextType>,
 
-    /// 规则权重的全局乘数
+    /// Global multiplier for rule weight
     #[serde(default = "default_one")]
     pub weight_multiplier: f64,
 
-    /// 要禁用的规则列表
+    /// List of rules to disable
     #[serde(default)]
     pub disabled_rules: Vec<String>,
 }
@@ -263,7 +252,7 @@ pub enum SeverityOverride {
     Nuclear,
 }
 
-// === 默认值函数 ===
+// === Default value functions ===
 
 fn default_enabled() -> bool {
     true

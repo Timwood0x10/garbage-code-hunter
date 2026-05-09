@@ -172,8 +172,6 @@ impl Rule for PrintlnDebuggingRule {
 
             let severity = if count_to_report > 10 {
                 Severity::Spicy
-            } else if count_to_report > 5 {
-                Severity::Mild
             } else {
                 Severity::Mild
             };
@@ -263,16 +261,16 @@ impl Rule for PrintlnDebuggingRule {
         context: &FileContext,
         _config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
-        // Example, Test, Benchmark, Documentation: 完全跳过
+        // Example, Test, Benchmark, Documentation: skip completely
         let weight = context.rule_weight_multiplier();
         if weight < 0.5 {
             return Vec::new();
         }
 
-        // main.rs/lib.rs 文件：允许更多 println（CLI 工具正常输出）
+        // main.rs/lib.rs files: allow more println (normal for CLI tools)
         let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
         if file_name == "main.rs" || file_name == "lib.rs" {
-            // 对于入口文件，仅报告 Nuclear 级别问题（大量调试输出）
+            // For entry files, only report Nuclear level issues (excessive debug output)
             let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
             return issues
                 .into_iter()

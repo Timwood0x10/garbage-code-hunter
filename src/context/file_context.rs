@@ -1,30 +1,25 @@
 use std::path::Path;
 
-/// 文件上下文类型 - 用于调整规则敏感度
-#[derive(Debug, Clone, PartialEq)]
+/// File context type - used to adjust rule sensitivity
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum FileContext {
-    /// 业务代码（默认）- 正常检测强度
+    /// Business code (default) - normal detection intensity
+    #[default]
     Business,
-    /// 示例/演示代码 - 降低 70% 敏感度
+    /// Example/demo code - 70% sensitivity reduction
     Example,
-    /// 测试代码 - 降低 80% 敏感度
+    /// Test code - 80% sensitivity reduction
     Test,
-    /// 性能基准测试 - 降低 60% 敏感度
+    /// Performance benchmark code - 60% sensitivity reduction
     Benchmark,
-    /// 文档代码 - 降低 90% 敏感度
+    /// Documentation code - 90% sensitivity reduction
     Documentation,
-    /// 配置文件（非 Rust）- 跳过大部分规则
+    /// Config files (non-Rust) - skip most rules
     Config,
 }
 
-impl Default for FileContext {
-    fn default() -> Self {
-        FileContext::Business
-    }
-}
-
 impl FileContext {
-    /// 从文件路径推断上下文类型
+    /// Infer context type from file path
     pub fn from_path(path: &Path) -> Self {
         let path_str = path.to_string_lossy().to_lowercase();
 
@@ -41,7 +36,7 @@ impl FileContext {
         }
     }
 
-    /// 返回该上下文下的规则权重乘数 (0.0 = 完全跳过, 1.0 = 正常)
+    /// Returns the rule weight multiplier for this context (0.0 = skip completely, 1.0 = normal)
     pub fn rule_weight_multiplier(&self) -> f64 {
         match self {
             FileContext::Business => 1.0,
@@ -53,7 +48,7 @@ impl FileContext {
         }
     }
 
-    /// 判断是否应该跳过某个规则
+    /// Determine whether a specific rule should be skipped
     pub fn should_skip_rule(&self, rule_name: &str) -> bool {
         let multiplier = self.rule_weight_multiplier();
 

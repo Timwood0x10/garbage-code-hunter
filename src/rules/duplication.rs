@@ -166,10 +166,7 @@ impl DuplicationVisitor {
             if block_str.len() > 300 {
                 // only detect larger code blocks
                 let signature = generate_block_signature(block_str);
-                block_signatures
-                    .entry(signature)
-                    .or_insert_with(Vec::new)
-                    .push(i);
+                block_signatures.entry(signature).or_default().push(i);
             }
         }
 

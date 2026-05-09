@@ -20,7 +20,7 @@ pub mod student_code;
 pub trait Rule {
     fn name(&self) -> &'static str;
 
-    /// 原始检查方法（向后兼容）
+    /// Original check method (backward compatible)
     fn check(
         &self,
         file_path: &Path,
@@ -40,7 +40,8 @@ pub trait Rule {
         )
     }
 
-    /// 新方法：带上下文的检查（推荐使用）
+    /// New method: check with context (recommended)
+    #[allow(clippy::too_many_arguments)]
     fn check_with_context(
         &self,
         file_path: &Path,
@@ -51,7 +52,6 @@ pub trait Rule {
         _context: &FileContext,
         _config: &ProjectConfig,
     ) -> Vec<CodeIssue> {
-        // 默认实现：调用旧方法（向后兼容）
         self.check(file_path, syntax_tree, content, lang, is_test_file)
     }
 }
@@ -124,7 +124,7 @@ impl RuleEngine {
         Self { rules, config }
     }
 
-    /// 使用上下文感知的检查方法（推荐）
+    /// Use context-aware check method (recommended)
     pub fn check_file_with_context(
         &self,
         file_path: &Path,
@@ -157,7 +157,7 @@ impl RuleEngine {
         issues
     }
 
-    /// 旧版检查方法（向后兼容）
+    /// Legacy check method (backward compatible)
     pub fn check_file(
         &self,
         file_path: &Path,

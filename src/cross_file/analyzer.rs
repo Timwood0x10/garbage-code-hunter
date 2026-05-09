@@ -64,6 +64,12 @@ pub struct CrossFileAnalyzer {
     total_files_processed: usize,
 }
 
+impl Default for CrossFileAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CrossFileAnalyzer {
     /// Create a new analyzer with default configuration
     pub fn new() -> Self {
@@ -123,7 +129,7 @@ impl CrossFileAnalyzer {
 
         match self.index.get_mut(&fingerprint.hash) {
             Some(existing) => {
-                existing.locations.extend(fingerprint.locations.drain(..));
+                existing.locations.append(&mut fingerprint.locations);
             }
             None => {
                 self.index.insert(fingerprint.hash, fingerprint);
@@ -256,8 +262,8 @@ impl CrossFileAnalyzer {
         let base_size = std::mem::size_of::<Self>();
         let index_size: usize = self
             .index
-            .iter()
-            .map(|(_hash, fp)| {
+            .values()
+            .map(|fp| {
                 std::mem::size_of::<u64>()
                     + std::mem::size_of::<FunctionFingerprint>()
                     + fp.normalized_tokens.capacity()
@@ -362,7 +368,7 @@ where
                 }
 
                 visit_dir(&path, processor)?;
-            } else if path.extension().map_or(false, |ext| ext == "rs") {
+            } else if path.extension().is_some_and(|ext| ext == "rs") {
                 let context = FileContext::from_path(&path);
 
                 // Skip test files and example files (lower priority for cross-file detection)
