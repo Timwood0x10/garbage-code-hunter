@@ -229,35 +229,32 @@ fn main() {
 
 #[test]
 fn test_reporter_with_different_severities() {
-    let mut issues = vec![];
-
-    // Create issues with all severity levels
-    issues.push(CodeIssue {
-        file_path: PathBuf::from("test.rs"),
-        line: 1,
-        column: 1,
-        rule_name: "terrible-naming".to_string(),
-        message: "Nuclear issue".to_string(),
-        severity: Severity::Nuclear,
-    });
-
-    issues.push(CodeIssue {
-        file_path: PathBuf::from("test.rs"),
-        line: 2,
-        column: 1,
-        rule_name: "unwrap-abuse".to_string(),
-        message: "Spicy issue".to_string(),
-        severity: Severity::Spicy,
-    });
-
-    issues.push(CodeIssue {
-        file_path: PathBuf::from("test.rs"),
-        line: 3,
-        column: 1,
-        rule_name: "single-letter-variable".to_string(),
-        message: "Mild issue".to_string(),
-        severity: Severity::Mild,
-    });
+    let issues = vec![
+        CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 1,
+            column: 1,
+            rule_name: "terrible-naming".to_string(),
+            message: "Nuclear issue".to_string(),
+            severity: Severity::Nuclear,
+        },
+        CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 2,
+            column: 1,
+            rule_name: "unwrap-abuse".to_string(),
+            message: "Spicy issue".to_string(),
+            severity: Severity::Spicy,
+        },
+        CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 3,
+            column: 1,
+            rule_name: "single-letter-variable".to_string(),
+            message: "Mild issue".to_string(),
+            severity: Severity::Mild,
+        },
+    ];
 
     let reporter = Reporter::new(
         false,
