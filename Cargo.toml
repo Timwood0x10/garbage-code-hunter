@@ -7,6 +7,8 @@ description = "A humorous Rust code quality detector that roasts your garbage co
 repository = "https://github.com/TimWood0x10/garbage-code-hunter"
 license = "Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = ["proc-macro2"]
 
 [dependencies]
 syn = { version = "2.0", features = ["full", "parsing", "extra-traits", "visit"] }

@@ -1,0 +1,110 @@
+name: False Positive Report 🔍
+description: Report a rule incorrectly flagging valid code
+title: "[False Positive] "
+labels: ["false-positive", "rule-issue"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🔍 False Positive Report
+
+        Report when a detection rule incorrectly flags valid code as problematic.
+
+  - type: dropdown
+    id: rule
+    attributes:
+      label: Which rule triggered?
+      description: Select the rule that incorrectly flagged your code
+      options:
+        - terrible-naming
+        - single-letter-variable
+        - unwrap-abuse
+        - println-debug
+        - magic-number
+        - deep-nesting
+        - unnecessary-clone
+        - long-function
+        - other (please specify below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code that was incorrectly flagged
+      description: Paste the code snippet that was flagged incorrectly
+      placeholder: |
+        ```rust
+        // Paste the code that was incorrectly flagged
+        fn example() {
+            let data = "valid code here";
+        }
+        ```
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-valid
+    attributes:
+      label: Why is this code valid?
+      description: Explain why this code should NOT be flagged
+      placeholder: |
+        ## Why this is valid
+        [Explain why the flagged code is actually correct]
+
+        ## Context
+        [Any additional context about why this is acceptable]
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: severity
+    attributes:
+      label: Reported severity
+      description: What severity level was assigned?
+      placeholder: |
+        - Mild
+        - Spicy
+        - Nuclear
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: How could the rule be improved?
+      placeholder: |
+        ## Improvement suggestions
+        - [ ] Better pattern matching for [specific case]
+        - [ ] Add context awareness for [scenario]
+        - [ ] Add exception for [specific use case]
+
+  - type: checkboxes
+    id: context
+    attributes:
+      label: Additional context
+      options:
+        - label: This is in a test file (tests/, *_test.rs, etc.)
+          required: false
+        - label: This is in an example file (examples/, examples/ directory)
+          required: false
+        - label: This is in a benchmark file (benches/, benchmarks/)
+          required: false
+        - label: This is generated code
+          required: false
+        - label: This follows project-specific conventions
+          required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have verified this is a false positive, not expected behavior
+          required: true
+        - label: I have checked the rule documentation
+          required: true
+        - label: I have searched existing issues for this pattern
+          required: true

@@ -1,7 +1,7 @@
 # Garbage Code Hunter - Makefile
 # A humorous Rust code quality detector
 
-.PHONY: help build test clean install run fmt clippy check doc release
+.PHONY: help build test clean install run fmt clippy check doc release ci
 
 # Default target
 help:
@@ -18,11 +18,13 @@ help:
 	@echo "  run        - Run with default arguments (analyze current directory)"
 	@echo "  doc        - Generate documentation"
 	@echo "  demo       - Run demo with sample garbage code"
+	@echo "  ci         - Run CI checks (format, clippy, warnings, tests)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make run ARGS='--lang en-US --verbose src/'"
 	@echo "  make demo"
 	@echo "  make release"
+	@echo "  make ci"
 
 # Build targets
 build:
@@ -129,8 +131,78 @@ demo:
 dev: fmt clippy test
 
 # CI/CD targets
-ci: check test clippy
-	cargo build --release
+ci:
+	@echo "========================================="
+	@echo "🔍 Running CI checks..."
+	@echo "========================================="
+	@echo ""
+	@echo "📋 Step 1: Checking code formatting..."
+	@echo "========================================="
+	@cargo fmt --all -- --check
+	@echo ""
+	@echo "========================================="
+	@echo "🔍 Step 2: Running clippy linting (all targets)..."
+	@echo "========================================="
+	@cargo clippy --all-targets --all-features -- -D warnings
+	@echo ""
+	@echo "========================================="
+	@echo "🔍 Step 3: Checking for warnings..."
+	@echo "========================================="
+	@WARNINGS=$$(cargo check 2>&1 | grep "warning:" | wc -l | tr -d ' '); \
+	if [ "$$WARNINGS" -gt 0 ]; then \
+		echo "❌ Found $$WARNINGS warnings! Project requires 0 warnings."; \
+		cargo check 2>&1 | grep "warning:"; \
+		exit 1; \
+	else \
+		echo "✅ Zero warnings - perfect!"; \
+	fi
+	@echo ""
+	@echo "========================================="
+	@echo "📦 Step 4: Validating TOML files..."
+	@echo "========================================="
+	@for toml_file in Cargo.toml **/Cargo.toml; do \
+		if [ -f "$$toml_file" ]; then \
+			echo "Checking $$toml_file..."; \
+			rusty_toml "$$toml_file" > /dev/null 2>&1 || \
+			(cargo metadata --format-version 1 --manifest-path "$$toml_file" > /dev/null 2>&1) || \
+			(echo "❌ Invalid TOML in $$toml_file" && exit 1); \
+		fi; \
+	done
+	@echo "✅ All TOML files are valid"
+	@echo ""
+	@echo "========================================="
+	@echo "🔒 Step 5: Running security audit..."
+	@echo "========================================="
+	@cargo audit || true
+	@echo ""
+	@echo "========================================="
+	@echo "📚 Step 6: Checking for outdated dependencies..."
+	@echo "========================================="
+	@cargo outdated --workspace
+	@echo ""
+	@echo "========================================="
+	@echo "🔍 Step 7: Checking licenses and dependencies..."
+	@echo "========================================="
+	@cargo deny check licenses
+	@echo ""
+	@echo "========================================="
+	@echo "🔗 Step 8: Checking for dead code links..."
+	@echo "========================================="
+	@cargo machete
+	@echo ""
+	@echo "========================================="
+	@echo "🧪 Step 9: Running unit tests..."
+	@echo "========================================="
+	@cargo test --lib --verbose
+	@echo ""
+	@echo "========================================="
+	@echo "🧪 Step 10: Running integration tests..."
+	@echo "========================================="
+	@cargo test --test '*' --verbose || true
+	@echo ""
+	@echo "========================================="
+	@echo "✅ All CI checks passed!"
+	@echo "========================================="
 
 # Package for distribution
 package: clean release

@@ -1,0 +1,23 @@
+[licenses]
+version = 2
+# Allow these licenses (OSI and FSF approved)
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "ISC",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+]
+
+[[licenses.clarify]]
+name = "Unicode-3.0"
+expression = "Unicode-3.0"
+license-files = [{ path = "LICENSE", hash = 0x0 }]
+
+# Allow复合许可证
+[[licenses.clarify]]
+name = "ring"
+expression = "Apache-2.0 AND ISC"
+license-files = [{ path = "LICENSE", hash = 0x0 }]

@@ -1,0 +1,81 @@
+name: Bug Report 🐛
+description: Report a bug or unexpected behavior
+title: "[Bug] "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug Description
+
+        Please describe the bug clearly and concisely.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: What happened vs what you expected to happen
+      placeholder: |
+        ## Expected behavior
+        [What you expected to happen]
+
+        ## Actual behavior
+        [What actually happened]
+
+        ## Steps to Reproduce
+        1. [First step]
+        2. [Second step]
+        3. [And so on...]
+
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: garbage-code-hunter version (run `garbage-code-hunter --version`)
+      placeholder: "e.g., 0.2.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command used
+      description: The exact command you ran
+      placeholder: |
+        garbage-code-hunter . --lang en-US --verbose
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output / Error message
+      description: Paste any relevant error messages or output
+      placeholder: |
+        ```
+        [Paste error message or output here]
+        ```
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other relevant context (OS, Rust version, project structure, etc.)
+      placeholder: |
+        - OS: [e.g., macOS 14.0]
+        - Rust version: [e.g., 1.75.0]
+        - Project type: [library/binary/workspace]
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have run `make ci` locally and all checks passed
+          required: true
+        - label: I can reproduce the bug with a minimal example
+          required: false
