@@ -48,10 +48,14 @@ static RUST_COMMON_PATTERN_STRINGS: &[&str] = &[
 /// Pre-compiled regex patterns using OnceLock for performance
 static COMPILED_RUST_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
 
+/// Warning message for skipped patterns (set once at initialization)
+static PATTERN_WARNING: OnceLock<Option<String>> = OnceLock::new();
+
 fn get_compiled_rust_patterns() -> &'static [Regex] {
     COMPILED_RUST_PATTERNS.get_or_init(|| {
         let mut compiled = Vec::with_capacity(RUST_COMMON_PATTERN_STRINGS.len());
         let mut errors = Vec::new();
+        let total = RUST_COMMON_PATTERN_STRINGS.len();
 
         for (index, pattern) in RUST_COMMON_PATTERN_STRINGS.iter().enumerate() {
             match Regex::new(pattern) {
@@ -64,33 +68,57 @@ fn get_compiled_rust_patterns() -> &'static [Regex] {
                         pattern,
                         e
                     );
-                    eprintln!("{}", error_msg);
+                    eprintln!("⚠️  WARNING: {}", error_msg);
                     errors.push(error_msg);
                 }
             }
 
-            if !errors.is_empty() && index == RUST_COMMON_PATTERN_STRINGS.len() - 1 {
-                panic!(
-                    "Failed to compile {} out of {} regex patterns:\n\n{}\n\n\
-                     This is a critical error in the static pattern definitions.\n\
-                     Please fix the invalid patterns listed above.",
-                    errors.len(),
-                    RUST_COMMON_PATTERN_STRINGS.len(),
+            let _ = index;
+        }
+
+        if !errors.is_empty() {
+            let warning = if compiled.is_empty() {
+                format!(
+                    "🚨 CRITICAL: All {} regex patterns failed to compile!\n\
+                     Code duplication detection is DISABLED.\n\
+                     Errors:\n{}",
+                    total,
                     errors.join("\n")
-                );
-            }
+                )
+            } else {
+                format!(
+                    "⚠️  WARNING: {}/{} regex patterns failed to compile.\n\
+                     Code duplication detection will use remaining {} patterns.\n\
+                     Failed patterns:\n{}",
+                    errors.len(),
+                    total,
+                    compiled.len(),
+                    errors
+                        .iter()
+                        .map(|e| e.lines().next().unwrap_or("").to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            };
+
+            eprintln!("\n{}\n", warning);
+
+            let _ = PATTERN_WARNING.set(Some(warning));
         }
 
         if compiled.is_empty() && !RUST_COMMON_PATTERN_STRINGS.is_empty() {
-            panic!(
-                "All {} regex patterns failed to compile!\n\
-                 This indicates a systematic problem with the pattern definitions.",
-                RUST_COMMON_PATTERN_STRINGS.len()
+            eprintln!(
+                "🚨 Falling back to empty pattern list. \
+                 Code-duplication rule will have reduced detection capability.\n"
             );
         }
 
         compiled
     })
+}
+
+fn get_pattern_warning() -> Option<&'static str> {
+    PATTERN_WARNING.get_or_init(|| None).as_deref()
 }
 
 /// code duplication detection rule with smart anti-false-positive logic
@@ -111,6 +139,10 @@ impl Rule for CodeDuplicationRule {
     ) -> Vec<CodeIssue> {
         if is_test_file {
             return Vec::new();
+        }
+
+        if let Some(warning) = get_pattern_warning() {
+            eprintln!("\n⚠️  [code-duplication] {}\n", warning);
         }
 
         let mut visitor = DuplicationVisitor::new(file_path.to_path_buf(), content, lang);

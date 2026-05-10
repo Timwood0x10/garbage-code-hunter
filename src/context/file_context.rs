@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::fs;
 use std::path::Path;
 
@@ -52,7 +53,10 @@ impl FileContext {
     }
 
     fn detect_project_type_from_cargo(file_path: &Path, project_type: &str) -> bool {
-        let cargo_toml_path = Self::find_cargo_toml(file_path);
+        let cargo_toml_path = match Self::find_cargo_toml(file_path) {
+            Some(path) => path,
+            None => return false,
+        };
 
         let content = match fs::read_to_string(&cargo_toml_path) {
             Ok(c) => c,
@@ -74,26 +78,29 @@ impl FileContext {
         };
 
         dependencies_to_check.iter().any(|dep| {
-            content.contains(&format!("{} =", dep)) || content.contains(&format!("{}=", dep))
+            let pattern = format!(r#"\b{}\s*="#, regex::escape(dep));
+            Regex::new(&pattern)
+                .map(|re| re.is_match(&content))
+                .unwrap_or(false)
         })
     }
 
-    fn find_cargo_toml(file_path: &Path) -> std::path::PathBuf {
+    fn find_cargo_toml(file_path: &Path) -> Option<std::path::PathBuf> {
         let mut current = file_path.to_path_buf();
 
         for _ in 0..5 {
             let cargo_toml = current.join("Cargo.toml");
             if cargo_toml.exists() {
-                return cargo_toml;
+                return Some(cargo_toml);
             }
 
             match current.parent() {
                 Some(parent) => current = parent.to_path_buf(),
-                None => break,
+                None => return None,
             }
         }
 
-        file_path.join("Cargo.toml")
+        None
     }
 
     /// Returns the rule weight multiplier for this context (0.0 = skip completely, 1.0 = normal)
