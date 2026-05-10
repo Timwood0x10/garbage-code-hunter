@@ -41,21 +41,103 @@ impl Rule for MeaninglessNamingRule {
         context: &FileContext,
         _config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
-        // Example, Test, Benchmark, Documentation: 完全跳过或大幅降低敏感度
-        let weight = context.rule_weight_multiplier();
-        if weight < 0.3 {
+        use crate::context::FileContext::*;
+
+        match context {
             // Test/Documentation/Benchmark: 完全跳过
-            return Vec::new();
-        } else if weight < 0.7 {
+            Test | Documentation | Benchmark => return Vec::new(),
+
             // Example/Demo: 仅报告 Nuclear 级别问题（极少）
-            let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
-            return issues
-                .into_iter()
-                .filter(|issue| issue.severity == Severity::Nuclear)
-                .collect();
+            Example => {
+                let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                return issues
+                    .into_iter()
+                    .filter(|issue| issue.severity == Severity::Nuclear)
+                    .collect();
+            }
+
+            // UI/TUI code: Skip UI-specific common names (x, y, w, h, r, g, b, etc.)
+            UI => {
+                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let ui_whitelist = [
+                    // Coordinates and dimensions
+                    "x", "y", "w", "h", // Colors
+                    "r", "g", "b", "a", // Deltas
+                    "dx", "dy", // Geometry
+                    "rect", "area", "size", // Positions/vectors
+                    "pos", "vec", // UI references
+                    "ui", "tui", // Common TUI data names (very common in UI callbacks)
+                    "data", "info", "value", "state", "config", "event", "input", "output",
+                    "result", // Layout-related
+                    "chunk", "layout", "frame", "block",
+                ];
+                return all_issues
+                    .into_iter()
+                    .filter(|issue| {
+                        !ui_whitelist.iter().any(|&name| {
+                            issue
+                                .message
+                                .to_lowercase()
+                                .contains(&format!("'{}'", name))
+                        })
+                    })
+                    .collect();
+            }
+
+            // GPU code: Skip GPU-common names (i, j, k, idx, src, dst, etc.)
+            GPU => {
+                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let gpu_whitelist = [
+                    "i", "j", "k",   // loop indices
+                    "idx", // index abbreviation
+                    "src", "dst",  // source/destination
+                    "buf",  // buffer
+                    "ptr",  // pointer
+                    "data", // data buffer (common in GPU)
+                ];
+                return all_issues
+                    .into_iter()
+                    .filter(|issue| {
+                        !gpu_whitelist.iter().any(|&name| {
+                            issue
+                                .message
+                                .to_lowercase()
+                                .contains(&format!("'{}'", name))
+                        })
+                    })
+                    .collect();
+            }
+
+            // Web code: Slightly relaxed - allow common web naming
+            Web => {
+                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let web_whitelist = [
+                    "data", // request/response data
+                    "info", // metadata
+                    "req", "res",    // request/response abbreviations
+                    "body",   // response body
+                    "config", // configuration objects
+                ];
+                return all_issues
+                    .into_iter()
+                    .filter(|issue| {
+                        !web_whitelist.iter().any(|&name| {
+                            issue
+                                .message
+                                .to_lowercase()
+                                .contains(&format!("'{}'", name))
+                        })
+                    })
+                    .collect();
+            }
+
+            // Business 上下文：正常检测（保持原有行为）
+            Business => {}
+
+            // Config files: skip completely (handled by should_skip_rule)
+            Config => return Vec::new(),
         }
 
-        // Business 上下文：正常检测（但可以进一步优化）
         self.check(file_path, syntax_tree, content, lang, is_test_file)
     }
 }
@@ -138,11 +220,10 @@ impl MeaninglessNamingVisitor {
             "qux",
             "quux",
             "quuz",
-            // Generic words with no context
+            // Generic words with no context (note: 'item' excluded as it's a common Rust iterator variable)
             "data",
             "info",
             "obj",
-            "item",
             "thing",
             "stuff",
             "value",

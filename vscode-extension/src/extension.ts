@@ -11,6 +11,7 @@ const activeAnalysis = new Set<string>();
 let globalRequestId = 0;
 const languageCache = new Map<string, string>();  // Cache for detected languages
 const DEBOUNCE_MS = 800;
+const MAX_CACHE_SIZE = 100;  // Maximum number of files to cache
 
 /**
  * Escape shell special characters to prevent command injection
@@ -152,8 +153,8 @@ function registerFileWatchers(context: vscode.ExtensionContext) {
 function registerConfigurationWatcher(context: vscode.ExtensionContext) {
     const configWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('garbageHunter')) {
-            // Recreate decoration types on config change
-
+            // Clear language cache when config changes
+            languageCache.clear();
             // Re-analyze all open files
             analyzeOpenRustFiles();
         }
@@ -238,35 +239,27 @@ async function analyzeDocument(document: vscode.TextDocument) {
 
     const filePath = document.uri.fsPath;
 
-    // Generate unique request ID for this analysis
     const currentRequestId = ++globalRequestId;
-
-    console.log(`📨 [QUEUE] Request #${currentRequestId} for: ${filePath}`);
-    console.log(`📨 [QUEUE] Active analyses: ${Array.from(activeAnalysis).join(', ') || 'none'}`);
 
     // Cancel any existing queued analysis for this file
     const existing = analysisQueue.get(filePath);
     if (existing) {
-        console.log(`❌ [QUEUE] Cancelling request #${existing.requestId} (replaced by #${currentRequestId})`);
         clearTimeout(existing.timer);
         analysisQueue.delete(filePath);
     }
 
     // If already actively analyzing this file, queue a new analysis after completion
     if (activeAnalysis.has(filePath)) {
-        console.log(`⏳ [QUEUE] File currently being analyzed, queuing request #${currentRequestId}`);
         const timer = setTimeout(() => {
             analysisQueue.delete(filePath);
-            console.log(`⏰ [QUEUE] Executing queued request #${currentRequestId}`);
             analyzeDocument(document);
-        }, DEBOUNCE_MS * 2);  // Wait longer for queued requests
+        }, DEBOUNCE_MS * 2);
 
         analysisQueue.set(filePath, { timer, document, requestId: currentRequestId });
         return;
     }
 
     // Debounce: wait before actually analyzing
-    console.log(`⏱️ [QUEUE] Scheduling request #${currentRequestId} with ${DEBOUNCE_MS}ms debounce`);
     const timer = setTimeout(async () => {
         analysisQueue.delete(filePath);
         await executeAnalysis(document, currentRequestId);
@@ -280,109 +273,26 @@ async function executeAnalysis(document: vscode.TextDocument, requestId: number)
 
     // Final safety check
     if (activeAnalysis.has(filePath)) {
-        console.log(`� [EXEC] Request #${requestId} cancelled - file already being analyzed`);
         return;
     }
 
-    console.log(`🚀 [EXEC] Starting request #${requestId} for: ${filePath}`);
-    console.log(`🚀 [EXEC] Timestamp: ${new Date().toISOString()}`);
     activeAnalysis.add(filePath);
 
     try {
         const issues = await runGarbageHunterOnPath(document.fileName);
-        console.log(`📥 [EXEC] Request #${requestId}: CLI returned ${issues.length} issues`);
-
-        // CRITICAL: Check for duplicates in CLI output BEFORE processing
-        if (issues.length > 0) {
-            const issueKeys = issues.map(i => `${i.line}|${i.rule_name}|${i.message}`);
-            const uniqueKeys = new Set(issueKeys);
-
-            if (issueKeys.length !== uniqueKeys.size) {
-                console.log(`🚨 [EXEC] CLI RETURNED DUPLICATES! Total: ${issueKeys.length}, Unique: ${uniqueKeys.size}`);
-                console.log(`🚨 [EXEC] This means your Rust CLI tool is detecting the same issue multiple times!`);
-
-                // Find and log all duplicates
-                const keyCounts = new Map<string, number>();
-                issueKeys.forEach(key => keyCounts.set(key, (keyCounts.get(key) || 0) + 1));
-
-                keyCounts.forEach((count, key) => {
-                    if (count > 1) {
-                        console.log(`  🔴 Duplicate (${count}x): ${key}`);
-                    }
-                });
-            }
-
-            // Log all issues for debugging (only first 5)
-            console.log(`📋 [EXEC] All ${issues.length} raw issues from CLI:`);
-            issues.slice(0, 8).forEach((issue, idx) => {
-                console.log(`  [${idx}] Line ${issue.line}, Col ${issue.column}: [${issue.rule_name}] ${issue.message} (${issue.severity})`);
-            });
-            if (issues.length > 8) {
-                console.log(`  ... and ${issues.length - 8} more`);
-            }
-        }
-
         const diagnostics = issuesToDiagnostics(issues);
 
-        // CRITICAL DEBUG: Track exact state of diagnostics
-        console.log(`\n🔬 [DIAG-DEBUG] ===== DIAGNOSTIC LIFECYCLE TRACKING =====`);
-        console.log(`🔬 [DIAG-DEBUG] File: ${document.fileName}`);
-        console.log(`🔬 [DIAG-DEBUG] Raw issues from CLI: ${issues.length}`);
-        console.log(`🔬 [DIAG-DEBUG] After dedup (issuesToDiagnostics): ${diagnostics.length}`);
-
-        // Log all unique diagnostics being set
-        if (diagnostics.length > 0) {
-            console.log(`🔬 [DIAG-DEBUG] Diagnostics to be set:`);
-            diagnostics.slice(0, 10).forEach((d, idx) => {
-                console.log(`  [${idx}] Line ${d.range.start.line + 1}: "${d.message}" [${d.code}]`);
-            });
-            if (diagnostics.length > 10) {
-                console.log(`  ... and ${diagnostics.length - 10} more`);
-            }
-        }
-
-        // Check what's currently in the collection BEFORE we change it
-        const beforeDelete = diagnosticCollection.get(document.uri);
-        console.log(`🔬 [DIAG-DEBUG] Current diagnostics in collection (BEFORE delete): ${beforeDelete?.length || 0}`);
-        if (beforeDelete && beforeDelete.length > 0) {
-            console.log(`🔬 [DIAG-DEBUG] Existing diagnostics:`);
-            beforeDelete.slice(0, 5).forEach((d, idx) => {
-                console.log(`  [${idx}] Line ${d.range.start.line + 1}: "${d.message}" [${d.code}]`);
-            });
-        }
-
-        // CRITICAL: Use delete() then set() to force VS Code to clear old diagnostics first
-        console.log(`🔬 [DIAG-DEBUG] Calling diagnosticCollection.delete()...`);
         diagnosticCollection.delete(document.uri);
-
-        const afterDelete = diagnosticCollection.get(document.uri);
-        console.log(`🔬 [DIAG-DEBUG] After delete: ${afterDelete?.length || 0} diagnostics`);
-
-        console.log(`🔬 [DIAG-DEBUG] Calling diagnosticCollection.set() with ${diagnostics.length} diagnostics...`);
         diagnosticCollection.set(document.uri, diagnostics);
 
-        // IMMEDIATELY verify what was actually set
-        const afterSet = diagnosticCollection.get(document.uri);
-        console.log(`🔬 [DIAG-DEBUG] After set: ${afterSet?.length || 0} diagnostics in collection`);
-        if (afterSet && afterSet.length > 0) {
-            console.log(`🔬 [DIAG-DEBUG] Actual diagnostics now in collection:`);
-            afterSet.forEach((d, idx) => {
-                console.log(`  [${idx}] Line ${d.range.start.line + 1}: "${d.message}" [${d.code}]`);
-            });
-        }
-        console.log(`🔬 [DIAG-DEBUG] ===== END TRACKING =====\n`);
-
     } catch (error) {
-        console.error(`❌ [EXEC] Request #${requestId} failed:`, error);
+        console.error(`Garbage Hunter analysis failed:`, error);
     } finally {
         activeAnalysis.delete(filePath);
-        console.log(`✅ [EXEC] Request #${requestId} completed. Active: ${activeAnalysis.size}`);
 
-        // Check if there's a queued analysis waiting for this file
         const queued = analysisQueue.get(filePath);
         if (queued) {
-            console.log(`🔄 [EXEC] Found queued request #${queued.requestId}, will execute after debounce`);
-            // The timer is already set, it will auto-execute
+            analyzeDocument(queued.document);
         }
     }
 }
@@ -398,14 +308,11 @@ function analyzeOpenRustFiles() {
 async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]> {
     const config = vscode.workspace.getConfiguration('garbageHunter');
 
-    // Smart language detection (with caching)
     const detectedLanguage = await detectFileLanguage(filePath);
     const configLanguage = config.get<string>('language');
 
     // Use smart detection if language is set to auto
     const language = configLanguage === 'auto' || !configLanguage ? detectedLanguage : configLanguage;
-
-    console.log(`🔍 File: ${filePath}, Detected: ${detectedLanguage}, Using: ${language}`);
 
     // Build command arguments safely (prevent command injection)
     const cli = getCliCommand();
@@ -444,20 +351,17 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
     }
 
     const command = `${cli} ${args.join(' ')}`;
-    console.log(`📝 Command: ${command}`);
 
     return new Promise((resolve, reject) => {
         exec(
             command,
             {
                 cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-                timeout: 30000, // 30 second timeout to prevent hanging
+                timeout: 30000,
             },
             (error, stdout, stderr) => {
             if (error) {
-                console.error(`Command execution error: ${error.message}`);
-                console.error(`Command: ${command}`);
-                console.error(`Stderr: ${stderr}`);
+                console.error(`Garbage Hunter command error: ${error.message}`);
 
                 // If there's stdout, try to parse it (CLI may exit non-zero with valid output)
                 if (stdout.trim() !== '') {
@@ -496,7 +400,6 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
                 }
 
                 const issues: GarbageIssue[] = JSON.parse(stdout);
-                console.log(`✅ Successfully parsed ${issues.length} issues from CLI output`);
                 resolve(issues);
             } catch (parseError) {
                 reject(new Error(`Failed to parse output: ${parseError}`));
@@ -510,7 +413,11 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
  */
 async function runCliWithFlags(filePath: string, extraFlags: string[]): Promise<string> {
     const config = vscode.workspace.getConfiguration('garbageHunter');
-    const language = config.get<string>('language', 'en-US');
+    const detectedLanguage = await detectFileLanguage(filePath);
+    const configLanguage = config.get<string>('language');
+
+    // Use smart detection if language is set to auto (consistent with runGarbageHunterOnPath)
+    const language = configLanguage === 'auto' || !configLanguage ? detectedLanguage : configLanguage;
 
     const cli = getCliCommand();
     const args: string[] = [
@@ -532,8 +439,10 @@ async function runCliWithFlags(filePath: string, extraFlags: string[]): Promise<
     const command = `${cli} ${args.join(' ')}`;
 
     return new Promise((resolve) => {
-        exec(command, { cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath }, (error, stdout) => {
-            // CLI may exit non-zero even with valid output
+        exec(command, {
+            cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+            timeout: 30000
+        }, (error, stdout) => {
             resolve(stdout || '');
         });
     });
@@ -564,27 +473,18 @@ function groupIssuesByFile(issues: GarbageIssue[]): Map<string, GarbageIssue[]> 
 }
 
 function issuesToDiagnostics(issues: GarbageIssue[]): vscode.Diagnostic[] {
-    // Deduplicate issues: same line + same message + same rule = duplicate
     const seen = new Set<string>();
     const uniqueIssues: GarbageIssue[] = [];
-    let duplicateCount = 0;
 
     for (const issue of issues) {
-        // Create unique key based on line, message, and rule
         const key = `${issue.line}|${issue.rule_name}|${issue.message}`;
 
         if (seen.has(key)) {
-            duplicateCount++;
-            console.log(`  ⚠️ [DEDUP] Duplicate detected: Line ${issue.line} [${issue.rule_name}] ${issue.message}`);
             continue;
         }
 
         seen.add(key);
         uniqueIssues.push(issue);
-    }
-
-    if (duplicateCount > 0) {
-        console.log(`🔄 [DEDUP] Removed ${duplicateCount} duplicate(s) from ${issues.length} issue(s), keeping ${uniqueIssues.length}`);
     }
 
     return uniqueIssues.map(issue => {
@@ -768,7 +668,16 @@ async function detectFileLanguage(filePath: string): Promise<string> {
         }
 
         const result = hasChineseComments ? 'zh-CN' : 'en-US';
-        languageCache.set(filePath, result);  // Cache the result
+
+        // Enforce cache size limit
+        if (languageCache.size >= MAX_CACHE_SIZE) {
+            const firstKey = languageCache.keys().next().value;
+            if (firstKey) {
+                languageCache.delete(firstKey);
+            }
+        }
+
+        languageCache.set(filePath, result);
         return result;
     } catch (error) {
         return 'en-US'; // Default to English

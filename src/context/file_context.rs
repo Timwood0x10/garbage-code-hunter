@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::Path;
 
 /// File context type - used to adjust rule sensitivity
@@ -16,6 +17,12 @@ pub enum FileContext {
     Documentation,
     /// Config files (non-Rust) - skip most rules
     Config,
+    /// UI/TUI application code - relaxed naming rules for coordinates, colors, etc.
+    UI,
+    /// GPU/graphics/system programming code - relaxed naming for indices, coordinates
+    GPU,
+    /// Web server/handler code - relaxed naming for request/response objects
+    Web,
 }
 
 impl FileContext {
@@ -31,9 +38,62 @@ impl FileContext {
             FileContext::Benchmark
         } else if Self::is_documentation_file(&path_str) {
             FileContext::Documentation
+        } else if Self::is_ui_file(&path_str) || Self::detect_project_type_from_cargo(path, "ui") {
+            FileContext::UI
+        } else if Self::is_gpu_file(&path_str) || Self::detect_project_type_from_cargo(path, "gpu")
+        {
+            FileContext::GPU
+        } else if Self::is_web_file(&path_str) || Self::detect_project_type_from_cargo(path, "web")
+        {
+            FileContext::Web
         } else {
             FileContext::Business
         }
+    }
+
+    fn detect_project_type_from_cargo(file_path: &Path, project_type: &str) -> bool {
+        let cargo_toml_path = Self::find_cargo_toml(file_path);
+
+        let content = match fs::read_to_string(&cargo_toml_path) {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+
+        let dependencies_to_check = match project_type {
+            "ui" => vec![
+                "ratatui",
+                "crossterm",
+                "curses",
+                "termion",
+                "ncurses",
+                "tui",
+            ],
+            "gpu" => vec!["wgpu", "vulkan", "gpu", "shader", "metal", "opengl"],
+            "web" => vec!["actix-web", "actix", "axum", "rocket", "warp", "hyper"],
+            _ => return false,
+        };
+
+        dependencies_to_check.iter().any(|dep| {
+            content.contains(&format!("{} =", dep)) || content.contains(&format!("{}=", dep))
+        })
+    }
+
+    fn find_cargo_toml(file_path: &Path) -> std::path::PathBuf {
+        let mut current = file_path.to_path_buf();
+
+        for _ in 0..5 {
+            let cargo_toml = current.join("Cargo.toml");
+            if cargo_toml.exists() {
+                return cargo_toml;
+            }
+
+            match current.parent() {
+                Some(parent) => current = parent.to_path_buf(),
+                None => break,
+            }
+        }
+
+        file_path.join("Cargo.toml")
     }
 
     /// Returns the rule weight multiplier for this context (0.0 = skip completely, 1.0 = normal)
@@ -45,6 +105,9 @@ impl FileContext {
             FileContext::Benchmark => 0.4,
             FileContext::Documentation => 0.1,
             FileContext::Config => 0.0,
+            FileContext::UI => 0.5,  // Relaxed but not disabled
+            FileContext::GPU => 0.6, // GPU code has specific conventions
+            FileContext::Web => 0.7, // Web code slightly relaxed
         }
     }
 
@@ -115,6 +178,80 @@ impl FileContext {
 
     fn is_documentation_file(path_str: &str) -> bool {
         path_str.contains("/docs/") || path_str.starts_with("doc/")
+    }
+
+    fn is_ui_file(path_str: &str) -> bool {
+        let ui_indicators = [
+            "/ui.rs",
+            "/tui.rs",
+            "/gui.rs",
+            "/view.rs",
+            "/display.rs",
+            "/screen.rs",
+            "/window.rs",
+            "/widget.rs",
+            "/component.rs",
+        ];
+
+        if ui_indicators
+            .iter()
+            .any(|indicator| path_str.contains(indicator))
+            || path_str.contains("/ui/")
+            || path_str.contains("/tui/")
+            || path_str.contains("/gui/")
+            || path_str.contains("/views/")
+        {
+            return true;
+        }
+
+        let tui_libraries = ["ratatui", "crossterm", "curses", "termion", "ncurses"];
+
+        tui_libraries
+            .iter()
+            .any(|lib| path_str.contains(lib) && path_str.ends_with(".rs"))
+    }
+
+    fn is_gpu_file(path_str: &str) -> bool {
+        let gpu_indicators = [
+            "/gpu.rs",
+            "/shader.rs",
+            "/render.rs",
+            "/compute.rs",
+            "/graphics.rs",
+            "/vulkan.rs",
+            "/opengl.rs",
+            "/metal.rs",
+        ];
+
+        gpu_indicators
+            .iter()
+            .any(|indicator| path_str.contains(indicator))
+            || path_str.contains("/gpu/")
+            || path_str.contains("/shader/")
+            || path_str.contains("/render/")
+            || (path_str.contains("wgpu") && path_str.ends_with(".rs"))
+            || (path_str.contains("vulkan") && path_str.ends_with(".rs"))
+    }
+
+    fn is_web_file(path_str: &str) -> bool {
+        let web_indicators = [
+            "/api/",
+            "/handler/",
+            "/route/",
+            "/controller/",
+            "/server.rs",
+            "/http.rs",
+            "/request.rs",
+            "/response.rs",
+        ];
+
+        web_indicators
+            .iter()
+            .any(|indicator| path_str.contains(indicator))
+            || (path_str.contains("actix") && path_str.ends_with(".rs"))
+            || (path_str.contains("axum") && path_str.ends_with(".rs"))
+            || (path_str.contains("rocket") && path_str.ends_with(".rs"))
+            || (path_str.contains("warp") && path_str.ends_with(".rs"))
     }
 }
 

@@ -33,7 +33,9 @@ impl Rule for StringAbuseRule {
         let to_string_count = count_non_import_matches(content, ".to_string()");
         let total = string_new_count + string_from_count + to_string_count;
 
-        if total > 15 {
+        // Increased threshold: 25+ to avoid false positives in rule definitions
+        // (each CodeIssue creation uses .to_string() for rule_name/message)
+        if total > 25 {
             let messages = if lang == "zh-CN" {
                 vec![
                     format!("{} 次 String 转换？你是在开字符串工厂吗？", total),

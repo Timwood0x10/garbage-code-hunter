@@ -85,7 +85,8 @@ struct NamingVisitor {
 
 impl NamingVisitor {
     fn new(file_path: std::path::PathBuf, lang: &str) -> Self {
-        let terrible_names = Regex::new(r"^(data|info|temp|tmp|val|value|item|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").unwrap();
+        // Note: 'item' is excluded as it's a common Rust iterator variable
+        let terrible_names = Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").unwrap();
 
         Self {
             file_path,

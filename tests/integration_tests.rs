@@ -121,7 +121,8 @@ fn main() {
 fn test_unnecessary_clone_detection() {
     let mut code = String::from("fn main() {\n");
     code.push_str("    let s0 = String::from(\"hello\");\n");
-    for i in 1..=20 {
+    // Use 30 clones to exceed the new threshold of 25
+    for i in 1..=30 {
         code.push_str(&format!("    let s{i} = s{}.clone();\n", i - 1));
     }
     code.push_str("}\n");

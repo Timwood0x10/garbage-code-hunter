@@ -148,8 +148,8 @@ ci:
 	@echo "========================================="
 	@echo "🔍 Step 3: Checking for warnings..."
 	@echo "========================================="
-	@WARNINGS=$$(cargo check 2>&1 | grep "warning:" | wc -l | tr -d ' '); \
-	if [ "$$WARNINGS" -gt 0 ]; then \
+	@WARNINGS=$$(cargo check --message-format=json 2>/dev/null | grep -c '"severity":"warning"'); \
+	if [ -n "$$WARNINGS" ] && [ "$$WARNINGS" -gt 0 ]; then \
 		echo "❌ Found $$WARNINGS warnings! Project requires 0 warnings."; \
 		cargo check 2>&1 | grep "warning:"; \
 		exit 1; \

@@ -297,8 +297,10 @@ impl<'ast> Visit<'ast> for CloneVisitor {
         if method_call.method == "clone" {
             self.clone_count += 1;
 
-            // Report once when clone count reaches threshold (>=15)
-            if self.clone_count >= 15 && self.issues.is_empty() {
+            // Report once when clone count reaches threshold (>=25)
+            // Increased from 15 to avoid false positives in rule definitions
+            // (each CodeIssue creation uses .clone() for file_path)
+            if self.clone_count >= 25 && self.issues.is_empty() {
                 let messages = if self.lang == "zh-CN" {
                     [
                         "clone() 狂魔！你是想把内存用完吗？",

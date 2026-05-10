@@ -238,6 +238,8 @@ impl ChannelVisitor {
     }
 
     fn check_channel_overuse(&mut self, content: &str) {
+        // Only report if we actually found channel TYPE usage (not just string literals)
+        // and the count exceeds threshold
         if self.channel_count > 5 {
             let messages = if self.lang == "zh-CN" {
                 [

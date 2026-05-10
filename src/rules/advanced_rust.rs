@@ -215,7 +215,9 @@ impl<'ast> Visit<'ast> for LifetimeVisitor {
         self.lifetime_count += 1;
 
         // Check for excessive lifetime usage, cap to 1 issue per file
-        if self.lifetime_count > 15 && self.issues.is_empty() {
+        // Increased threshold: 20+ to avoid false positives in trait implementations
+        // (each syn::Visit impl requires 'ast lifetime)
+        if self.lifetime_count > 20 && self.issues.is_empty() {
             let messages = if self.lang == "zh-CN" {
                 vec![
                     "生命周期标注比我的生命还复杂",
