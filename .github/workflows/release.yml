@@ -11,6 +11,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
   # Job 1: Run full CI pipeline first (only on tags)
   ci:
