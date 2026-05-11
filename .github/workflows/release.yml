@@ -57,6 +57,7 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       release_id: ${{ steps.create_release.outputs.id }}
+      tag_name: ${{ steps.tag_version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -182,6 +183,7 @@ jobs:
         if: success()
         with:
           files: ${{ env.ASSET_PATH }}
+          tag_name: ${{ needs.create-release-master.outputs.tag_name }}
 
   # Job 3b: Build and upload release binaries (master branch)
   build-release-master:
@@ -249,6 +251,7 @@ jobs:
         if: success()
         with:
           files: ${{ env.ASSET_PATH }}
+          tag_name: ${{ needs.create-release-master.outputs.tag_name }}
 
   # Job 4: Publish to crates.io (optional, manual trigger)
   publish-crate:
