@@ -129,12 +129,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary_name: garbage-code-hunter
             asset_name: garbage-code-hunter-linux-x86_64.tar.gz
           - os: macos-latest
-            target: x86_64-apple-darwin
-            binary_name: garbage-code-hunter
             asset_name: garbage-code-hunter-macos-x86_64.tar.gz
 
     steps:
@@ -142,8 +138,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -152,41 +146,39 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-release-
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-release-
 
       - name: Build release binary
-        env:
-          RUSTFLAGS: "-C target-cpu=native"
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release
 
       - name: Show binary info
         run: |
-          BINARY="target/${{ matrix.target }}/release/${{ matrix.binary_name }}"
+          BINARY="target/release/garbage-code-hunter"
           if [ -f "$BINARY" ] || [ -f "${BINARY}.exe" ]; then
             echo "📦 Binary built successfully:"
-            ls -lh "$BINARY"* 2>/dev/null || true
-            file "$BINARY"* 2>/dev/null || true
+            ls -lh target/release/garbage-code-hunter* 2>/dev/null || true
+            file target/release/garbage-code-hunter* 2>/dev/null || true
           else
             echo "❌ Binary not found at $BINARY"
             exit 1
           fi
 
-      - name: Package binary (Unix/Linux/Mac)
+      - name: Package binary
         run: |
-          cd target/${{ matrix.target }}/release
+          cd target/release
 
           ASSET="${{ matrix.asset_name }}"
-          tar -czf "$ASSET" "${{ matrix.binary_name }}"
+          tar -czf "$ASSET" garbage-code-hunter
 
           echo "📦 Package created:"
           ls -lh "$ASSET"
 
-          echo "ASSET_PATH=target/${{ matrix.target }}/release/$ASSET" >> $GITHUB_ENV
+          echo "ASSET_PATH=target/release/$ASSET" >> $GITHUB_ENV
           echo "ASSET_NAME=$ASSET" >> $GITHUB_ENV
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         if: success()
         with:
           files: ${{ env.ASSET_PATH }}
@@ -198,18 +190,14 @@ jobs:
     needs: create-release-master
     if: github.ref == 'refs/heads/master'
     strategy:
-      fail-fast: false  # Don't cancel other builds if one fails
+      fail-fast: false
       matrix:
         include:
           # Linux x86_64
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary_name: garbage-code-hunter
             asset_name: garbage-code-hunter-linux-x86_64.tar.gz
           # macOS x86_64
           - os: macos-latest
-            target: x86_64-apple-darwin
-            binary_name: garbage-code-hunter
             asset_name: garbage-code-hunter-macos-x86_64.tar.gz
 
     steps:
@@ -217,8 +205,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -227,40 +213,35 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-release-
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-release-
 
       - name: Build release binary
-        env:
-          RUSTFLAGS: "-C target-cpu=native"  # Optimize for native CPU
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release
 
       - name: Show binary info
         run: |
-          BINARY="target/${{ matrix.target }}/release/${{ matrix.binary_name }}"
+          BINARY="target/release/garbage-code-hunter"
           if [ -f "$BINARY" ] || [ -f "${BINARY}.exe" ]; then
             echo "📦 Binary built successfully:"
-            ls -lh "$BINARY"* 2>/dev/null || true
-            file "$BINARY"* 2>/dev/null || true
+            ls -lh target/release/garbage-code-hunter* 2>/dev/null || true
+            file target/release/garbage-code-hunter* 2>/dev/null || true
           else
             echo "❌ Binary not found at $BINARY"
             exit 1
           fi
 
-      - name: Package binary (Unix/Linux/Mac)
+      - name: Package binary
         run: |
-          cd target/${{ matrix.target }}/release
-          
-          # Create tarball with proper naming
+          cd target/release
+
           ASSET="${{ matrix.asset_name }}"
-          tar -czf "$ASSET" "${{ matrix.binary_name }}"
-          
-          # Show package size·
+          tar -czf "$ASSET" garbage-code-hunter
+
           echo "📦 Package created:"
           ls -lh "$ASSET"
-          
-          # Set output for upload step
-          echo "ASSET_PATH=target/${{ matrix.target }}/release/$ASSET" >> $GITHUB_ENV
+
+          echo "ASSET_PATH=target/release/$ASSET" >> $GITHUB_ENV
           echo "ASSET_NAME=$ASSET" >> $GITHUB_ENV
 
       - name: Upload Release Asset
