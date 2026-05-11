@@ -73,10 +73,22 @@ jobs:
             echo "⚠️ No RELEASE_NOTE.md, using fallback: $TAG"
           fi
 
+          echo "🔧 Configuring git..."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -f "$TAG" 2>/dev/null || true
-          git push origin "$TAG" -f 2>/dev/null || true
+
+          echo "🏷️ Creating local tag: $TAG"
+          git tag -f "$TAG"
+
+          REMOTE_URL=$(git remote get-url origin)
+          echo "📡 Remote URL: $REMOTE_URL"
+
+          echo "🚀 Pushing tag to remote..."
+          git push origin "$TAG" --force
+
+          VERIFY_TAG=$(git ls-remote --tags origin "$TAG" | head -1)
+          echo "✅ Tag verified on remote: $VERIFY_TAG"
+
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Read RELEASE_NOTE.md
@@ -194,11 +206,11 @@ jobs:
             target: x86_64-unknown-linux-gnu
             binary_name: garbage-code-hunter
             asset_name: garbage-code-hunter-linux-x86_64.tar.gz
-          # macOS Apple Silicon (ARM64) - Modern Macs only
+          # macOS x86_64
           - os: macos-latest
-            target: aarch64-apple-darwin
+            target: x86_64-apple-darwin
             binary_name: garbage-code-hunter
-            asset_name: garbage-code-hunter-macos-arm64.tar.gz
+            asset_name: garbage-code-hunter-macos-x86_64.tar.gz
 
     steps:
       - uses: actions/checkout@v4
@@ -318,7 +330,7 @@ jobs:
             echo ""
             echo "📦 Uploaded Assets:"
             echo "  • garbage-code-hunter-linux-x86_64.tar.gz"
-            echo "  • garbage-code-hunter-macos-arm64.tar.gz"
+            echo "  • garbage-code-hunter-macos-x86_64.tar.gz"
             exit 0
           else
             echo "========================================="
