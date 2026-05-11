@@ -1,0 +1,177 @@
+{
+  "name": "garbage-code-hunter",
+  "displayName": "Garbage Code Hunter 🗑️",
+  "description": "A humorous Rust code quality detector that roasts your garbage code with style!",
+  "version": "0.2.0",
+  "publisher": "garbage-code-hunter",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "rust",
+    "linter",
+    "code-quality",
+    "humor",
+    "roast",
+    "ai",
+    "llm"
+  ],
+  "activationEvents": [
+    "onLanguage:rust"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "garbageHunter.analyzeFile",
+        "title": "🗑️ Roast This File",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.analyzeWorkspace",
+        "title": "🔥 Roast Entire Workspace",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.clearDiagnostics",
+        "title": "🧹 Clear All Roasts",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.showScore",
+        "title": "📊 Show Quality Score",
+        "category": "Garbage Hunter"
+      },
+      {
+        "command": "garbageHunter.showEducational",
+        "title": "🎓 Show Educational Advice",
+        "category": "Garbage Hunter"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "garbageHunter.analyzeFile",
+          "when": "resourceExtname == .rs",
+          "group": "garbageHunter@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "garbageHunter.analyzeFile",
+          "when": "resourceExtname == .rs",
+          "group": "garbageHunter@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Garbage Code Hunter",
+      "properties": {
+        "garbageHunter.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to garbage-code-hunter CLI executable (leave empty to use PATH)"
+        },
+        "garbageHunter.enableRealTimeAnalysis": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time analysis on file save"
+        },
+        "garbageHunter.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en-US",
+            "zh-CN"
+          ],
+          "default": "auto",
+          "description": "Language for roast messages (auto = detect from comments)"
+        },
+        "garbageHunter.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/target/**",
+            "**/node_modules/**",
+            "**/.git/**"
+          ],
+          "description": "File patterns to exclude from analysis"
+        },
+        "garbageHunter.showInlineMessages": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show roast messages inline like ErrorLens"
+        },
+        "garbageHunter.maxInlineMessageLength": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum length of inline messages"
+        },
+        "garbageHunter.llm.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable LLM-powered roast generation (requires Ollama or OpenAI-compatible API)"
+        },
+        "garbageHunter.llm.provider": {
+          "type": "string",
+          "enum": [
+            "ollama",
+            "openai-compatible"
+          ],
+          "default": "ollama",
+          "description": "LLM provider type"
+        },
+        "garbageHunter.llm.model": {
+          "type": "string",
+          "default": "gemma4:e2b",
+          "description": "LLM model name (e.g., gemma4:e2b, llama3.2)"
+        },
+        "garbageHunter.llm.endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "LLM API endpoint URL (leave empty for defaults)"
+        },
+        "garbageHunter.llm.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "LLM API key (for OpenAI-compatible providers)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0",
+    "@vscode/test-electron": "^2.3.0",
+    "vsce": "^2.15.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TimWood0x10/garbage-code-hunter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TimWood0x10/garbage-code-hunter/issues"
+  },
+  "homepage": "https://github.com/TimWood0x10/garbage-code-hunter#readme",
+  "license": "Apache-2.0"
+}

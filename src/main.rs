@@ -1,21 +1,18 @@
 use clap::Parser;
 use std::fs;
 use std::path::PathBuf;
+use tracing_subscriber::EnvFilter;
 use walkdir::WalkDir;
 
-mod analyzer;
-mod educational;
-mod hall_of_shame;
-mod i18n;
-mod reporter;
-mod rules;
-mod scoring;
-mod utils;
-
-use analyzer::CodeAnalyzer;
-use educational::EducationalAdvisor;
-use hall_of_shame::HallOfShame;
-use reporter::Reporter;
+// Use modules from library (lib.rs)
+use garbage_code_hunter::{
+    analyzer::{CodeAnalyzer, CodeIssue},
+    config::{AppConfig, AppMode},
+    educational::EducationalAdvisor,
+    hall_of_shame::HallOfShame,
+    llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
+    reporter::Reporter,
+};
 
 #[derive(Parser)]
 #[command(name = "garbage-code-hunter")]
@@ -73,10 +70,65 @@ struct Args {
     /// Show improvement suggestions based on analysis
     #[arg(long)]
     suggestions: bool,
+
+    /// Output format (text, json)
+    #[arg(short = 'f', long, default_value = "text")]
+    format: String,
+
+    /// Enable LLM-powered roast generation
+    #[arg(long)]
+    llm: bool,
+
+    /// LLM provider type: ollama or openai-compatible
+    #[arg(long, default_value = "ollama")]
+    llm_provider: String,
+
+    /// LLM API endpoint URL
+    #[arg(long)]
+    llm_endpoint: Option<String>,
+
+    /// LLM model name
+    #[arg(long)]
+    llm_model: Option<String>,
+
+    /// LLM API key (optional, for OpenAI-compatible providers)
+    #[arg(long)]
+    llm_api_key: Option<String>,
+
+    /// LLM request timeout in seconds
+    #[arg(long, default_value = "30")]
+    llm_timeout: u64,
+
+    /// Path to configuration file (default: ./config.toml)
+    #[arg(long)]
+    config: Option<PathBuf>,
 }
 
 fn main() {
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn")),
+        )
+        .init();
+
     let args = Args::parse();
+
+    // Load config file and merge with CLI arguments
+    let mut app_config = AppConfig::from_file(args.config.as_deref()).unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to load config: {e}");
+        AppConfig {
+            mode: AppMode::Local,
+        }
+    });
+    app_config.merge_cli(
+        args.llm,
+        &args.llm_provider,
+        args.llm_endpoint.as_deref(),
+        args.llm_model.as_deref(),
+        args.llm_api_key.as_deref(),
+        Some(args.llm_timeout), // Wrap in Option to allow explicit override
+    );
 
     let analyzer = CodeAnalyzer::new(&args.exclude, &args.lang);
     let issues = analyzer.analyze_path(&args.path);
@@ -107,6 +159,21 @@ fn main() {
         }
     }
 
+    // Construct roast provider based on active mode
+    let roast_provider: Box<dyn RoastProvider> = match &app_config.mode {
+        AppMode::Local => Box::new(LocalRoastProvider),
+        AppMode::Llm(llm_cfg) => {
+            let config = LlmConfig::from_args(
+                &llm_cfg.provider,
+                Some(&llm_cfg.endpoint),
+                Some(&llm_cfg.model),
+                llm_cfg.api_key.as_deref(),
+                llm_cfg.timeout_secs,
+            );
+            Box::new(LlmRoastProvider::new(config))
+        }
+    };
+
     let reporter = Reporter::new(
         args.harsh,
         args.savage,
@@ -116,17 +183,70 @@ fn main() {
         args.summary,
         args.markdown,
         &args.lang,
+        roast_provider,
     );
 
+    // Handle JSON output format
+    if args.format == "json" {
+        output_json(&issues);
+        return;
+    }
+
     if args.educational || args.hall_of_shame || args.suggestions {
-        reporter.report_with_enhanced_features(
-            issues,
-            file_count,
-            total_lines,
-            educational_advisor.as_ref(),
-            hall_of_shame.as_ref(),
-            args.suggestions,
-        );
+        // Enhanced reporting with educational features
+        reporter.report_with_metrics(issues.clone(), file_count, total_lines);
+
+        if args.educational {
+            if let Some(advisor) = educational_advisor.as_ref() {
+                println!("\n🎓 Educational Advice:");
+                println!("{}", "─".repeat(50));
+                for issue in &issues {
+                    if let Some(advice) = advisor.get_advice(&issue.rule_name) {
+                        println!("\n📚 {}: {}", issue.rule_name, advice.why_bad);
+                        println!("💡 How to fix: {}", advice.how_to_fix);
+                        if let Some(tip) = &advice.best_practice_tip {
+                            println!("✨ Tip: {}", tip);
+                        }
+                    }
+                }
+            }
+        }
+
+        if args.hall_of_shame {
+            if let Some(hall) = hall_of_shame.as_ref() {
+                let stats = hall.generate_shame_report();
+                println!("\n🏆 Hall of Shame:");
+                println!("{}", "─".repeat(50));
+                println!("📊 Total files analyzed: {}", stats.total_files_analyzed);
+                println!("🗑️ Total issues found: {}", stats.total_issues);
+                println!(
+                    "📈 Garbage density: {:.2} issues per 1000 lines",
+                    stats.garbage_density
+                );
+
+                println!("\n🔥 Worst Files:");
+                for (i, entry) in stats.hall_of_shame.iter().take(5).enumerate() {
+                    println!(
+                        "  {}. {} - {} issues (score: {:.1})",
+                        i + 1,
+                        entry
+                            .file_path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy(),
+                        entry.total_issues,
+                        entry.shame_score
+                    );
+                }
+            }
+        }
+
+        if args.suggestions {
+            println!("\n🎯 Improvement Suggestions:");
+            println!("- Focus on renaming meaningless variables");
+            println!("- Reduce function complexity and nesting");
+            println!("- Replace unwrap() with proper error handling");
+        }
     } else {
         reporter.report_with_metrics(issues, file_count, total_lines);
     }
@@ -184,8 +304,8 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
 }
 
 fn group_issues_by_file(
-    issues: &[analyzer::CodeIssue],
-) -> std::collections::HashMap<std::path::PathBuf, Vec<analyzer::CodeIssue>> {
+    issues: &[CodeIssue],
+) -> std::collections::HashMap<std::path::PathBuf, Vec<CodeIssue>> {
     let mut grouped = std::collections::HashMap::new();
     for issue in issues {
         grouped
@@ -200,4 +320,29 @@ fn count_file_lines(file_path: &std::path::Path) -> usize {
     std::fs::read_to_string(file_path)
         .map(|content| content.lines().count())
         .unwrap_or(0)
+}
+
+fn output_json(issues: &[CodeIssue]) {
+    use serde_json;
+
+    let json_issues: Vec<serde_json::Value> = issues
+        .iter()
+        .map(|issue| {
+            serde_json::json!({
+                "file_path": issue.file_path.to_string_lossy(),
+                "line": issue.line,
+                "column": issue.column,
+                "rule_name": issue.rule_name,
+                "message": issue.message,
+                "severity": format!("{:?}", issue.severity)
+            })
+        })
+        .collect();
+
+    if let Ok(json_output) = serde_json::to_string_pretty(&json_issues) {
+        println!("{}", json_output);
+    } else {
+        eprintln!("Error: Failed to serialize issues to JSON");
+        std::process::exit(1);
+    }
 }

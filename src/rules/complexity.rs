@@ -1,7 +1,7 @@
 use std::path::Path;
 use syn::{visit::Visit, Block, File, ItemFn};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
@@ -18,8 +18,9 @@ impl Rule for DeepNestingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut visitor = NestingVisitor::new(file_path.to_path_buf(), lang);
+        let mut visitor = NestingVisitor::new(file_path.to_path_buf(), lang, is_test_file);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
@@ -38,8 +39,10 @@ impl Rule for LongFunctionRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut visitor = FunctionLengthVisitor::new(file_path.to_path_buf(), content, lang);
+        let mut visitor =
+            FunctionLengthVisitor::new(file_path.to_path_buf(), content, lang, is_test_file);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
@@ -50,20 +53,23 @@ struct NestingVisitor {
     issues: Vec<CodeIssue>,
     current_depth: usize,
     lang: String,
+    is_test_file: bool,
 }
 
 impl NestingVisitor {
-    fn new(file_path: std::path::PathBuf, lang: &str) -> Self {
+    fn new(file_path: std::path::PathBuf, lang: &str, is_test_file: bool) -> Self {
         Self {
             file_path,
             issues: Vec::new(),
             current_depth: 0,
             lang: lang.to_string(),
+            is_test_file,
         }
     }
 
     fn check_nesting_depth(&mut self, block: &Block, lang: &str) {
-        if self.current_depth > 3 {
+        let threshold = if self.is_test_file { 7 } else { 5 };
+        if self.current_depth > threshold {
             let messages = if lang == "zh-CN" {
                 vec![
                     "这嵌套层数比俄罗斯套娃还要深，你确定不是在写迷宫？",
@@ -90,12 +96,6 @@ impl NestingVisitor {
                 Severity::Mild
             };
 
-            let roast_level = if self.current_depth > 8 {
-                RoastLevel::Savage
-            } else {
-                RoastLevel::Sarcastic
-            };
-
             let depth_text = if self.lang == "zh-CN" {
                 format!("嵌套深度: {}", self.current_depth)
             } else {
@@ -114,7 +114,6 @@ impl NestingVisitor {
                     depth_text
                 ),
                 severity,
-                roast_level,
             });
         }
     }
@@ -134,15 +133,17 @@ struct FunctionLengthVisitor {
     issues: Vec<CodeIssue>,
     content: String,
     lang: String,
+    is_test_file: bool,
 }
 
 impl FunctionLengthVisitor {
-    fn new(file_path: std::path::PathBuf, content: &str, lang: &str) -> Self {
+    fn new(file_path: std::path::PathBuf, content: &str, lang: &str, is_test_file: bool) -> Self {
         Self {
             file_path,
             issues: Vec::new(),
             content: content.to_string(),
             lang: lang.to_string(),
+            is_test_file,
         }
     }
 
@@ -166,7 +167,7 @@ impl FunctionLengthVisitor {
 
                 // Count opening braces in the same line
                 brace_count += line.matches('{').count();
-                brace_count -= line.matches('}').count();
+                brace_count = brace_count.saturating_sub(line.matches('}').count());
 
                 if brace_count == 0 && line.contains('{') && line.contains('}') {
                     // Single line function
@@ -178,7 +179,7 @@ impl FunctionLengthVisitor {
             if found_function && in_function {
                 line_count += 1;
                 brace_count += line.matches('{').count();
-                brace_count -= line.matches('}').count();
+                brace_count = brace_count.saturating_sub(line.matches('}').count());
 
                 // Function ends when braces are balanced
                 if brace_count == 0 {
@@ -207,7 +208,8 @@ impl<'ast> Visit<'ast> for FunctionLengthVisitor {
         let line_count = self.count_function_lines(func);
         let func_name = func.sig.ident.to_string();
 
-        if line_count > 50 {
+        let threshold = if self.is_test_file { 150 } else { 80 };
+        if line_count > threshold {
             let messages = if self.lang == "zh-CN" {
                 vec![
                     format!(
@@ -248,28 +250,23 @@ impl<'ast> Visit<'ast> for FunctionLengthVisitor {
                 ]
             };
 
-            let severity = if line_count > 100 {
+            let severity = if line_count > threshold * 2 {
                 Severity::Nuclear
-            } else if line_count > 75 {
+            } else if line_count > threshold + threshold / 2 {
                 Severity::Spicy
             } else {
                 Severity::Mild
             };
 
-            let roast_level = if line_count > 100 {
-                RoastLevel::Savage
-            } else {
-                RoastLevel::Sarcastic
-            };
+            let (line, column) = get_position(func);
 
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: 1, // Simplified handling
-                column: 1,
+                line,
+                column,
                 rule_name: "long-function".to_string(),
                 message: messages[self.issues.len() % messages.len()].clone(),
                 severity,
-                roast_level,
             });
         }
 

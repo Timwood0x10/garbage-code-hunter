@@ -1,4 +1,4 @@
-use garbage_code_hunter::{CodeAnalyzer, CodeIssue, Reporter, RoastLevel, Severity};
+use garbage_code_hunter::{CodeAnalyzer, CodeIssue, LocalRoastProvider, Reporter, Severity};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -12,7 +12,6 @@ fn create_test_issues() -> Vec<CodeIssue> {
             rule_name: "terrible-naming".to_string(),
             message: "Test terrible naming message".to_string(),
             severity: Severity::Spicy,
-            roast_level: RoastLevel::Sarcastic,
         },
         CodeIssue {
             file_path: PathBuf::from("test1.rs"),
@@ -21,7 +20,6 @@ fn create_test_issues() -> Vec<CodeIssue> {
             rule_name: "unwrap-abuse".to_string(),
             message: "Test unwrap abuse message".to_string(),
             severity: Severity::Nuclear,
-            roast_level: RoastLevel::Savage,
         },
         CodeIssue {
             file_path: PathBuf::from("test2.rs"),
@@ -30,7 +28,6 @@ fn create_test_issues() -> Vec<CodeIssue> {
             rule_name: "single-letter-variable".to_string(),
             message: "Test single letter message".to_string(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Gentle,
         },
     ]
 }
@@ -46,11 +43,12 @@ fn test_reporter_creation() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     // Just test that creation doesn't panic
     let issues = create_test_issues();
-    reporter.report(issues);
+    reporter.report_with_metrics(issues, 1, 100);
 }
 
 #[test]
@@ -64,10 +62,11 @@ fn test_reporter_harsh_mode() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
-    reporter.report(issues);
+    reporter.report_with_metrics(issues, 1, 100);
 
     // In harsh mode, only Nuclear and Spicy issues should be shown
     // This is more of a visual test - we'd need to capture output to test properly
@@ -84,10 +83,11 @@ fn test_reporter_summary_only() {
         true,    // summary_only - should skip detailed output
         false,   // markdown
         "zh-CN", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
-    reporter.report(issues);
+    reporter.report_with_metrics(issues, 1, 100);
 }
 
 #[test]
@@ -101,10 +101,11 @@ fn test_reporter_markdown_output() {
         false,   // summary_only
         true,    // markdown - should output markdown format
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
-    reporter.report(issues);
+    reporter.report_with_metrics(issues, 1, 100);
 }
 
 #[test]
@@ -118,10 +119,11 @@ fn test_reporter_chinese_output() {
         false,   // summary_only
         false,   // markdown
         "zh-CN", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let issues = create_test_issues();
-    reporter.report(issues);
+    reporter.report_with_metrics(issues, 1, 100);
 }
 
 #[test]
@@ -135,10 +137,11 @@ fn test_reporter_empty_issues() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     let empty_issues = vec![];
-    reporter.report(empty_issues);
+    reporter.report_with_metrics(empty_issues, 1, 100);
 
     // Should show clean code message
 }
@@ -154,6 +157,7 @@ fn test_reporter_limited_issues_per_file() {
         false,   // summary_only
         false,   // markdown
         "en-US", // lang
+        Box::new(LocalRoastProvider),
     );
 
     // Create multiple issues for the same file
@@ -166,11 +170,10 @@ fn test_reporter_limited_issues_per_file() {
             rule_name: "terrible-naming".to_string(),
             message: format!("Issue {i}"),
             severity: Severity::Spicy,
-            roast_level: RoastLevel::Sarcastic,
         });
     }
 
-    reporter.report(issues);
+    reporter.report_with_metrics(issues, 1, 100);
     // Should only show 1 issue per file
 }
 
@@ -209,48 +212,60 @@ fn main() {
 
     for (harsh, savage, verbose, top, max_issues, summary, markdown, lang) in configurations {
         let reporter = Reporter::new(
-            harsh, savage, verbose, top, max_issues, summary, markdown, lang,
+            harsh,
+            savage,
+            verbose,
+            top,
+            max_issues,
+            summary,
+            markdown,
+            lang,
+            Box::new(LocalRoastProvider),
         );
-        reporter.report(issues.clone());
+        reporter.report_with_metrics(issues.clone(), 1, 100);
         println!("--- Configuration tested ---");
     }
 }
 
 #[test]
 fn test_reporter_with_different_severities() {
-    let mut issues = vec![];
+    let issues = vec![
+        CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 1,
+            column: 1,
+            rule_name: "terrible-naming".to_string(),
+            message: "Nuclear issue".to_string(),
+            severity: Severity::Nuclear,
+        },
+        CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 2,
+            column: 1,
+            rule_name: "unwrap-abuse".to_string(),
+            message: "Spicy issue".to_string(),
+            severity: Severity::Spicy,
+        },
+        CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 3,
+            column: 1,
+            rule_name: "single-letter-variable".to_string(),
+            message: "Mild issue".to_string(),
+            severity: Severity::Mild,
+        },
+    ];
 
-    // Create issues with all severity levels
-    issues.push(CodeIssue {
-        file_path: PathBuf::from("test.rs"),
-        line: 1,
-        column: 1,
-        rule_name: "terrible-naming".to_string(),
-        message: "Nuclear issue".to_string(),
-        severity: Severity::Nuclear,
-        roast_level: RoastLevel::Savage,
-    });
-
-    issues.push(CodeIssue {
-        file_path: PathBuf::from("test.rs"),
-        line: 2,
-        column: 1,
-        rule_name: "unwrap-abuse".to_string(),
-        message: "Spicy issue".to_string(),
-        severity: Severity::Spicy,
-        roast_level: RoastLevel::Sarcastic,
-    });
-
-    issues.push(CodeIssue {
-        file_path: PathBuf::from("test.rs"),
-        line: 3,
-        column: 1,
-        rule_name: "single-letter-variable".to_string(),
-        message: "Mild issue".to_string(),
-        severity: Severity::Mild,
-        roast_level: RoastLevel::Gentle,
-    });
-
-    let reporter = Reporter::new(false, false, true, 5, 5, false, false, "en-US");
-    reporter.report(issues);
+    let reporter = Reporter::new(
+        false,
+        false,
+        true,
+        5,
+        5,
+        false,
+        false,
+        "en-US",
+        Box::new(LocalRoastProvider),
+    );
+    reporter.report_with_metrics(issues, 1, 100);
 }

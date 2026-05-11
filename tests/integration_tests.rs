@@ -1,4 +1,4 @@
-use garbage_code_hunter::{CodeAnalyzer, RoastLevel, Severity};
+use garbage_code_hunter::{CodeAnalyzer, Severity};
 use std::fs;
 use tempfile::TempDir;
 
@@ -47,11 +47,11 @@ fn main() {
 fn test_single_letter_variable_detection() {
     let code = r#"
 fn main() {
-    let a = 10;
-    let b = 20;
-    let c = a + b;
-    let d = "bad";
-    
+    let m = 10;
+    let p = 20;
+    let q = m + p;
+    let g = "bad";
+
     // These should be allowed
     let i = 0;
     let j = 1;
@@ -71,7 +71,7 @@ fn main() {
         .filter(|issue| issue.rule_name == "single-letter-variable")
         .collect();
 
-    // Should detect a, b, c, d but not i, j, k, x, y, z
+    // Should detect m, p, q, g but not i, j, k, x, y, z
     assert!(
         !single_letter_issues.is_empty(),
         "Should detect single letter variables"
@@ -105,28 +105,29 @@ fn main() {
         .collect();
 
     assert!(!unwrap_issues.is_empty(), "Should detect unwrap abuse");
+    // unwrap-abuse now reports a single issue with total count
+    assert_eq!(
+        unwrap_issues.len(),
+        1,
+        "Should report one unwrap-abuse issue with count"
+    );
     assert!(
-        unwrap_issues.len() >= 3,
-        "Should detect multiple unwrap calls"
+        unwrap_issues[0].message.contains("5"),
+        "Should mention 5 unwrap()s in message"
     );
 }
 
 #[test]
 fn test_unnecessary_clone_detection() {
-    let code = r#"
-fn main() {
-    let s1 = String::from("hello");
-    let s2 = s1.clone();
-    let s3 = s2.clone();
-    let s4 = s3.clone();
-    let s5 = s4.clone();
-    let s6 = s5.clone();
-    
-    println!("{}", s6);
-}
-"#;
+    let mut code = String::from("fn main() {\n");
+    code.push_str("    let s0 = String::from(\"hello\");\n");
+    // Use 30 clones to exceed the new threshold of 25
+    for i in 1..=30 {
+        code.push_str(&format!("    let s{i} = s{}.clone();\n", i - 1));
+    }
+    code.push_str("}\n");
 
-    let (_temp_dir, file_path) = create_temp_rust_file(code);
+    let (_temp_dir, file_path) = create_temp_rust_file(&code);
     let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
@@ -178,7 +179,7 @@ fn deeply_nested() {
 fn test_long_function_detection() {
     // Create a function with many lines
     let mut code = String::from("fn very_long_function() {\n");
-    for i in 1..=60 {
+    for i in 1..=100 {
         code.push_str(&format!("    println!(\"line {i}\");\n"));
     }
     code.push_str("}\n");
@@ -242,7 +243,8 @@ fn main() {
 "#;
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
-    let file_path = temp_dir.path().join("test_file.rs");
+    // Use a filename that won't be classified as test/example to avoid context-based skipping
+    let file_path = temp_dir.path().join("sample_code.rs");
     fs::write(&file_path, code).expect("Failed to write test file");
 
     // Test without exclusion
@@ -250,11 +252,13 @@ fn main() {
     let issues_without_exclusion = analyzer.analyze_file(&file_path);
     assert!(
         !issues_without_exclusion.is_empty(),
-        "Should find issues without exclusion"
+        "Should find issues without exclusion, got {} issues. File path: {}",
+        issues_without_exclusion.len(),
+        file_path.display()
     );
 
     // Test with exclusion - use analyze_path instead of analyze_file for exclusion to work
-    let analyzer_with_exclusion = CodeAnalyzer::new(&["test_*".to_string()], "en-US");
+    let analyzer_with_exclusion = CodeAnalyzer::new(&["sample_*".to_string()], "en-US");
     let issues_with_exclusion = analyzer_with_exclusion.analyze_path(temp_dir.path());
     assert!(
         issues_with_exclusion.is_empty(),
@@ -291,7 +295,7 @@ fn main() {
 }
 
 #[test]
-fn test_roast_levels() {
+fn test_issue_severity_valid() {
     let code = r#"
 fn main() {
     let data = "test";
@@ -303,14 +307,14 @@ fn main() {
     let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_file(&file_path);
 
-    // Check that issues have roast levels assigned
+    // Check that issues have severity levels assigned
     for issue in &issues {
         assert!(
             matches!(
-                issue.roast_level,
-                RoastLevel::Gentle | RoastLevel::Sarcastic | RoastLevel::Savage
+                issue.severity,
+                Severity::Mild | Severity::Spicy | Severity::Nuclear
             ),
-            "Each issue should have a roast level assigned"
+            "Each issue should have a severity level assigned"
         );
     }
 }

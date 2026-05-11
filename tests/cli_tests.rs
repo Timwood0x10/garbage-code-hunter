@@ -27,7 +27,7 @@ fn test_cli_version_info() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("garbage-code-hunter") && stdout.contains("0.1.2"));
+    assert!(stdout.contains("garbage-code-hunter") && stdout.contains("0.2.0"));
 }
 
 #[test]
@@ -63,7 +63,8 @@ fn test_cli_english_output() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
 
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
+    fs::write(&file_path, "fn main() { let thing = \"test\"; }")
+        .expect("Failed to write test file");
 
     let output = Command::new("cargo")
         .args(["run", "--", "--lang", "en-US", file_path.to_str().unwrap()])
@@ -82,7 +83,8 @@ fn test_cli_chinese_output() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
 
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
+    fs::write(&file_path, "fn main() { let thing = \"test\"; }")
+        .expect("Failed to write test file");
 
     let output = Command::new("cargo")
         .args(["run", "--", "--lang", "zh-CN", file_path.to_str().unwrap()])

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/TimWood0x10/garbage-code-hunter#readme
+    about: Please check the README for usage instructions
+  - name: Discussions
+    url: https://github.com/TimWood0x10/garbage-code-hunter/discussions
+    about: Feel free to ask questions and share ideas

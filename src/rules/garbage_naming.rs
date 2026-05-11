@@ -1,11 +1,12 @@
 use std::path::Path;
 use syn::{visit::Visit, File, Ident};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
+use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
-/// 检测无意义的占位符命名：foo, bar, baz, qux, test, temp 等
+/// Detect meaningless placeholder names: foo, bar, baz, qux, test, temp, etc.
 pub struct MeaninglessNamingRule;
 
 impl Rule for MeaninglessNamingRule {
@@ -19,14 +20,129 @@ impl Rule for MeaninglessNamingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = MeaninglessNamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
+
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        context: &FileContext,
+        _config: &crate::context::ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        use crate::context::FileContext::*;
+
+        match context {
+            // Test/Documentation/Benchmark: 完全跳过
+            Test | Documentation | Benchmark => return Vec::new(),
+
+            // Example/Demo: 仅报告 Nuclear 级别问题（极少）
+            Example => {
+                let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                return issues
+                    .into_iter()
+                    .filter(|issue| issue.severity == Severity::Nuclear)
+                    .collect();
+            }
+
+            // UI/TUI code: Skip UI-specific common names (x, y, w, h, r, g, b, etc.)
+            UI => {
+                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let ui_whitelist = [
+                    // Coordinates and dimensions
+                    "x", "y", "w", "h", // Colors
+                    "r", "g", "b", "a", // Deltas
+                    "dx", "dy", // Geometry
+                    "rect", "area", "size", // Positions/vectors
+                    "pos", "vec", // UI references
+                    "ui", "tui", // Common TUI data names (very common in UI callbacks)
+                    "data", "info", "value", "state", "config", "event", "input", "output",
+                    "result", // Layout-related
+                    "chunk", "layout", "frame", "block",
+                ];
+                return all_issues
+                    .into_iter()
+                    .filter(|issue| {
+                        !ui_whitelist.iter().any(|&name| {
+                            issue
+                                .message
+                                .to_lowercase()
+                                .contains(&format!("'{}'", name))
+                        })
+                    })
+                    .collect();
+            }
+
+            // GPU code: Skip GPU-common names (i, j, k, idx, src, dst, etc.)
+            GPU => {
+                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let gpu_whitelist = [
+                    "i", "j", "k",   // loop indices
+                    "idx", // index abbreviation
+                    "src", "dst",  // source/destination
+                    "buf",  // buffer
+                    "ptr",  // pointer
+                    "data", // data buffer (common in GPU)
+                ];
+                return all_issues
+                    .into_iter()
+                    .filter(|issue| {
+                        !gpu_whitelist.iter().any(|&name| {
+                            issue
+                                .message
+                                .to_lowercase()
+                                .contains(&format!("'{}'", name))
+                        })
+                    })
+                    .collect();
+            }
+
+            // Web code: Slightly relaxed - allow common web naming
+            Web => {
+                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let web_whitelist = [
+                    "data", // request/response data
+                    "info", // metadata
+                    "req", "res",    // request/response abbreviations
+                    "body",   // response body
+                    "config", // configuration objects
+                ];
+                return all_issues
+                    .into_iter()
+                    .filter(|issue| {
+                        !web_whitelist.iter().any(|&name| {
+                            issue
+                                .message
+                                .to_lowercase()
+                                .contains(&format!("'{}'", name))
+                        })
+                    })
+                    .collect();
+            }
+
+            // Business 上下文：正常检测（保持原有行为）
+            Business => {}
+
+            // Config files: skip completely (handled by should_skip_rule)
+            Config => return Vec::new(),
+        }
+
+        self.check(file_path, syntax_tree, content, lang, is_test_file)
+    }
 }
 
-/// 检测过时的匈牙利命名法：strName, intCount, bIsValid 等
+/// Detect outdated Hungarian notation: strName, intCount, bIsValid, etc.
 pub struct HungarianNotationRule;
 
 impl Rule for HungarianNotationRule {
@@ -40,14 +156,18 @@ impl Rule for HungarianNotationRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = HungarianNotationVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
 }
 
-/// 检测过度缩写：mgr, ctrl, btn, usr, pwd 等
+/// Detect excessive abbreviations: mgr, ctrl, btn, usr, pwd, etc.
 pub struct AbbreviationAbuseRule;
 
 impl Rule for AbbreviationAbuseRule {
@@ -61,7 +181,11 @@ impl Rule for AbbreviationAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = AbbreviationAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -69,7 +193,7 @@ impl Rule for AbbreviationAbuseRule {
 }
 
 // ============================================================================
-// Visitor 实现
+// Visitor implementations
 // ============================================================================
 
 struct MeaninglessNamingVisitor {
@@ -89,32 +213,30 @@ impl MeaninglessNamingVisitor {
 
     fn is_meaningless_name(&self, name: &str) -> bool {
         let meaningless_names = [
-            // 经典占位符
+            // Classic placeholders - truly meaningless
             "foo",
             "bar",
             "baz",
             "qux",
             "quux",
             "quuz",
-            // 无意义的通用词
+            // Generic words with no context (note: 'item' excluded as it's a common Rust iterator variable)
             "data",
             "info",
             "obj",
-            "item",
             "thing",
             "stuff",
             "value",
             "temp",
             "tmp",
-            "test",
             "example",
             "sample",
-            // 管理器后缀滥用
+            // Manager suffix abuse
             "manager",
             "handler",
             "processor",
             "controller",
-            // 中文拼音（常见的）
+            // Chinese pinyin (common ones)
             "yonghu",
             "mima",
             "denglu",
@@ -160,7 +282,6 @@ impl MeaninglessNamingVisitor {
             rule_name: "meaningless-naming".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity,
-            roast_level: RoastLevel::Sarcastic,
         }
     }
 }
@@ -177,7 +298,7 @@ impl<'ast> Visit<'ast> for MeaninglessNamingVisitor {
 }
 
 // ============================================================================
-// 匈牙利命名法检测
+// Hungarian notation detection
 // ============================================================================
 
 struct HungarianNotationVisitor {
@@ -197,26 +318,38 @@ impl HungarianNotationVisitor {
 
     fn is_hungarian_notation(&self, name: &str) -> bool {
         let hungarian_prefixes = [
-            // 类型前缀
+            // Type prefixes (only check with camelCase, not underscore)
             "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
-            // 作用域前缀
-            "g_", "m_", "s_", "p_", // 其他常见前缀
-            "b", "n", "sz", "lp", "dw",
+            // Scope prefixes
+            "g_", "m_", "s_", "p_",
         ];
 
-        // 检查是否以匈牙利前缀开头
+        // Check if starts with a Hungarian prefix
         for prefix in hungarian_prefixes {
             if name.starts_with(prefix) && name.len() > prefix.len() {
-                // 检查前缀后是否跟着大写字母（驼峰命名）
+                // Check if prefix is followed by uppercase letter (camelCase)
                 if let Some(next_char) = name.chars().nth(prefix.len()) {
                     if next_char.is_uppercase() {
+                        // Avoid false positives on words like "stringify", "internal", "boolean"
+                        // by checking that the prefix is not part of a longer word
+                        let rest = &name[prefix.len()..];
+                        // If the rest starts with a common word continuation, skip
+                        if rest.starts_with("ify")
+                            || rest.starts_with("nal")
+                            || rest.starts_with("ean")
+                        {
+                            continue;
+                        }
                         return true;
                     }
                 }
-                // 检查下划线分隔的情况
-                if name.starts_with(&format!("{prefix}_")) {
-                    return true;
-                }
+            }
+        }
+
+        // Check underscore-separated case separately
+        for prefix in &["g_", "m_", "s_", "p_"] {
+            if name.starts_with(prefix) {
+                return true;
             }
         }
 
@@ -261,7 +394,6 @@ impl HungarianNotationVisitor {
             rule_name: "hungarian-notation".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Sarcastic,
         }
     }
 }
@@ -278,7 +410,7 @@ impl<'ast> Visit<'ast> for HungarianNotationVisitor {
 }
 
 // ============================================================================
-// 过度缩写检测
+// Excessive abbreviation detection
 // ============================================================================
 
 struct AbbreviationAbuseVisitor {
@@ -298,36 +430,23 @@ impl AbbreviationAbuseVisitor {
 
     fn is_bad_abbreviation(&self, name: &str) -> Option<&'static str> {
         let bad_abbreviations = [
-            // 管理相关
+            // Management related - these are truly unclear
             ("mgr", "manager"),
             ("mngr", "manager"),
             ("ctrl", "controller"),
-            ("proc", "processor"),
             ("hdlr", "handler"),
-            // 用户相关
+            // User related
             ("usr", "user"),
             ("pwd", "password"),
-            ("auth", "authentication"),
-            ("cfg", "config"),
             ("prefs", "preferences"),
-            // 界面相关
+            // UI related
             ("btn", "button"),
             ("lbl", "label"),
-            ("txt", "text"),
-            ("img", "image"),
             ("pic", "picture"),
-            // 数据相关
-            ("db", "database"),
+            // Data related
             ("tbl", "table"),
             ("col", "column"),
-            ("idx", "index"),
             ("cnt", "count"),
-            // 其他常见缩写
-            ("calc", "calculate"),
-            ("init", "initialize"),
-            ("exec", "execute"),
-            ("impl", "implementation"),
-            ("util", "utility"),
         ];
 
         let name_lower = name.to_lowercase();
@@ -383,7 +502,6 @@ impl AbbreviationAbuseVisitor {
             rule_name: "abbreviation-abuse".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity: Severity::Mild,
-            roast_level: RoastLevel::Gentle,
         }
     }
 }

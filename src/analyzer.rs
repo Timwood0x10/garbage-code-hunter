@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use syn::parse_file;
 use walkdir::WalkDir;
 
+use crate::cross_file::{CrossFileAnalyzer, CrossFileConfig};
 use crate::rules::RuleEngine;
 
 #[derive(Debug, Clone)]
@@ -14,22 +15,13 @@ pub struct CodeIssue {
     pub rule_name: String,
     pub message: String,
     pub severity: Severity,
-    #[allow(dead_code)]
-    pub roast_level: RoastLevel,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Severity {
     Mild,    // Minor issues
     Spicy,   // Medium issues
     Nuclear, // Serious issues
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum RoastLevel {
-    Gentle,    // Gentle roasting
-    Sarcastic, // Sarcastic comments
-    Savage,    // Brutal honesty
 }
 
 pub struct CodeAnalyzer {
@@ -39,8 +31,30 @@ pub struct CodeAnalyzer {
 }
 
 impl CodeAnalyzer {
+    pub fn rule_names(&self) -> Vec<&'static str> {
+        self.rule_engine.rule_names()
+    }
+
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
-        let patterns = exclude_patterns
+        // Default exclude patterns for common build/dependency directories
+        let default_excludes = [
+            "target",
+            "node_modules",
+            ".git",
+            ".svn",
+            ".hg",
+            "build",
+            "dist",
+            "out",
+            "__pycache__",
+            ".DS_Store",
+        ];
+
+        let mut all_patterns: Vec<String> =
+            default_excludes.iter().map(|s| s.to_string()).collect();
+        all_patterns.extend(exclude_patterns.iter().cloned());
+
+        let patterns = all_patterns
             .iter()
             .filter_map(|pattern| {
                 // Convert glob patterns to regular expressions
@@ -78,13 +92,47 @@ impl CodeAnalyzer {
                 }
             }
         } else if path.is_dir() {
+            // Initialize cross-file analyzer for directory analysis
+            let mut cross_file = CrossFileAnalyzer::with_config(CrossFileConfig::default());
+
             for entry in WalkDir::new(path)
                 .into_iter()
                 .filter_map(|e| e.ok())
                 .filter(|e| !self.should_exclude(e.path()))
                 .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
             {
+                // Run standard single-file analysis
                 issues.extend(self.analyze_file(entry.path()));
+
+                // Also feed into cross-file analyzer for duplication detection
+                if let Ok(content) = fs::read_to_string(entry.path()) {
+                    if let Err(e) = cross_file.process_file(entry.path(), &content) {
+                        eprintln!(
+                            "Warning: Failed to process {} for cross-file analysis: {}",
+                            entry.path().display(),
+                            e
+                        );
+                    }
+                }
+            }
+
+            // Find cross-file duplicates and convert to CodeIssue format
+            let duplicates = cross_file.find_all_duplicates();
+            for dup in duplicates {
+                let severity = dup.severity.clone();
+                for location in &dup.fingerprint.locations {
+                    issues.push(CodeIssue {
+                        file_path: location.file_path.clone(),
+                        line: location.line_start,
+                        column: 0,
+                        rule_name: "cross-file-duplication".to_string(),
+                        message: format!(
+                            "Duplicated function '{}' found in {} files ({} occurrences)",
+                            dup.fingerprint.function_name, dup.file_count, dup.total_occurrences
+                        ),
+                        severity: severity.clone(),
+                    });
+                }
             }
         }
 
@@ -102,7 +150,70 @@ impl CodeAnalyzer {
             Err(_) => return vec![],
         };
 
+        let is_test_file = Self::is_test_file(file_path, &content);
+
         self.rule_engine
-            .check_file(file_path, &syntax_tree, &content, &self.lang)
+            .check_file(file_path, &syntax_tree, &content, &self.lang, is_test_file)
+    }
+
+    fn is_test_file(path: &Path, content: &str) -> bool {
+        let path_str = path.to_string_lossy();
+        // Normalize: strip leading "./" for consistent matching
+        let normalized = path_str.strip_prefix("./").unwrap_or(&path_str);
+
+        // Check file path patterns
+        if normalized.contains("/tests/")
+            || normalized.contains("\\tests\\")
+            || normalized.starts_with("tests/")
+            || normalized.starts_with("tests\\")
+            || normalized.ends_with("_test.rs")
+            || normalized.ends_with("_tests.rs")
+        {
+            return true;
+        }
+        // Check for example files (singular and plural)
+        if normalized.contains("/examples/")
+            || normalized.contains("\\examples\\")
+            || normalized.starts_with("examples/")
+            || normalized.starts_with("examples\\")
+            || normalized.contains("/example/")
+            || normalized.contains("\\example\\")
+            || normalized.starts_with("example/")
+            || normalized.starts_with("example\\")
+            || normalized.ends_with("_example.rs")
+            || normalized.ends_with("_examples.rs")
+        {
+            return true;
+        }
+        // Check for benchmark files
+        if normalized.contains("/benches/")
+            || normalized.contains("\\benches\\")
+            || normalized.starts_with("benches/")
+            || normalized.starts_with("benches\\")
+            || normalized.ends_with("_bench.rs")
+            || normalized.ends_with("_benches.rs")
+        {
+            return true;
+        }
+        // Check for test-files directories
+        if normalized.contains("/test-files/")
+            || normalized.contains("\\test-files\\")
+            || normalized.starts_with("test-files/")
+            || normalized.starts_with("test-files\\")
+            || normalized.contains("/test_files/")
+            || normalized.contains("\\test_files\\")
+        {
+            return true;
+        }
+        // Check for fixture/mock directories
+        if normalized.contains("/fixtures/")
+            || normalized.contains("\\fixtures\\")
+            || normalized.contains("/mocks/")
+            || normalized.contains("\\mocks\\")
+        {
+            return true;
+        }
+        // Check for #[cfg(test)] module in content
+        content.contains("#[cfg(test)]")
     }
 }

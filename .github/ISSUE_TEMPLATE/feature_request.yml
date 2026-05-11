@@ -1,0 +1,83 @@
+name: Feature Request ✨
+description: Suggest a new feature or improvement
+title: "[Feature] "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ✨ Feature Request
+
+        Please describe the feature or improvement you'd like to see.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: |
+        ## Problem
+        [Describe the problem or pain point]
+
+        ## Motivation
+        [Why is this important? What use case does it address?]
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should this feature work?
+      placeholder: |
+        ## Proposed Solution
+        [Describe your proposed solution]
+
+        ## Alternatives Considered
+        [Any alternative approaches you've considered?]
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage examples
+      description: Show how this feature would be used
+      placeholder: |
+        ## Usage Example
+        ```bash
+        # Example command usage
+        garbage-code-hunter . --new-feature
+
+        # Expected output:
+        # ...
+        ```
+
+  - type: textarea
+    id: rules
+    attributes:
+      label: Related rules (if applicable)
+      description: Does this relate to existing detection rules?
+      placeholder: |
+        Related to:
+        - [ ] terrible-naming
+        - [ ] single-letter-variable
+        - [ ] unwrap-abuse
+        - [ ] println-debug
+        - [ ] magic-number
+        - [ ] Other: ___________
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: This is a new feature, not a bug fix
+          required: true
+        - label: I understand this is a lightweight tool and should stay simple
+          required: true

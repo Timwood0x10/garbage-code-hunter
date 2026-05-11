@@ -1,11 +1,30 @@
 use std::path::Path;
 use syn::{visit::Visit, ExprLit, File, ItemFn, Lit};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
+use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
-/// 检测魔法数字（硬编码的数字常量）
+// ============================================================================
+// Magic number detection
+// ============================================================================
+
+/// Categories of magic numbers for better error messages
+enum MagicNumberCategory {
+    /// Timeout values in milliseconds (100, 500, 1000, etc.)
+    Timeout,
+    /// Buffer sizes (1024, 2048, 4096, etc.)
+    BufferSize,
+    /// Network port numbers (80, 443, 3000, 8080, etc.)
+    PortNumber,
+    /// Threshold/limit values (10, 50, 100, etc.)
+    Threshold,
+    /// Unclassified magic numbers
+    General,
+}
+
+/// Detect magic numbers (hardcoded numeric constants)
 pub struct MagicNumberRule;
 
 impl Rule for MagicNumberRule {
@@ -19,14 +38,60 @@ impl Rule for MagicNumberRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = MagicNumberVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
+
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        context: &FileContext,
+        _config: &crate::context::ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        // Test/Documentation/Benchmark: 完全跳过
+        let weight = context.rule_weight_multiplier();
+        if weight < 0.3 {
+            return Vec::new();
+        }
+
+        // 获取所有问题
+        let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+
+        // UI/TUI 文件过滤：检测到 UI 相关路径时，仅保留严重问题
+        let path_str = file_path.to_string_lossy().to_lowercase();
+        let is_ui_file = path_str.contains("ui")
+            || path_str.contains("tui")
+            || path_str.contains("gui")
+            || path_str.contains("view")
+            || path_str.contains("screen")
+            || path_str.contains("layout")
+            || path_str.contains("display")
+            || path_str.contains("render");
+
+        // 如果是 UI 上下文或 UI 文件，过滤掉 Mild 级别的 magic-number 问题
+        if matches!(context, FileContext::Business) && is_ui_file {
+            return issues
+                .into_iter()
+                .filter(|issue| matches!(issue.severity, Severity::Spicy | Severity::Nuclear))
+                .collect();
+        }
+
+        issues
+    }
 }
 
-/// 检测做太多事的函数（上帝函数）
+/// Detect functions that do too much (god functions)
 pub struct GodFunctionRule;
 
 impl Rule for GodFunctionRule {
@@ -40,14 +105,18 @@ impl Rule for GodFunctionRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut visitor = GodFunctionVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
 }
 
-/// 检测被注释掉的代码块
+/// Detect commented-out code blocks
 pub struct CommentedCodeRule;
 
 impl Rule for CommentedCodeRule {
@@ -61,7 +130,11 @@ impl Rule for CommentedCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
 
@@ -71,15 +144,15 @@ impl Rule for CommentedCodeRule {
         for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
 
-            // 检测被注释的代码行
+            // Detect commented code lines
             if trimmed.starts_with("//") {
                 let comment_content = trimmed.trim_start_matches("//").trim();
 
-                // 检测是否像代码（包含常见的代码模式）
+                // Check if it looks like code (contains common code patterns)
                 if is_likely_code(comment_content) {
                     current_block_size += 1;
                 } else if current_block_size > 0 {
-                    // 结束一个代码块
+                    // End a code block
                     if current_block_size >= 3 {
                         _commented_code_blocks += 1;
                         issues.push(create_commented_code_issue(
@@ -92,7 +165,7 @@ impl Rule for CommentedCodeRule {
                     current_block_size = 0;
                 }
             } else if current_block_size > 0 {
-                // 非注释行，结束当前块
+                // Non-comment line, end current block
                 if current_block_size >= 3 {
                     _commented_code_blocks += 1;
                     issues.push(create_commented_code_issue(
@@ -106,7 +179,7 @@ impl Rule for CommentedCodeRule {
             }
         }
 
-        // 处理文件末尾的代码块
+        // Handle code block at end of file
         if current_block_size >= 3 {
             issues.push(create_commented_code_issue(
                 file_path,
@@ -120,7 +193,7 @@ impl Rule for CommentedCodeRule {
     }
 }
 
-/// 检测明显的死代码
+/// Detect obvious dead code
 pub struct DeadCodeRule;
 
 impl Rule for DeadCodeRule {
@@ -134,15 +207,41 @@ impl Rule for DeadCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
+        let mut dead_code_start: Option<usize> = None;
 
         for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
 
-            // 检测明显的死代码模式
-            if is_dead_code_pattern(trimmed) {
+            // Check if this line is a control flow terminator
+            if is_control_flow_terminator(trimmed) {
+                // Mark that subsequent lines are dead code
+                dead_code_start = Some(line_num + 1);
+                continue;
+            }
+
+            // If we're in a dead code region and this line has actual code
+            if dead_code_start.is_some() {
+                // Skip empty lines and comments
+                if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") {
+                    continue;
+                }
+
+                // Check if this line closes a block (could be end of if/match/etc)
+                if trimmed == "}" || trimmed == "} else {" || trimmed == "} else if" {
+                    // Reset dead code region - we've exited the block
+                    dead_code_start = None;
+                    continue;
+                }
+
+                // This is actual dead code after a terminator
                 let messages = if lang == "zh-CN" {
                     vec![
                         "发现死代码，这行永远不会执行",
@@ -168,8 +267,10 @@ impl Rule for DeadCodeRule {
                     rule_name: "dead-code".to_string(),
                     message: messages[line_num % messages.len()].to_string(),
                     severity: Severity::Mild,
-                    roast_level: RoastLevel::Sarcastic,
                 });
+
+                // Only report one dead code block per terminator
+                dead_code_start = None;
             }
         }
 
@@ -178,11 +279,11 @@ impl Rule for DeadCodeRule {
 }
 
 // ============================================================================
-// 辅助函数
+// Helper functions
 // ============================================================================
 
 fn is_likely_code(content: &str) -> bool {
-    // 检测是否像代码的模式
+    // Patterns that look like code
     let code_patterns = [
         "let ", "fn ", "if ", "else", "for ", "while ", "match ", "struct ", "enum ", "impl ",
         "use ", "mod ", "return ", "break", "continue", "{", "}", "(", ")", "[", "]", ";", "=",
@@ -194,7 +295,7 @@ fn is_likely_code(content: &str) -> bool {
         "crate",
     ];
 
-    // 如果包含多个代码模式，很可能是代码
+    // If it contains multiple code patterns, it's likely code
     let pattern_count = code_patterns
         .iter()
         .filter(|&&pattern| content.contains(pattern))
@@ -260,27 +361,36 @@ fn create_commented_code_issue(
         rule_name: "commented-code".to_string(),
         message: messages[block_size % messages.len()].clone(),
         severity,
-        roast_level: RoastLevel::Sarcastic,
     }
 }
 
-fn is_dead_code_pattern(line: &str) -> bool {
-    // 检测明显的死代码模式
-    let dead_patterns = [
-        "return;",
-        "return ", // return 后的代码
-        "break;",
-        "continue;", // break/continue 后的代码
-        "panic!(",
-        "unreachable!(", // panic 后的代码
-        "std::process::exit(",
-    ];
+fn is_control_flow_terminator(line: &str) -> bool {
+    // Check if this line is a pure control flow terminator
+    // (the line itself terminates execution, not just contains these keywords)
+    // Explicit parentheses used to clarify operator precedence (&& binds tighter than ||)
+    let exact_matches = matches!(
+        line,
+        "return;"
+            | "break;"
+            | "continue;"
+            | "unreachable!()"
+            | "unreachable!();"
+            | "std::process::exit(0);"
+            | "std::process::exit(1);"
+    );
 
-    dead_patterns.iter().any(|&pattern| line.contains(pattern))
+    let has_return_statement =
+        line.starts_with("return ") && line.ends_with(';') && !line.contains("//");
+
+    let has_panic = line.starts_with("panic!(") && line.ends_with(';');
+
+    let has_unreachable = line.starts_with("unreachable!(") && line.ends_with(')');
+
+    exact_matches || has_return_statement || has_panic || has_unreachable
 }
 
 // ============================================================================
-// Visitor 实现
+// Visitor implementations
 // ============================================================================
 
 struct MagicNumberVisitor {
@@ -299,36 +409,136 @@ impl MagicNumberVisitor {
     }
 
     fn is_magic_number(&self, value: i64) -> bool {
-        // 常见的非魔法数字
-        !matches!(value, -1 | 0 | 1 | 2 | 10 | 100 | 1000)
+        // Common NON-magic numbers (powers of 2, common sizes, small counts, etc.)
+        // These are so common they're almost always intentional
+        let safe_numbers = [
+            -1,      // Sentinel/error value
+            0,       // Zero/initial/default
+            1,       // Single/first/true
+            2,       // Pair/dual/binary
+            3,       // Triple/RGB/xyz
+            4,       // Quad/nibble
+            5,       // Quint/count
+            6,       // Hex/week
+            7,       // Week/oct
+            8,       // Byte/octet
+            9,       // Max digit
+            10,      // Decimal base
+            12,      // Dozen/months
+            16,      // Nibble/4 bits
+            20,      // Score
+            24,      // Hours/day
+            32,      // 5 bits
+            64,      // 6 bits
+            100,     // Percent/century
+            128,     // 7 bits
+            256,     // Byte/8 bits
+            365,     // Days/year (approx)
+            512,     // 9 bits
+            1024,    // KB/10 bits
+            2048,    // 11 bits
+            4096,    // 12 bits / page size
+            8192,    // 13 bits
+            65536,   // u16 max / 16 bits
+            100000,  // 100K
+            1000000, // 1M
+        ];
+
+        !safe_numbers.contains(&value)
     }
 
     fn create_magic_number_issue(&self, value: i64, line: usize, column: usize) -> CodeIssue {
+        // Categorize the magic number for better messages
+        let category = self.categorize_magic_number(value);
+
         let messages = if self.lang == "zh-CN" {
-            vec![
-                format!("魔法数字 {}？这是什么咒语？", value),
-                format!("硬编码数字 {}，维护性-1", value),
-                format!("数字 {} 从天而降，没人知道它的含义", value),
-                format!("魔法数字 {}，建议定义为常量", value),
-                format!("看到数字 {}，我陷入了沉思", value),
-            ]
+            match category {
+                MagicNumberCategory::Timeout => vec![
+                    format!("超时值 {}？建议定义为常量如 TIMEOUT_MS", value),
+                    format!("硬编码超时 {}ms，维护性-1，建议用常量", value),
+                    format!("魔法数字 {} 看起来像超时，提取为命名常量", value),
+                ],
+                MagicNumberCategory::BufferSize => vec![
+                    format!("缓冲区大小 {}？这是什么咒语？", value),
+                    format!("硬编码缓冲区 {}，维护性-1", value),
+                    format!("缓冲区大小 {} 从天而降，没人知道它的含义", value),
+                ],
+                MagicNumberCategory::PortNumber => vec![
+                    format!("端口号 {}？硬编码端口不安全且难以维护", value),
+                    format!("发现硬编码端口 {}，建议使用配置文件或环境变量", value),
+                    format!("端口号 {} 应该定义为常量或从配置读取", value),
+                ],
+                MagicNumberCategory::Threshold => vec![
+                    format!("阈值 {}？这个数字有什么特殊含义？", value),
+                    format!("硬编码阈值 {}，建议定义为有意义的常量", value),
+                    format!("阈值 {} 缺乏语义，维护者会困惑", value),
+                ],
+                MagicNumberCategory::General => vec![
+                    format!("魔法数字 {}？这是什么咒语？", value),
+                    format!("硬编码数字 {}，维护性-1", value),
+                    format!("数字 {} 从天而降，没人知道它的含义", value),
+                    format!("魔法数字 {}，建议定义为常量", value),
+                    format!("看到数字 {}，我陷入了沉思", value),
+                ],
+            }
         } else {
-            vec![
-                format!("Magic number {}? What spell is this?", value),
-                format!("Hardcoded number {} - maintainability -1", value),
-                format!(
-                    "Number {} fell from the sky, nobody knows its meaning",
-                    value
-                ),
-                format!("Magic number {} - consider defining as a constant", value),
-                format!("Seeing number {}, I'm lost in thought", value),
-            ]
+            match category {
+                MagicNumberCategory::Timeout => vec![
+                    format!("Timeout value {}? Define as TIMEOUT_MS constant", value),
+                    format!("Hardcoded timeout {}ms - extract to constant", value),
+                    format!("Magic number {} looks like a timeout, name it", value),
+                ],
+                MagicNumberCategory::BufferSize => vec![
+                    format!("Buffer size {}? What spell is this?", value),
+                    format!("Hardcoded buffer {} - maintainability -1", value),
+                    format!("Buffer size {} fell from sky, no meaning", value),
+                ],
+                MagicNumberCategory::PortNumber => vec![
+                    format!("Port {}? Hardcoded ports are unmaintainable", value),
+                    format!("Hardcoded port {} - use config or env var", value),
+                    format!("Port {} should be constant or config-driven", value),
+                ],
+                MagicNumberCategory::Threshold => vec![
+                    format!("Threshold {}? What's special about this?", value),
+                    format!("Hardcoded threshold {} - define meaningful const", value),
+                    format!("Threshold {} lacks semantics, confusing", value),
+                ],
+                MagicNumberCategory::General => vec![
+                    format!("Magic number {}? What spell is this?", value),
+                    format!("Hardcoded number {} - maintainability -1", value),
+                    format!(
+                        "Number {} fell from the sky, nobody knows its meaning",
+                        value
+                    ),
+                    format!("Magic number {} - consider defining as a constant", value),
+                    format!("Seeing number {}, I'm lost in thought", value),
+                ],
+            }
         };
 
-        let severity = if !(-100..=1000).contains(&value) {
-            Severity::Spicy
-        } else {
-            Severity::Mild
+        // Severity based on value magnitude and category
+        let severity = match category {
+            MagicNumberCategory::Timeout | MagicNumberCategory::Threshold => {
+                if value > 1000 {
+                    Severity::Spicy
+                } else {
+                    Severity::Mild
+                }
+            }
+            MagicNumberCategory::PortNumber => Severity::Spicy, // Ports are always important to name
+            _ => {
+                if !(-100..=100).contains(&value)
+                    && value != 800
+                    && value != 1000
+                    && value != 2000
+                    && value != 3000
+                    && value != 5000
+                {
+                    Severity::Spicy
+                } else {
+                    Severity::Mild
+                }
+            }
         };
 
         CodeIssue {
@@ -338,8 +548,39 @@ impl MagicNumberVisitor {
             rule_name: "magic-number".to_string(),
             message: messages[self.issues.len() % messages.len()].clone(),
             severity,
-            roast_level: RoastLevel::Gentle,
         }
+    }
+
+    fn categorize_magic_number(&self, value: i64) -> MagicNumberCategory {
+        // Common timeout values (milliseconds)
+        if [
+            100, 200, 300, 500, 800, 1000, 1500, 2000, 3000, 5000, 10000, 30000, 60000,
+        ]
+        .contains(&value)
+        {
+            return MagicNumberCategory::Timeout;
+        }
+
+        // Common buffer sizes
+        if [1024, 2048, 4096, 8192, 16384, 32768, 65536].contains(&value) {
+            return MagicNumberCategory::BufferSize;
+        }
+
+        // Common port numbers
+        if (3000..=9999).contains(&value) || value == 80 || value == 443 || value == 8080 {
+            return MagicNumberCategory::PortNumber;
+        }
+
+        // Common threshold values
+        if [
+            10, 25, 50, 75, 90, 95, 99, 100, 150, 200, 250, 500, 750, 1000,
+        ]
+        .contains(&value)
+        {
+            return MagicNumberCategory::Threshold;
+        }
+
+        MagicNumberCategory::General
     }
 }
 
@@ -359,7 +600,7 @@ impl<'ast> Visit<'ast> for MagicNumberVisitor {
 }
 
 // ============================================================================
-// 上帝函数检测
+// God function detection
 // ============================================================================
 
 struct GodFunctionVisitor {
@@ -382,29 +623,29 @@ impl GodFunctionVisitor {
     fn analyze_function_complexity(&mut self, func: &ItemFn) {
         let func_name = func.sig.ident.to_string();
 
-        // 计算函数的各种复杂度指标
+        // Calculate various complexity metrics for the function
         let mut complexity_score = 0;
 
-        // 1. 参数数量
+        // 1. Parameter count
         let param_count = func.sig.inputs.len();
         if param_count > 5 {
             complexity_score += (param_count - 5) * 2;
         }
 
-        // 2. 函数体大小（通过字符串分析估算）
+        // 2. Function body size (estimated via string analysis)
         let func_str = format!("{func:?}");
         let line_count = func_str.lines().count();
         if line_count > 50 {
             complexity_score += (line_count - 50) / 10;
         }
 
-        // 3. 嵌套深度和控制流复杂度
+        // 3. Nesting depth and control flow complexity
         let control_keywords = ["if", "else", "for", "while", "match", "loop"];
         for keyword in &control_keywords {
             complexity_score += func_str.matches(keyword).count();
         }
 
-        // 如果复杂度过高，报告问题
+        // If complexity is too high, report the issue
         if complexity_score > 15 {
             let messages = if self.lang == "zh-CN" {
                 vec![
@@ -447,7 +688,6 @@ impl GodFunctionVisitor {
                 rule_name: "god-function".to_string(),
                 message: messages[self.issues.len() % messages.len()].clone(),
                 severity,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
     }

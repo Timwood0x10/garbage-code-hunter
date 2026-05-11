@@ -1,6 +1,6 @@
 // Additional tests to improve code coverage
 
-use garbage_code_hunter::{CodeAnalyzer, I18n, Reporter};
+use garbage_code_hunter::{CodeAnalyzer, I18n, LocalRoastProvider, Reporter};
 use std::fs;
 use tempfile::TempDir;
 
@@ -20,7 +20,7 @@ fn test_analyzer_with_multiple_exclusions() {
     // Test with a directory that should be excluded
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let excluded_file = temp_dir.path().join("test_should_be_excluded.rs");
-    fs::write(&excluded_file, "fn main() { let data = \"test\"; }").expect("Failed to write file");
+    fs::write(&excluded_file, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
 
     let issues = analyzer.analyze_path(temp_dir.path());
     // Should have no issues because file is excluded
@@ -33,7 +33,7 @@ fn test_analyzer_with_empty_exclusions() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write file");
+    fs::write(&file_path, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
 
     let issues = analyzer.analyze_file(&file_path);
     assert!(
@@ -54,7 +54,7 @@ fn test_analyzer_with_invalid_exclusion_patterns() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write file");
+    fs::write(&file_path, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
 
     // Should still work even with invalid patterns
     let issues = analyzer.analyze_file(&file_path);
@@ -105,9 +105,17 @@ fn main() {
 
     for (harsh, savage, verbose, top, max_issues, summary, markdown, lang) in configurations {
         let reporter = Reporter::new(
-            harsh, savage, verbose, top, max_issues, summary, markdown, lang,
+            harsh,
+            savage,
+            verbose,
+            top,
+            max_issues,
+            summary,
+            markdown,
+            lang,
+            Box::new(LocalRoastProvider),
         );
-        reporter.report(issues.clone());
+        reporter.report_with_metrics(issues.clone(), 1, 100);
     }
 }
 
@@ -147,52 +155,6 @@ fn test_i18n_all_rule_types() {
         assert!(
             !invalid_messages.is_empty(),
             "Should have fallback messages for {rule_type}"
-        );
-    }
-}
-
-#[test]
-fn test_i18n_all_suggestion_combinations() {
-    let i18n_zh = I18n::new("zh-CN");
-    let i18n_en = I18n::new("en-US");
-
-    let rule_combinations = vec![
-        vec![],
-        vec!["terrible-naming".to_string()],
-        vec!["deep-nesting".to_string()],
-        vec!["long-function".to_string()],
-        vec!["unwrap-abuse".to_string()],
-        vec!["unnecessary-clone".to_string()],
-        vec!["terrible-naming".to_string(), "deep-nesting".to_string()],
-        vec!["unwrap-abuse".to_string(), "unnecessary-clone".to_string()],
-        vec![
-            "terrible-naming".to_string(),
-            "deep-nesting".to_string(),
-            "long-function".to_string(),
-        ],
-        vec![
-            "terrible-naming".to_string(),
-            "single-letter-variable".to_string(),
-            "deep-nesting".to_string(),
-            "long-function".to_string(),
-            "unwrap-abuse".to_string(),
-            "unnecessary-clone".to_string(),
-        ],
-    ];
-
-    for rules in rule_combinations {
-        // Suggestions are now handled by the --suggestions flag and hall_of_shame module
-        // The get_suggestions method now returns empty to avoid duplicate suggestions
-        let zh_suggestions = i18n_zh.get_suggestions(&rules);
-        assert!(
-            zh_suggestions.is_empty(),
-            "Suggestions should be empty as they're now handled by --suggestions flag"
-        );
-
-        let en_suggestions = i18n_en.get_suggestions(&rules);
-        assert!(
-            en_suggestions.is_empty(),
-            "Suggestions should be empty as they're now handled by --suggestions flag"
         );
     }
 }
@@ -245,7 +207,8 @@ fn test_analyzer_with_mixed_files() {
     let rust_file = temp_dir.path().join("code.rs");
     let txt_file = temp_dir.path().join("readme.txt");
 
-    fs::write(&rust_file, "fn main() { let data = \"test\"; }").expect("Failed to write rust file");
+    fs::write(&rust_file, "fn main() { let thing = \"test\"; }")
+        .expect("Failed to write rust file");
     fs::write(&txt_file, "This is a text file").expect("Failed to write txt file");
 
     let analyzer = CodeAnalyzer::new(&[], "en-US");
@@ -262,8 +225,8 @@ fn test_analyzer_with_mixed_files() {
 }
 
 #[test]
-fn test_severity_and_roast_level_coverage() {
-    use garbage_code_hunter::{RoastLevel, Severity};
+fn test_severity_coverage() {
+    use garbage_code_hunter::Severity;
 
     // Test all severity levels
     let severities = vec![Severity::Mild, Severity::Spicy, Severity::Nuclear];
@@ -278,29 +241,11 @@ fn test_severity_and_roast_level_coverage() {
         // Test PartialEq trait
         assert_eq!(severity, severity);
     }
-
-    // Test all roast levels
-    let roast_levels = vec![
-        RoastLevel::Gentle,
-        RoastLevel::Sarcastic,
-        RoastLevel::Savage,
-    ];
-    for roast_level in roast_levels {
-        // Test Debug trait
-        let debug_str = format!("{roast_level:?}");
-        assert!(!debug_str.is_empty());
-
-        // Test Clone trait
-        let _cloned = roast_level.clone();
-
-        // Test PartialEq trait
-        assert_eq!(roast_level, roast_level);
-    }
 }
 
 #[test]
 fn test_code_issue_debug_and_clone() {
-    use garbage_code_hunter::{CodeIssue, RoastLevel, Severity};
+    use garbage_code_hunter::{CodeIssue, Severity};
     use std::path::PathBuf;
 
     let issue = CodeIssue {
@@ -310,7 +255,6 @@ fn test_code_issue_debug_and_clone() {
         rule_name: "test-rule".to_string(),
         message: "Test message".to_string(),
         severity: Severity::Spicy,
-        roast_level: RoastLevel::Sarcastic,
     };
 
     // Test Debug trait

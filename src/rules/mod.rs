@@ -2,6 +2,7 @@ use std::path::Path;
 use syn::File;
 
 use crate::analyzer::CodeIssue;
+use crate::context::{FileContext, ProjectConfig};
 
 pub mod advanced_rust;
 pub mod code_smells;
@@ -13,22 +14,51 @@ pub mod garbage_naming;
 pub mod naming;
 pub mod rust_patterns;
 pub mod rust_specific;
+pub mod struct_patterns;
 pub mod student_code;
 
 pub trait Rule {
-    #[allow(dead_code)]
     fn name(&self) -> &'static str;
+
+    /// Original check method (backward compatible)
     fn check(
         &self,
         file_path: &Path,
         syntax_tree: &File,
         content: &str,
         lang: &str,
-    ) -> Vec<CodeIssue>;
+        is_test_file: bool,
+    ) -> Vec<CodeIssue> {
+        self.check_with_context(
+            file_path,
+            syntax_tree,
+            content,
+            lang,
+            is_test_file,
+            &FileContext::from_path(file_path),
+            &ProjectConfig::default(),
+        )
+    }
+
+    /// New method: check with context (recommended)
+    #[allow(clippy::too_many_arguments)]
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        _context: &FileContext,
+        _config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        self.check(file_path, syntax_tree, content, lang, is_test_file)
+    }
 }
 
 pub struct RuleEngine {
     rules: Vec<Box<dyn Rule>>,
+    config: ProjectConfig,
 }
 
 impl Default for RuleEngine {
@@ -39,6 +69,10 @@ impl Default for RuleEngine {
 
 impl RuleEngine {
     pub fn new() -> Self {
+        Self::with_config(ProjectConfig::default())
+    }
+
+    pub fn with_config(config: ProjectConfig) -> Self {
         let rules: Vec<Box<dyn Rule>> = vec![
             // Add various detection rules
             Box::new(naming::TerribleNamingRule),
@@ -59,8 +93,6 @@ impl RuleEngine {
             // Add Rust-specific pattern detection rules
             Box::new(rust_patterns::StringAbuseRule),
             Box::new(rust_patterns::VecAbuseRule),
-            Box::new(rust_patterns::IteratorAbuseRule),
-            Box::new(rust_patterns::MatchAbuseRule),
             Box::new(complexity::DeepNestingRule),
             Box::new(complexity::LongFunctionRule),
             Box::new(duplication::CodeDuplicationRule),
@@ -80,31 +112,64 @@ impl RuleEngine {
             Box::new(comprehensive_rust::MacroAbuseRule),
             Box::new(comprehensive_rust::ModuleComplexityRule),
             Box::new(comprehensive_rust::PatternMatchingAbuseRule),
-            Box::new(comprehensive_rust::ReferenceAbuseRule),
-            Box::new(comprehensive_rust::BoxAbuseRule),
-            Box::new(comprehensive_rust::SliceAbuseRule),
+            Box::new(struct_patterns::ReferenceAbuseRule),
+            Box::new(struct_patterns::BoxAbuseRule),
+            Box::new(struct_patterns::SliceAbuseRule),
             // Add file structure rules
             Box::new(file_structure::FileStructureRule),
             Box::new(file_structure::ImportChaosRule),
             Box::new(file_structure::ModuleNestingRule),
         ];
 
-        Self { rules }
+        Self { rules, config }
     }
 
+    /// Use context-aware check method (recommended)
+    pub fn check_file_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+    ) -> Vec<CodeIssue> {
+        let context = FileContext::from_path(file_path);
+        let mut issues = Vec::new();
+
+        for rule in &self.rules {
+            if context.should_skip_rule(rule.name()) {
+                continue;
+            }
+
+            let rule_issues = rule.check_with_context(
+                file_path,
+                syntax_tree,
+                content,
+                lang,
+                is_test_file,
+                &context,
+                &self.config,
+            );
+
+            issues.extend(rule_issues);
+        }
+
+        issues
+    }
+
+    /// Legacy check method (backward compatible)
     pub fn check_file(
         &self,
         file_path: &Path,
         syntax_tree: &File,
         content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        let mut issues = Vec::new();
+        self.check_file_with_context(file_path, syntax_tree, content, lang, is_test_file)
+    }
 
-        for rule in &self.rules {
-            issues.extend(rule.check(file_path, syntax_tree, content, lang));
-        }
-
-        issues
+    pub fn rule_names(&self) -> Vec<&'static str> {
+        self.rules.iter().map(|r| r.name()).collect()
     }
 }

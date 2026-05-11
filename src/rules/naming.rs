@@ -2,8 +2,10 @@ use regex::Regex;
 use std::path::Path;
 use syn::{visit::Visit, File, Ident};
 
-use crate::analyzer::{CodeIssue, RoastLevel, Severity};
+use crate::analyzer::{CodeIssue, Severity};
+use crate::context::FileContext;
 use crate::rules::Rule;
+use crate::utils::get_position;
 
 pub struct TerribleNamingRule;
 
@@ -18,10 +20,34 @@ impl Rule for TerribleNamingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = NamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
+    }
+
+    fn check_with_context(
+        &self,
+        file_path: &Path,
+        syntax_tree: &File,
+        content: &str,
+        lang: &str,
+        is_test_file: bool,
+        context: &FileContext,
+        _config: &crate::context::ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        // Example/Demo/Documentation: 完全跳过
+        let weight = context.rule_weight_multiplier();
+        if weight < 0.5 {
+            return Vec::new();
+        }
+
+        self.check(file_path, syntax_tree, content, lang, is_test_file)
     }
 }
 
@@ -38,7 +64,12 @@ impl Rule for SingleLetterVariableRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
+        is_test_file: bool,
     ) -> Vec<CodeIssue> {
+        if is_test_file {
+            return Vec::new();
+        }
+
         let mut visitor = SingleLetterVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -54,7 +85,8 @@ struct NamingVisitor {
 
 impl NamingVisitor {
     fn new(file_path: std::path::PathBuf, lang: &str) -> Self {
-        let terrible_names = Regex::new(r"^(data|info|temp|tmp|val|value|item|thing|stuff|obj|object|manager|handler|helper|util|utils|a|b|c|d|e|f|g|h|test|func|function)(\d+)?$").unwrap();
+        // Note: 'item' is excluded as it's a common Rust iterator variable
+        let terrible_names = Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").unwrap();
 
         Self {
             file_path,
@@ -68,9 +100,9 @@ impl NamingVisitor {
         let name = ident.to_string();
 
         if self.terrible_names.is_match(&name.to_lowercase()) {
-            // 根据语言设置选择消息
+            // Select messages based on language setting
             let messages = if self.lang == "zh-CN" {
-                // 中文消息
+                // Chinese messages
                 let ctx = if context == "函数名" {
                     "函数名"
                 } else {
@@ -94,7 +126,7 @@ impl NamingVisitor {
                     ),
                 ]
             } else {
-                // 英文消息
+                // English messages
                 let ctx = if context == "Function" {
                     "Function"
                 } else {
@@ -114,31 +146,33 @@ impl NamingVisitor {
                 (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize)
                     % messages.len();
 
+            let (line, column) = get_position(ident);
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: self.issues.len() + 2, // 简单的行号估算，避免都是1:1
-                column: (name.len() % 10) + 1, // 基于名字长度的列号
+                line,
+                column,
                 rule_name: "terrible-naming".to_string(),
                 message: messages[message_index].clone(),
                 severity: Severity::Spicy,
-                roast_level: RoastLevel::Sarcastic,
             });
         }
     }
 }
 
 impl<'ast> Visit<'ast> for NamingVisitor {
-    fn visit_ident(&mut self, ident: &'ast Ident) {
+    // Check variable names (pattern identifiers)
+    fn visit_pat_ident(&mut self, pat_ident: &'ast syn::PatIdent) {
         let context = if self.lang == "zh-CN" {
             "变量名"
         } else {
             "Variable"
         };
-        self.check_name(ident, context);
-        syn::visit::visit_ident(self, ident);
+        self.check_name(&pat_ident.ident, context);
+        syn::visit::visit_pat_ident(self, pat_ident);
     }
 
-    // 添加函数名检测
+    // Check function names
     fn visit_item_fn(&mut self, func: &'ast syn::ItemFn) {
         let context = if self.lang == "zh-CN" {
             "函数名"
@@ -150,7 +184,6 @@ impl<'ast> Visit<'ast> for NamingVisitor {
     }
 }
 
-#[allow(dead_code)]
 struct SingleLetterVisitor {
     file_path: std::path::PathBuf,
     issues: Vec<CodeIssue>,
@@ -171,28 +204,62 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
     fn visit_pat_ident(&mut self, pat_ident: &'ast syn::PatIdent) {
         let name = pat_ident.ident.to_string();
 
-        // Exclude common single-letter variables (like loop counters i, j, k)
-        if name.len() == 1 && !matches!(name.as_str(), "i" | "j" | "k" | "x" | "y" | "z") {
-            let messages = [
-                format!("单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"),
-                format!("变量 '{name}'？这是变量名还是你键盘坏了？"),
-                format!("用 '{name}' 做变量名，你可能需要一本《如何给变量起名》的书"),
-                format!("单字母变量 '{name}'：让代码比古埃及象形文字还难懂"),
-                format!("变量 '{name}' 的信息量约等于一个句号"),
-            ];
+        // Exclude common single-letter variables (loop counters, closure params, etc.)
+        if name.len() == 1
+            && !matches!(
+                name.as_str(),
+                "i" | "j"
+                    | "k"
+                    | "x"
+                    | "y"
+                    | "z"
+                    | "e"
+                    | "a"
+                    | "b"
+                    | "c"
+                    | "d"
+                    | "f"
+                    | "n"
+                    | "r"
+                    | "s"
+                    | "t"
+                    | "v"
+                    | "w"
+                    | "p"
+                    | "l"
+            )
+        {
+            let messages = if self.lang == "zh-CN" {
+                [
+                    format!("单字母变量 '{name}'？你是在写数学公式还是在折磨读代码的人？"),
+                    format!("变量 '{name}'？这是变量名还是你键盘坏了？"),
+                    format!("用 '{name}' 做变量名，你可能需要一本《如何给变量起名》的书"),
+                    format!("单字母变量 '{name}'：让代码比古埃及象形文字还难懂"),
+                    format!("变量 '{name}' 的信息量约等于一个句号"),
+                ]
+            } else {
+                [
+                    format!("Single-letter variable '{name}'? Writing math formulas or torturing readers?"),
+                    format!("Variable '{name}'? Is this a name or did your keyboard break?"),
+                    format!("Using '{name}' as a variable name? You need a book on naming"),
+                    format!("Single-letter variable '{name}': harder to read than hieroglyphics"),
+                    format!("Variable '{name}' has about as much info as a period"),
+                ]
+            };
 
             let message_index =
                 (self.issues.len() + name.len() + name.chars().next().unwrap_or('a') as usize)
                     % messages.len();
 
+            let (line, column) = get_position(&pat_ident.ident);
+
             self.issues.push(CodeIssue {
                 file_path: self.file_path.clone(),
-                line: self.issues.len() + 10, // 不同的行号范围
-                column: (name.len() % 5) + 1,
+                line,
+                column,
                 rule_name: "single-letter-variable".to_string(),
                 message: messages[message_index].clone(),
                 severity: Severity::Mild,
-                roast_level: RoastLevel::Gentle,
             });
         }
 
