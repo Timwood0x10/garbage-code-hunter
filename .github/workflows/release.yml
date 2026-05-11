@@ -65,12 +65,18 @@ jobs:
       - name: Create and push tag
         id: tag_version
         run: |
-          TAG="v0.3.$(date +%Y%m%d%H%M)"
-          echo "🏷️ Creating tag: $TAG"
+          if [ -f RELEASE_NOTE.md ]; then
+            TAG=$(head -1 RELEASE_NOTE.md | grep -oP 'v[\d.]+' | head -1)
+            echo "🏷️ Found version in RELEASE_NOTE.md: $TAG"
+          else
+            TAG="v0.3.$(date +%Y%m%d%H%M)"
+            echo "⚠️ No RELEASE_NOTE.md, using fallback: $TAG"
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -f $TAG
-          git push origin $TAG -f || true
+          git tag -f "$TAG" 2>/dev/null || true
+          git push origin "$TAG" -f 2>/dev/null || true
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Read RELEASE_NOTE.md
