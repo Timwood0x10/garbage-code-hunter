@@ -491,3 +491,13 @@ fn generate_block_signature_smart(block: &str) -> String {
         .collect::<String>()
         .to_lowercase()
 }
+
+// ============================================================
+// Test Helpers (Public API for testing)
+// ============================================================
+
+/// Get the list of Rust common pattern strings for testing purposes.
+/// This provides controlled access to internal patterns without exposing the raw static.
+pub fn get_rust_patterns_for_testing() -> &'static [&'static str] {
+    RUST_COMMON_PATTERN_STRINGS
+}
