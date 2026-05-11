@@ -45,6 +45,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+  # Job 2b: Create GitHub Release (master branch)
+  create-release-master:
+    name: Create Release (Master)
+    runs-on: ubuntu-latest
+    needs: ci-master
+    if: github.ref == 'refs/heads/master' && github.repository_owner == 'TimWood0x10'
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Read RELEASE_NOTE.md
         id: release_notes
         run: |
@@ -64,28 +76,17 @@ jobs:
             echo "notes=Release ${{ github.ref_name }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Validate version format
-        id: validate_version
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Invalid version format: $VERSION (must be X.Y.Z)"
-            exit 1
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "✅ Version validated: $VERSION"
-
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ steps.validate_version.outputs.version }}
+          tag_name: "latest"
+          name: "Latest Release"
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
-          generate_release_notes: false  # Use our custom notes from RELEASE_NOTE.md
-          files: ""  # Files will be uploaded by build-release job
+          generate_release_notes: false
+          files: ""
 
   # Job 3: Build and upload release binaries (Linux + Mac only)
   build-release:
@@ -93,6 +94,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: create-release
     if: startsWith(github.ref, 'refs/tags/v')
+
+  # Job 3b: Build and upload release binaries (master branch)
+  build-release-master:
+    name: Build Release Binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: create-release-master
+    if: github.ref == 'refs/heads/master'
     strategy:
       fail-fast: false  # Don't cancel other builds if one fails
       matrix:
