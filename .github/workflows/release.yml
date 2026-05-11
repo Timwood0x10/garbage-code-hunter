@@ -59,19 +59,19 @@ jobs:
       release_id: ${{ steps.create_release.outputs.id }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: 🔍 Debug GitHub Context
+      - name: Create and push tag
+        id: tag_version
         run: |
-          echo "🔍 GitHub Context Debug Info:"
-          echo "========================================="
-          echo "github.ref: ${{ github.ref }}"
-          echo "github.ref_name: ${{ github.ref_name }}"
-          echo "github.repository: ${{ github.repository }}"
-          echo "github.repository_owner: ${{ github.repository_owner }}"
-          echo "github.event_name: ${{ github.event_name }}"
-          echo "github.sha: ${{ github.sha }}"
-          echo "========================================="
-          echo "✅ This job SHOULD run (master branch push)"
+          TAG="v0.3.$(date +%Y%m%d%H%M)"
+          echo "🏷️ Creating tag: $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f $TAG
+          git push origin $TAG -f || true
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Read RELEASE_NOTE.md
         id: release_notes
@@ -80,29 +80,25 @@ jobs:
           if [ -f RELEASE_NOTE.md ]; then
             echo "✅ Found RELEASE_NOTE.md"
             NOTES=$(cat RELEASE_NOTE.md)
-            # Escape for GitHub Actions
             NOTES="${NOTES//'%'/'%25'}"
             NOTES="${NOTES//$'\n'/'%0A'}"
             NOTES="${NOTES//$'\r'/'%0D'}"
             echo "notes=$NOTES" >> $GITHUB_OUTPUT
-            echo "--- Release Notes Preview ---"
-            head -20 RELEASE_NOTE.md
           else
             echo "⚠️ No RELEASE_NOTE.md found, using default message"
-            echo "notes=Release ${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "notes=Release ${{ steps.tag_version.outputs.tag }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "latest"
-          name: "Latest Release"
+          tag_name: ${{ steps.tag_version.outputs.tag }}
+          name: "Release ${{ steps.tag_version.outputs.tag }}"
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
           generate_release_notes: false
-          files: ""
 
   # Job 3: Build and upload release binaries (Linux + Mac only)
   build-release:
@@ -119,9 +115,9 @@ jobs:
             binary_name: garbage-code-hunter
             asset_name: garbage-code-hunter-linux-x86_64.tar.gz
           - os: macos-latest
-            target: aarch64-apple-darwin
+            target: x86_64-apple-darwin
             binary_name: garbage-code-hunter
-            asset_name: garbage-code-hunter-macos-arm64.tar.gz
+            asset_name: garbage-code-hunter-macos-x86_64.tar.gz
 
     steps:
       - uses: actions/checkout@v4
@@ -172,7 +168,7 @@ jobs:
           echo "ASSET_NAME=$ASSET" >> $GITHUB_ENV
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: success()
         with:
           files: ${{ env.ASSET_PATH }}
