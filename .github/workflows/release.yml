@@ -92,21 +92,6 @@ jobs:
 
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Read RELEASE_NOTE.md
-        id: release_notes
-        run: |
-          echo "📋 Looking for RELEASE_NOTE.md..."
-          if [ -f RELEASE_NOTE.md ]; then
-            echo "✅ Found RELEASE_NOTE.md"
-            # Use base64 to safely handle special characters and encoding
-            NOTES=$(base64 -i RELEASE_NOTE.md)
-            echo "notes_base64=$NOTES" >> $GITHUB_OUTPUT
-            echo "📝 Release notes length: $(wc -c < RELEASE_NOTE.md) bytes"
-          else
-            echo "⚠️ No RELEASE_NOTE.md found, using default message"
-            echo "notes_base64=UmVsZWFzZSAke3sgc3RlcHMuXRhZ192ZXJzaW9uLm91dHB1dHMudGFnIH19" >> $GITHUB_OUTPUT
-          fi
-
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
