@@ -98,14 +98,13 @@ jobs:
           echo "📋 Looking for RELEASE_NOTE.md..."
           if [ -f RELEASE_NOTE.md ]; then
             echo "✅ Found RELEASE_NOTE.md"
-            NOTES=$(cat RELEASE_NOTE.md)
-            NOTES="${NOTES//'%'/'%25'}"
-            NOTES="${NOTES//$'\n'/'%0A'}"
-            NOTES="${NOTES//$'\r'/'%0D'}"
-            echo "notes=$NOTES" >> $GITHUB_OUTPUT
+            # Use base64 to safely handle special characters and encoding
+            NOTES=$(base64 -i RELEASE_NOTE.md)
+            echo "notes_base64=$NOTES" >> $GITHUB_OUTPUT
+            echo "📝 Release notes length: $(wc -c < RELEASE_NOTE.md) bytes"
           else
             echo "⚠️ No RELEASE_NOTE.md found, using default message"
-            echo "notes=Release ${{ steps.tag_version.outputs.tag }}" >> $GITHUB_OUTPUT
+            echo "notes_base64=UmVsZWFzZSAke3sgc3RlcHMuXRhZ192ZXJzaW9uLm91dHB1dHMudGFnIH19" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Release
@@ -114,7 +113,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag_version.outputs.tag }}
           name: "Release ${{ steps.tag_version.outputs.tag }}"
-          body: ${{ steps.release_notes.outputs.notes }}
+          body_path: RELEASE_NOTE.md
           draft: false
           prerelease: false
           generate_release_notes: false
@@ -166,11 +165,12 @@ jobs:
           fi
 
       - name: Package binary
+        shell: bash
         run: |
           cd target/release
 
           ASSET="${{ matrix.asset_name }}"
-          tar -czf "$ASSET" garbage-code-hunter
+          ${{ matrix.package_cmd }}
 
           echo "📦 Package created:"
           ls -lh "$ASSET"
@@ -198,9 +198,15 @@ jobs:
           # Linux x86_64
           - os: ubuntu-latest
             asset_name: garbage-code-hunter-linux-x86_64.tar.gz
-          # macOS x86_64
-          - os: macos-latest
+          # macOS x86_64 (Intel)
+          - os: macos-13
             asset_name: garbage-code-hunter-macos-x86_64.tar.gz
+          # macOS ARM64 (Apple Silicon M1/M2/M3)
+          - os: macos-latest
+            asset_name: garbage-code-hunter-macos-arm64.tar.gz
+          # Windows x86_64
+          - os: windows-latest
+            asset_name: garbage-code-hunter-windows-x86_64.zip
 
     steps:
       - uses: actions/checkout@v4
@@ -222,6 +228,7 @@ jobs:
         run: cargo build --release
 
       - name: Show binary info
+        shell: bash
         run: |
           BINARY="target/release/garbage-code-hunter"
           if [ -f "$BINARY" ] || [ -f "${BINARY}.exe" ]; then
@@ -233,18 +240,26 @@ jobs:
             exit 1
           fi
 
-      - name: Package binary
+      - name: Package binary (Unix/Linux/Mac)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           cd target/release
-
           ASSET="${{ matrix.asset_name }}"
           tar -czf "$ASSET" garbage-code-hunter
-
           echo "📦 Package created:"
           ls -lh "$ASSET"
-
           echo "ASSET_PATH=target/release/$ASSET" >> $GITHUB_ENV
-          echo "ASSET_NAME=$ASSET" >> $GITHUB_ENV
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ASSET = "${{ matrix.asset_name }}"
+          Compress-Archive -Path target\release\garbage-code-hunter.exe -DestinationPath target\release\$ASSET
+          Write-Host "📦 Package created:"
+          Get-ChildItem target\release\$ASSET | Format-Table Name, Length
+          "ASSET_PATH=target/release/$ASSET" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
