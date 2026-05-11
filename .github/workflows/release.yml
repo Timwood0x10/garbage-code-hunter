@@ -183,9 +183,6 @@ jobs:
           # Linux x86_64
           - os: ubuntu-latest
             asset_name: garbage-code-hunter-linux-x86_64.tar.gz
-          # macOS x86_64 (Intel)
-          - os: macos-13
-            asset_name: garbage-code-hunter-macos-x86_64.tar.gz
           # macOS ARM64 (Apple Silicon M1/M2/M3)
           - os: macos-latest
             asset_name: garbage-code-hunter-macos-arm64.tar.gz
