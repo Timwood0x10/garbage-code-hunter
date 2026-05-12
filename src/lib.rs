@@ -2,6 +2,7 @@
 // This allows the crate to be used both as a binary and a library
 
 pub mod analyzer;
+pub mod commit_roaster;
 pub mod config;
 pub mod context;
 pub mod cross_file;
