@@ -1,5 +1,6 @@
 //! Core types for dependency analysis.
 
+pub use crate::common::Severity;
 use serde::{Deserialize, Serialize};
 
 /// Supported package managers / ecosystems.
@@ -47,43 +48,11 @@ pub struct Dependency {
     pub is_optional: bool,
 }
 
-/// Severity level for dependency issues.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum DepSeverity {
-    Critical,
-    High,
-    Medium,
-    Low,
-    Info,
-}
-
-impl DepSeverity {
-    pub fn emoji(&self) -> &'static str {
-        match self {
-            DepSeverity::Critical => "\u{1f480}",
-            DepSeverity::High => "\u{1f621}",
-            DepSeverity::Medium => "\u{26a0}\u{fe0f}",
-            DepSeverity::Low => "\u{1f4a7}",
-            DepSeverity::Info => "\u{2139}\u{fe0f}",
-        }
-    }
-
-    pub fn penalty(&self) -> f64 {
-        match self {
-            DepSeverity::Critical => 10.0,
-            DepSeverity::High => 5.0,
-            DepSeverity::Medium => 2.0,
-            DepSeverity::Low => 0.5,
-            DepSeverity::Info => 0.0,
-        }
-    }
-}
-
 /// A detected issue with a dependency.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepIssue {
     pub rule_id: String,
-    pub severity: DepSeverity,
+    pub severity: Severity,
     pub message: String,
     pub dep_name: Option<String>,
 }

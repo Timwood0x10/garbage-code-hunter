@@ -4,6 +4,7 @@
 
 use crate::commit_roaster::analyzer::CommitInfo;
 use crate::commit_roaster::rules::Issue;
+use crate::common::score_to_grade;
 use colored::Colorize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -258,17 +259,6 @@ pub fn format_json(report: &Report) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(&json_report)
 }
 
-fn score_to_grade(score: f64) -> String {
-    match score as u32 {
-        90..=100 => "S \u{2728}".to_string(),
-        80..=89 => "A \u{1f44d}".to_string(),
-        70..=79 => "B \u{1f44d}".to_string(),
-        60..=69 => "C \u{1f610}".to_string(),
-        50..=59 => "D \u{1f615}".to_string(),
-        _ => "F \u{1f4a9}".to_string(),
-    }
-}
-
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
@@ -280,7 +270,7 @@ fn truncate(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commit_roaster::rules::Severity;
+    use crate::common::Severity;
 
     fn make_commit(hash: &str, message: &str) -> CommitInfo {
         CommitInfo {
@@ -340,16 +330,6 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("Valid JSON");
         assert!(parsed.get("score").is_some());
         assert!(parsed.get("issues").is_some());
-    }
-
-    #[test]
-    fn test_score_grade_boundaries() {
-        assert_eq!(score_to_grade(95.0), "S \u{2728}");
-        assert_eq!(score_to_grade(85.0), "A \u{1f44d}");
-        assert_eq!(score_to_grade(75.0), "B \u{1f44d}");
-        assert_eq!(score_to_grade(65.0), "C \u{1f610}");
-        assert_eq!(score_to_grade(55.0), "D \u{1f615}");
-        assert_eq!(score_to_grade(30.0), "F \u{1f4a9}");
     }
 
     #[test]

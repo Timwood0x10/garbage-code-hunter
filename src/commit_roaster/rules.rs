@@ -3,52 +3,8 @@
 //! Defines rules for detecting bad commit message patterns
 //! and provides a matching engine to evaluate commits.
 
+use crate::common::Severity;
 use serde::Deserialize;
-
-/// Severity level for commit message issues.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
-pub enum Severity {
-    Critical,
-    High,
-    Medium,
-    Low,
-    Info,
-}
-
-impl Severity {
-    /// Returns the numeric weight for scoring purposes.
-    pub fn weight(&self) -> f64 {
-        match self {
-            Self::Critical => 10.0,
-            Self::High => 5.0,
-            Self::Medium => 2.0,
-            Self::Low => 0.5,
-            Self::Info => 0.0,
-        }
-    }
-
-    /// Returns emoji representation for terminal output.
-    pub fn emoji(&self) -> &str {
-        match self {
-            Self::Critical => "\u{1f480}",
-            Self::High => "\u{1f621}",
-            Self::Medium => "\u{26a0}\u{fe0f}",
-            Self::Low => "\u{1f4a7}",
-            Self::Info => "\u{2139}\u{fe0f}",
-        }
-    }
-
-    /// Returns human-readable label.
-    pub fn label(&self) -> &str {
-        match self {
-            Self::Critical => "Critical",
-            Self::High => "High",
-            Self::Medium => "Medium",
-            Self::Low => "Low",
-            Self::Info => "Info",
-        }
-    }
-}
 
 /// Pattern type for rule matching.
 #[derive(Debug, Clone, Deserialize)]
@@ -135,7 +91,7 @@ pub fn match_rules(message: &str, rules: &[&Rule]) -> Vec<Issue> {
             issues.push(Issue {
                 rule_id: rule.id.clone(),
                 rule_name: rule.name.clone(),
-                severity: rule.severity.clone(),
+                severity: rule.severity,
                 message: rule.message.clone(),
             });
         }

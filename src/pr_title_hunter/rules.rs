@@ -1,6 +1,6 @@
 //! PR title quality rules.
 
-use super::types::{PrEntry, PrIssue, PrSeverity};
+use super::types::{PrEntry, PrIssue, Severity};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -22,7 +22,7 @@ impl PrRule for EmptyTitleRule {
         if pr.title.trim().is_empty() {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::Critical,
+                severity: Severity::Critical,
                 message: "PR title is empty — did you submit by accident?".to_string(),
                 pr_id: pr.id.clone(),
                 pr_title: pr.title.clone(),
@@ -48,7 +48,7 @@ impl PrRule for TooShortRule {
         if !trimmed.is_empty() && trimmed.chars().count() <= self.min_length {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::High,
+                severity: Severity::High,
                 message: format!(
                     "PR title '{}' is {} chars — sending a telegram?",
                     trimmed,
@@ -80,7 +80,7 @@ impl PrRule for GenericTitleRule {
         if GENERIC_RE.is_match(trimmed) {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::High,
+                severity: Severity::High,
                 message: format!(
                     "PR title is '{}' — are you a robot? Say what you actually changed.",
                     trimmed
@@ -110,7 +110,7 @@ impl PrRule for TicketOnlyRule {
         if TICKET_ONLY_RE.is_match(trimmed) {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::Medium,
+                severity: Severity::Medium,
                 message: format!(
                     "PR title is just '{}' — titles are for humans, not JIRA.",
                     trimmed
@@ -140,7 +140,7 @@ impl PrRule for WipTitleRule {
         if WIP_RE.is_match(trimmed) {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::Info,
+                severity: Severity::Info,
                 message: "WIP PR? Then why open a PR at all?".to_string(),
                 pr_id: pr.id.clone(),
                 pr_title: pr.title.clone(),
@@ -164,7 +164,7 @@ impl PrRule for ExclamationRule {
         if count >= 3 {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::Low,
+                severity: Severity::Low,
                 message: format!("{} exclamation marks? How excited are you?", count),
                 pr_id: pr.id.clone(),
                 pr_title: pr.title.clone(),
@@ -189,7 +189,7 @@ impl PrRule for AllCapsRule {
         if alpha_chars.len() >= 3 && alpha_chars == alpha_chars.to_uppercase() {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::Low,
+                severity: Severity::Low,
                 message: "ALL CAPS TITLE? STOP SHOUTING!".to_string(),
                 pr_id: pr.id.clone(),
                 pr_title: pr.title.clone(),
@@ -216,7 +216,7 @@ impl PrRule for KeyboardMashRule {
         if MASH_RE.is_match(trimmed) {
             Some(PrIssue {
                 rule_id: self.id().to_string(),
-                severity: PrSeverity::Critical,
+                severity: Severity::Critical,
                 message: "Keyboard mash as PR title? You're not testing your keyboard.".to_string(),
                 pr_id: pr.id.clone(),
                 pr_title: pr.title.clone(),
@@ -249,7 +249,7 @@ impl PrRule for LowercaseStartRule {
             if first.is_ascii_lowercase() && trimmed.len() > 3 {
                 return Some(PrIssue {
                     rule_id: self.id().to_string(),
-                    severity: PrSeverity::Low,
+                    severity: Severity::Low,
                     message: format!(
                         "Title starts with lowercase '{}' — proper nouns deserve capital letters.",
                         first

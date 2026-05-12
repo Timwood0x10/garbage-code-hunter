@@ -19,12 +19,7 @@ use report::{format_json, format_terminal};
 use rules::check_dep_file;
 use types::DepFile;
 
-/// Output format for the deps-shamer report.
-#[derive(Debug, Clone, PartialEq)]
-pub enum OutputFormat {
-    Terminal,
-    Json,
-}
+pub use crate::common::OutputFormat;
 
 /// Run dependency analysis on the given project path.
 ///

@@ -15,12 +15,7 @@ use std::path::Path;
 
 use types::{PrEntry, PrSource};
 
-/// Output format for the PR title report.
-#[derive(Debug, Clone, PartialEq)]
-pub enum OutputFormat {
-    Terminal,
-    Json,
-}
+pub use crate::common::OutputFormat;
 
 /// Run PR title analysis on a local git repository.
 ///

@@ -3,6 +3,7 @@
 
 pub mod analyzer;
 pub mod commit_roaster;
+pub mod common;
 pub mod config;
 pub mod context;
 pub mod cross_file;

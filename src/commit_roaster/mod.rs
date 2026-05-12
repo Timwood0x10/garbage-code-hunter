@@ -13,12 +13,7 @@ use report::ScoredCommit;
 use rules::{match_rules, RuleSet};
 use std::path::Path;
 
-/// Output format for the commit-roaster report.
-#[derive(Debug, Clone, PartialEq)]
-pub enum OutputFormat {
-    Terminal,
-    Json,
-}
+pub use crate::common::OutputFormat;
 
 /// Run the commit-roaster analysis on a repository.
 pub fn run(repo_path: &Path, config: &AnalyzerConfig, format: &OutputFormat) -> Result<String> {

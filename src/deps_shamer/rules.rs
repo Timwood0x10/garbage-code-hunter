@@ -2,7 +2,7 @@
 //!
 //! Each rule checks for a specific anti-pattern in dependency management.
 
-use super::types::{DepFile, DepIssue, DepSeverity, DepSource, Ecosystem};
+use super::types::{DepFile, DepIssue, DepSource, Ecosystem, Severity};
 
 /// A rule that checks dependency files for issues.
 pub trait DepRule: Send + Sync {
@@ -25,7 +25,7 @@ impl DepRule for TooManyDepsRule {
         if total > self.threshold {
             vec![DepIssue {
                 rule_id: self.id().to_string(),
-                severity: DepSeverity::Medium,
+                severity: Severity::Medium,
                 message: format!(
                     "{} dependencies? Are you building a supermarket or a software project?",
                     total
@@ -54,7 +54,7 @@ impl DepRule for GitDepsRule {
                 if let DepSource::Git { url } = &dep.source {
                     Some(DepIssue {
                         rule_id: self.id().to_string(),
-                        severity: DepSeverity::Medium,
+                        severity: Severity::Medium,
                         message: format!(
                             "Directly referencing git repo '{}' — don't trust package managers?",
                             url
@@ -86,7 +86,7 @@ impl DepRule for WildcardVersionRule {
                 if v == "*" || v == ">=0" || v.is_empty() {
                     Some(DepIssue {
                         rule_id: self.id().to_string(),
-                        severity: DepSeverity::High,
+                        severity: Severity::High,
                         message: format!(
                             "Version '{}' for '{}' — enjoy your daily breaking changes?",
                             v, dep.name
@@ -124,7 +124,7 @@ impl DepRule for PreReleaseRule {
                 {
                     Some(DepIssue {
                         rule_id: self.id().to_string(),
-                        severity: DepSeverity::Medium,
+                        severity: Severity::Medium,
                         message: format!(
                             "Production dependency '{}' uses pre-release version '{}' — brave!",
                             dep.name, dep.version
@@ -179,7 +179,7 @@ impl DepRule for DeprecatedDepRule {
                 if deprecated.contains(&dep.name.as_str()) {
                     Some(DepIssue {
                         rule_id: self.id().to_string(),
-                        severity: DepSeverity::High,
+                        severity: Severity::High,
                         message: format!(
                             "'{}' is deprecated — are you an archaeologist?",
                             dep.name
@@ -210,7 +210,7 @@ impl DepRule for DuplicatedDepRule {
             if !seen.insert(&dep.name) {
                 duplicates.push(DepIssue {
                     rule_id: self.id().to_string(),
-                    severity: DepSeverity::Medium,
+                    severity: Severity::Medium,
                     message: format!(
                         "'{}' appears more than once — Ctrl+C and Ctrl+V are working overtime?",
                         dep.name
@@ -239,7 +239,7 @@ impl DepRule for TooManyDevDepsRule {
         if dev_count > self.threshold {
             vec![DepIssue {
                 rule_id: self.id().to_string(),
-                severity: DepSeverity::Low,
+                severity: Severity::Low,
                 message: format!(
                     "{} dev dependencies — your test setup is heavier than the app itself?",
                     dev_count
@@ -276,7 +276,7 @@ impl DepRule for TooManyOptionalRule {
         if ratio > self.ratio_threshold {
             vec![DepIssue {
                 rule_id: self.id().to_string(),
-                severity: DepSeverity::Low,
+                severity: Severity::Low,
                 message: format!(
                     "{}% of dependencies are optional ({}/{}) — are you sure what you actually need?",
                     (ratio * 100.0) as usize,

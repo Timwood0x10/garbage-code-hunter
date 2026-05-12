@@ -1,6 +1,6 @@
 //! Report generation for dependency analysis.
 
-use super::types::{DepFile, DepIssue, DepSeverity};
+use super::types::{DepFile, DepIssue, Severity};
 use colored::Colorize;
 
 /// Summary statistics for a dependency analysis.
@@ -44,11 +44,11 @@ pub fn build_stats(dep_files: &[DepFile], issues: &[DepIssue]) -> DepStats {
 
     for issue in issues {
         match issue.severity {
-            DepSeverity::Critical => critical_count += 1,
-            DepSeverity::High => high_count += 1,
-            DepSeverity::Medium => medium_count += 1,
-            DepSeverity::Low => low_count += 1,
-            DepSeverity::Info => {}
+            Severity::Critical => critical_count += 1,
+            Severity::High => high_count += 1,
+            Severity::Medium => medium_count += 1,
+            Severity::Low => low_count += 1,
+            Severity::Info => {}
         }
     }
 
@@ -92,7 +92,7 @@ pub fn format_terminal(dep_files: &[DepFile], issues: &[DepIssue]) -> String {
     out.push('\n');
 
     // Group issues by severity
-    let mut by_severity: Vec<(&DepSeverity, &DepIssue)> =
+    let mut by_severity: Vec<(&Severity, &DepIssue)> =
         issues.iter().map(|i| (&i.severity, i)).collect();
     by_severity.sort_by(|a, b| a.0.cmp(b.0));
 
@@ -100,7 +100,7 @@ pub fn format_terminal(dep_files: &[DepFile], issues: &[DepIssue]) -> String {
         // Critical issues
         let critical: Vec<_> = by_severity
             .iter()
-            .filter(|(s, _)| **s == DepSeverity::Critical)
+            .filter(|(s, _)| **s == Severity::Critical)
             .collect();
         if !critical.is_empty() {
             out.push_str(&format!(
@@ -128,7 +128,7 @@ pub fn format_terminal(dep_files: &[DepFile], issues: &[DepIssue]) -> String {
         // High issues
         let high: Vec<_> = by_severity
             .iter()
-            .filter(|(s, _)| **s == DepSeverity::High)
+            .filter(|(s, _)| **s == Severity::High)
             .collect();
         if !high.is_empty() {
             out.push_str(&format!(
@@ -156,7 +156,7 @@ pub fn format_terminal(dep_files: &[DepFile], issues: &[DepIssue]) -> String {
         // Medium issues
         let medium: Vec<_> = by_severity
             .iter()
-            .filter(|(s, _)| **s == DepSeverity::Medium)
+            .filter(|(s, _)| **s == Severity::Medium)
             .collect();
         if !medium.is_empty() {
             out.push_str(&format!(
@@ -184,7 +184,7 @@ pub fn format_terminal(dep_files: &[DepFile], issues: &[DepIssue]) -> String {
         // Low issues
         let low: Vec<_> = by_severity
             .iter()
-            .filter(|(s, _)| **s == DepSeverity::Low)
+            .filter(|(s, _)| **s == Severity::Low)
             .collect();
         if !low.is_empty() {
             out.push_str(&format!(
@@ -323,13 +323,13 @@ mod tests {
         let issues = vec![
             DepIssue {
                 rule_id: "test".to_string(),
-                severity: DepSeverity::High,
+                severity: Severity::High,
                 message: "test".to_string(),
                 dep_name: None,
             },
             DepIssue {
                 rule_id: "test".to_string(),
-                severity: DepSeverity::Low,
+                severity: Severity::Low,
                 message: "test".to_string(),
                 dep_name: None,
             },
@@ -361,7 +361,7 @@ mod tests {
         let dep_file = sample_dep_file();
         let issues = vec![DepIssue {
             rule_id: "wildcard-version".to_string(),
-            severity: DepSeverity::High,
+            severity: Severity::High,
             message: "Version '*' for 'tokio'".to_string(),
             dep_name: Some("tokio".to_string()),
         }];
@@ -375,7 +375,7 @@ mod tests {
         let dep_file = sample_dep_file();
         let issues = vec![DepIssue {
             rule_id: "test".to_string(),
-            severity: DepSeverity::Medium,
+            severity: Severity::Medium,
             message: "test issue".to_string(),
             dep_name: Some("serde".to_string()),
         }];

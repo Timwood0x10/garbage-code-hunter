@@ -1,6 +1,6 @@
 //! Report generation for PR title analysis.
 
-use super::types::{PrEntry, PrIssue, PrSeverity};
+use super::types::{PrEntry, PrIssue, Severity};
 use colored::Colorize;
 
 /// Build statistics from PR analysis.
@@ -26,11 +26,11 @@ pub fn build_stats(prs: &[PrEntry], issues: &[PrIssue]) -> PrStats {
 
     for issue in issues {
         match issue.severity {
-            PrSeverity::Critical => critical_count += 1,
-            PrSeverity::High => high_count += 1,
-            PrSeverity::Medium => medium_count += 1,
-            PrSeverity::Low => low_count += 1,
-            PrSeverity::Info => {}
+            Severity::Critical => critical_count += 1,
+            Severity::High => high_count += 1,
+            Severity::Medium => medium_count += 1,
+            Severity::Low => low_count += 1,
+            Severity::Info => {}
         }
     }
 
@@ -82,16 +82,16 @@ pub fn format_terminal(prs: &[PrEntry], issues: &[PrIssue]) -> String {
     }
 
     // Group issues by severity and show them
-    let mut by_severity: Vec<(&PrSeverity, &PrIssue)> =
+    let mut by_severity: Vec<(&Severity, &PrIssue)> =
         issues.iter().map(|i| (&i.severity, i)).collect();
     by_severity.sort_by(|a, b| a.0.cmp(b.0));
 
     let severity_groups = [
-        (PrSeverity::Critical, "Critical"),
-        (PrSeverity::High, "High"),
-        (PrSeverity::Medium, "Medium"),
-        (PrSeverity::Low, "Low"),
-        (PrSeverity::Info, "Info"),
+        (Severity::Critical, "Critical"),
+        (Severity::High, "High"),
+        (Severity::Medium, "Medium"),
+        (Severity::Low, "Low"),
+        (Severity::Info, "Info"),
     ];
 
     for (sev, label) in &severity_groups {
@@ -101,13 +101,13 @@ pub fn format_terminal(prs: &[PrEntry], issues: &[PrIssue]) -> String {
         }
 
         let header = match sev {
-            PrSeverity::Critical => {
+            Severity::Critical => {
                 format!("{} {} ({})", sev.emoji(), label.red().bold(), group.len())
             }
-            PrSeverity::High => format!("{} {} ({})", sev.emoji(), label.red(), group.len()),
-            PrSeverity::Medium => format!("{} {} ({})", sev.emoji(), label.yellow(), group.len()),
-            PrSeverity::Low => format!("{} {} ({})", sev.emoji(), label.blue(), group.len()),
-            PrSeverity::Info => format!("{} {} ({})", sev.emoji(), label.dimmed(), group.len()),
+            Severity::High => format!("{} {} ({})", sev.emoji(), label.red(), group.len()),
+            Severity::Medium => format!("{} {} ({})", sev.emoji(), label.yellow(), group.len()),
+            Severity::Low => format!("{} {} ({})", sev.emoji(), label.blue(), group.len()),
+            Severity::Info => format!("{} {} ({})", sev.emoji(), label.dimmed(), group.len()),
         };
         out.push_str(&format!("{}\n", header));
 
@@ -212,7 +212,7 @@ mod tests {
         }
     }
 
-    fn make_issue(pr_id: &str, title: &str, rule_id: &str, severity: PrSeverity) -> PrIssue {
+    fn make_issue(pr_id: &str, title: &str, rule_id: &str, severity: Severity) -> PrIssue {
         PrIssue {
             rule_id: rule_id.to_string(),
             severity,
@@ -226,8 +226,8 @@ mod tests {
     fn test_build_stats_counts() {
         let prs = vec![make_pr("1", "title"), make_pr("2", "title")];
         let issues = vec![
-            make_issue("1", "title", "test", PrSeverity::High),
-            make_issue("2", "title", "test", PrSeverity::Low),
+            make_issue("1", "title", "test", Severity::High),
+            make_issue("2", "title", "test", Severity::Low),
         ];
         let stats = build_stats(&prs, &issues);
         assert_eq!(stats.total_prs, 2);
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     fn test_format_terminal_with_issues() {
         let prs = vec![make_pr("1", "fix")];
-        let issues = vec![make_issue("1", "fix", "generic-title", PrSeverity::High)];
+        let issues = vec![make_issue("1", "fix", "generic-title", Severity::High)];
         let output = format_terminal(&prs, &issues);
         assert!(output.contains("High"));
         assert!(output.contains("fix"));
@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_format_json_valid() {
         let prs = vec![make_pr("1", "title")];
-        let issues = vec![make_issue("1", "title", "test", PrSeverity::Medium)];
+        let issues = vec![make_issue("1", "title", "test", Severity::Medium)];
         let json = format_json(&prs, &issues);
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(parsed["score"].as_f64().is_some());
