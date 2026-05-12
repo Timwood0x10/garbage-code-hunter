@@ -9,6 +9,7 @@ use garbage_code_hunter::{
     analyzer::{CodeAnalyzer, CodeIssue},
     commit_roaster,
     config::{AppConfig, AppMode},
+    deps_shamer,
     educational::EducationalAdvisor,
     hall_of_shame::HallOfShame,
     llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
@@ -32,6 +33,10 @@ enum Commands {
     /// Scan git history and roast bad commit messages
     #[command(alias = "cr")]
     CommitRoaster(CommitRoasterArgs),
+
+    /// Analyze project dependencies and shame bad practices
+    #[command(alias = "ds")]
+    DepsShamer(DepsShamerArgs),
 }
 
 #[derive(Parser)]
@@ -152,6 +157,17 @@ struct CommitRoasterArgs {
     format: String,
 }
 
+#[derive(Parser)]
+struct DepsShamerArgs {
+    /// Path to project directory (default: current directory)
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+}
+
 fn main() {
     // Initialize tracing subscriber
     tracing_subscriber::fmt()
@@ -164,6 +180,7 @@ fn main() {
 
     match cli.command {
         Some(Commands::CommitRoaster(args)) => run_commit_roaster(args),
+        Some(Commands::DepsShamer(args)) => run_deps_shamer(args),
         Some(Commands::Analyze(args)) => run_analyze(args),
         None => run_analyze(AnalyzeArgs::default()),
     }
@@ -190,6 +207,23 @@ fn run_commit_roaster(args: CommitRoasterArgs) {
     };
 
     match run(&args.path, &config, &format) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_deps_shamer(args: DepsShamerArgs) {
+    use deps_shamer::{run, OutputFormat};
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match run(&args.path, &format) {
         Ok(output) => print!("{}", output),
         Err(e) => {
             eprintln!("Error: {}", e);

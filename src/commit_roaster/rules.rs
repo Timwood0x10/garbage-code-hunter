@@ -125,8 +125,8 @@ pub fn match_rules(message: &str, rules: &[&Rule]) -> Vec<Issue> {
             Pattern::StartsWith(prefix) => trimmed.starts_with(prefix.as_str()),
             Pattern::Length { min, max } => {
                 let len = trimmed.len();
-                let above_min = min.map_or(true, |m| len <= m);
-                let below_max = max.map_or(true, |m| len >= m);
+                let above_min = min.is_none_or(|m| len >= m);
+                let below_max = max.is_none_or(|m| len <= m);
                 above_min && below_max
             }
         };
