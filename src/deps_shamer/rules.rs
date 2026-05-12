@@ -83,7 +83,7 @@ impl DepRule for WildcardVersionRule {
             .iter()
             .filter_map(|dep| {
                 let v = dep.version.trim();
-                if v == "*" || v == ">=0" || v == "" {
+                if v == "*" || v == ">=0" || v.is_empty() {
                     Some(DepIssue {
                         rule_id: self.id().to_string(),
                         severity: DepSeverity::High,

@@ -72,7 +72,7 @@ fn extract_total_issues(output: &str) -> u32 {
 
 #[test]
 fn test_self_bootstrap_completes_successfully() {
-    let (stdout, stderr, exit_code) = run_test!(&[".", "--lang", "en-US"]);
+    let (stdout, stderr, exit_code) = run_test!(&["analyze", ".", "--lang", "en-US"]);
 
     assert_eq!(exit_code, 0, "Should exit with code 0\nstderr: {}", stderr);
 
@@ -93,7 +93,7 @@ fn test_self_bootstrap_completes_successfully() {
 #[test]
 fn test_self_bootstrap_performance() {
     let start = Instant::now();
-    let (_stdout, _stderr, exit_code) = run_test!(&[".", "--lang", "en-US"]);
+    let (_stdout, _stderr, exit_code) = run_test!(&["analyze", ".", "--lang", "en-US"]);
     let duration = start.elapsed();
 
     assert_eq!(exit_code, 0, "Should complete successfully");
@@ -118,7 +118,7 @@ fn test_system_alert_detection_stable() {
         return;
     }
 
-    let (stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US"]);
+    let (stdout, _stderr, exit_code) = run_test!(&["analyze", project_path, "--lang", "en-US"]);
 
     assert_eq!(exit_code, 0, "Should analyze system_alert successfully");
 
@@ -141,9 +141,9 @@ fn test_rechat_server_detection_stable() {
         return;
     }
 
-    let (stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US"]);
+    let (stdout, _stderr, exit_code) = run_test!(&["analyze", project_path, "--lang", "en-US"]);
 
-    assert_eq!(exit_code, 0, "Should analyze ReChat-server successfully");
+    assert_eq!(exit_code, 0, "Should analyze system_alert successfully");
 
     let total = extract_total_issues(&stdout);
 
@@ -164,7 +164,7 @@ fn test_finance_project_improved_accuracy() {
         return;
     }
 
-    let (stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US"]);
+    let (stdout, _stderr, exit_code) = run_test!(&["analyze", project_path, "--lang", "en-US"]);
 
     assert_eq!(exit_code, 0, "Should analyze Finance successfully");
 
@@ -194,7 +194,7 @@ fn test_memscope_rs_best_in_class() {
         return;
     }
 
-    let (stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US"]);
+    let (stdout, _stderr, exit_code) = run_test!(&["analyze", project_path, "--lang", "en-US"]);
 
     assert_eq!(exit_code, 0, "Should analyze memscope-rs successfully");
 
@@ -235,7 +235,7 @@ fn test_all_testable_projects_zero_crashes() {
             continue;
         }
 
-        let (stdout, stderr, exit_code) = run_test!(&[path, "--lang", "en-US"]);
+        let (stdout, stderr, exit_code) = run_test!(&["analyze", path, "--lang", "en-US"]);
 
         assert_eq!(
             exit_code, 0,
@@ -270,7 +270,7 @@ fn test_small_project_performance_under_1s() {
     }
 
     let start = Instant::now();
-    let (_stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US"]);
+    let (_stdout, _stderr, exit_code) = run_test!(&["analyze", project_path, "--lang", "en-US"]);
     let duration = start.elapsed();
 
     assert_eq!(exit_code, 0, "Should complete successfully");
@@ -292,7 +292,7 @@ fn test_medium_project_performance_under_5s() {
     }
 
     let start = Instant::now();
-    let (_stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US"]);
+    let (_stdout, _stderr, exit_code) = run_test!(&["analyze", project_path, "--lang", "en-US"]);
     let duration = start.elapsed();
 
     assert_eq!(exit_code, 0, "Should complete successfully");
@@ -310,7 +310,8 @@ fn test_medium_project_performance_under_5s() {
 
 #[test]
 fn test_markdown_output_format_valid() {
-    let (stdout, _stderr, exit_code) = run_test!(&[".", "--lang", "en-US", "--markdown"]);
+    let (stdout, _stderr, exit_code) =
+        run_test!(&["analyze", ".", "--lang", "en-US", "--markdown"]);
 
     assert_eq!(exit_code, 0, "Should generate markdown output");
 
@@ -337,7 +338,7 @@ fn test_markdown_output_format_valid() {
 #[test]
 fn test_verbose_output_contains_rule_weights() {
     let (stdout, _stderr, exit_code) =
-        run_test!(&["../system_alert", "--lang", "en-US", "--verbose"]);
+        run_test!(&["analyze", "../system_alert", "--lang", "en-US", "--verbose"]);
 
     assert_eq!(exit_code, 0, "Should generate verbose output");
 
@@ -361,7 +362,8 @@ fn test_ui_context_reduces_false_positives() {
         return;
     }
 
-    let (stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US", "--verbose"]);
+    let (stdout, _stderr, exit_code) =
+        run_test!(&["analyze", project_path, "--lang", "en-US", "--verbose"]);
 
     assert_eq!(exit_code, 0, "Should complete successfully");
 
@@ -402,8 +404,7 @@ fn test_no_regression_from_round4_to_round5() {
             continue;
         }
 
-        let (stdout, _stderr, exit_code) = run_test!(&[project_path, "--lang", "en-US"]);
-
+        let (stdout, _stderr, exit_code) = run_test!(&["analyze", project_path, "--lang", "en-US"]);
         assert_eq!(exit_code, 0, "{} should succeed", project_path);
 
         let total = extract_total_issues(&stdout);

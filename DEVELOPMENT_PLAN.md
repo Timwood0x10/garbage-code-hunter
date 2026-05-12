@@ -976,30 +976,418 @@ Windows x86_64
 
 ## 后续扩展
 
-### Phase 4: 生态扩展
+### Phase 4: 多语言代码分析
+
+**目标：** code-hunter 支持 JS/TS、Python、Go，从 Rust 专用工具升级为多语言工具。
+
+**实现策略：** 先用正则 + 简单 AST，不做完整解析。每种语言独立规则文件。
 
 ```
-- VSCode 插件
-- GitHub Action 模板
-- GitLab CI 集成
-- 自定义规则分享平台
+src/rules/
+├── rust/           # 现有 Rust 规则（31 条）
+├── javascript/     # JS/TS 规则
+│   ├── mod.rs
+│   └── rules/      # naming.rs, async.rs, callback_hell.rs, any_type.ts 等
+├── python/         # Python 规则
+│   ├── mod.rs
+│   └── rules/      # naming.rs, bare_except.rs, global_vars.rs, type_hint.rs 等
+└── go/             # Go 规则
+    ├── mod.rs
+    └── rules/      # naming.rs, error_ignored.rs, goroutine_leak.rs 等
 ```
 
-### Phase 5: LLM 集成
+**语言检测：**
+```rust
+fn detect_language(path: &Path) -> Vec<Language> {
+    // 1. 检查依赖文件 (Cargo.toml → Rust, package.json → JS, go.mod → Go)
+    // 2. 统计文件扩展名占比
+    // 3. 返回主要语言列表，按比例排序
+}
+```
+
+**JS/TS 规则（初始）：**
+- `any-type` — 使用 `any` 类型（TypeScript）
+- `callback-hell` — 回调嵌套过深
+- `console-log` — 生产代码残留 `console.log`
+- `var-usage` — 使用 `var` 而非 `let/const`
+- `eqeqeq` — 使用 `==` 而非 `===`
+- `promise-no-await` — Promise 没有 await
+- `magic-number` — 魔法数字
+
+**Python 规则（初始）：**
+- `bare-except` — 裸 `except` 捕获所有异常
+- `global-vars` — 全局变量滥用
+- `no-type-hint` — 缺少类型注解
+- `print-debug` — `print()` 调试残留
+- `mutable-default` — 可变默认参数（`def f(a=[])`）
+- `wildcard-import` — `from x import *`
+
+**Go 规则（初始）：**
+- `error-ignored` — 忽略 error 返回值
+- `goroutine-leak` — goroutine 泄漏
+- `naked-return` — 裸 return
+- `panic-in-lib` — 库代码中使用 panic
+- `shadowed-err` — err 变量遮蔽
+
+**CLI 变更：**
+```bash
+garbage-code-hunter analyze --lang-rust --lang-js --lang-python --lang-go src/
+garbage-code-hunter analyze --auto-detect src/    # 自动检测语言
+```
+
+**时间估算：** 2 周
+- Week 1: 语言检测 + JS/TS 规则
+- Week 2: Python 规则 + Go 规则 + 测试
+
+---
+
+### Phase 5: GitHub API 集成
+
+**目标：** pr-title-hunter 支持远程仓库 PR 检查，不限于本地 merge commits。
+
+**CLI 变更：**
+```bash
+# 本地模式（现有）
+garbage-code-hunter pr
+
+# 远程模式（新增）
+garbage-code-hunter pr --repo owner/repo
+garbage-code-hunter pr --repo owner/repo --state open
+garbage-code-hunter pr --repo owner/repo --limit 100
+garbage-code-hunter pr --repo owner/repo --author "zhangsan"
+garbage-code-hunter pr --repo owner/repo --token $GITHUB_TOKEN
+```
+
+**实现：**
+```
+src/pr_title_hunter/
+├── mod.rs          # 现有
+├── types.rs        # 现有
+├── rules.rs        # 现有
+├── report.rs       # 现有
+└── github.rs       # 新增：GitHub API 客户端
+```
+
+**核心逻辑：**
+```rust
+// github.rs
+pub async fn fetch_prs(repo: &str, config: &GitHubConfig) -> Result<Vec<PrEntry>> {
+    // GET /repos/{owner}/{repo}/pulls
+    // 支持 state (open/closed/all), per_page, page
+    // 支持 token 认证（避免限流）
+}
+```
+
+**依赖：** 复用现有 `reqwest` 依赖，不需要新增。
+
+**时间估算：** 3 天
+- Day 1: GitHub API 客户端 + 认证
+- Day 2: 集成到 CLI + 远程模式
+- Day 3: 测试 + 错误处理
+
+---
+
+### Phase 6: Badge 生成
+
+**目标：** 生成 SVG 分数徽章，嵌入 README 展示项目质量。
+
+**CLI 变更：**
+```bash
+garbage-code-hunter badge                    # 生成 badge.svg（默认）
+garbage-code-hunter badge -o quality.svg     # 指定输出文件
+garbage-code-hunter badge --style flat       # 扁平风格
+garbage-code-hunter badge --style plastic    # 塑料风格
+```
+
+**实现：**
+```
+src/badge/
+├── mod.rs          # 入口
+├── generator.rs    # SVG 生成器
+└── templates/      # SVG 模板
+    ├── flat.svg
+    └── plastic.svg
+```
+
+**SVG 模板设计：**
+```xml
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="20">
+  <linearGradient id="b" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <mask id="a"><rect width="160" height="20" rx="3" fill="#fff"/></mask>
+  <g mask="url(#a)">
+    <rect width="75" height="20" fill="#555"/>
+    <rect x="75" width="85" height="20" fill="#4c1"/>
+    <rect width="160" height="20" fill="url(#b)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="..." font-size="11">
+    <text x="37.5" y="15" fill="#010101" fill-opacity=".3">garbage</text>
+    <text x="37.5" y="14">garbage</text>
+    <text x="117.5" y="15" fill="#010101" fill-opacity=".3">{score}</text>
+    <text x="117.5" y="14">{score}</text>
+  </g>
+</svg>
+```
+
+**颜色映射：**
+- 90-100: `#4c1` (绿色)
+- 70-89: `#97CA00` (黄绿色)
+- 50-69: `#dfb317` (黄色)
+- 30-49: `#fe7d37` (橙色)
+- 0-29: `#e05d44` (红色)
+
+**时间估算：** 2 天
+- Day 1: SVG 模板 + 生成器
+- Day 2: CLI 集成 + 测试
+
+---
+
+### Phase 7: 历史趋势
+
+**目标：** 对比多次扫描结果，显示代码质量变化趋势。
+
+**CLI 变更：**
+```bash
+garbage-code-hunter trend                    # 显示最近 10 次扫描趋势
+garbage-code-hunter trend --last 20          # 显示最近 20 次
+garbage-code-hunter trend --since 2024-01-01 # 指定时间范围
+garbage-code-hunter trend --format json      # JSON 输出
+```
+
+**数据存储：**
+```
+~/.garbage-code-hunter/
+└── history/
+    ├── 2024-01-15T14:30:00.json
+    ├── 2024-01-16T09:00:00.json
+    └── ...
+```
+
+**历史记录格式：**
+```json
+{
+  "timestamp": "2024-01-15T14:30:00Z",
+  "project_path": "/path/to/project",
+  "overall_score": 72.5,
+  "tools": {
+    "code-hunter": { "score": 65, "issues": 45 },
+    "commit-roaster": { "score": 80, "issues": 12 },
+    "deps-shamer": { "score": 90, "issues": 3 },
+    "pr-title-hunter": { "score": 75, "issues": 5 }
+  }
+}
+```
+
+**终端输出示例：**
+```
+📈 Quality Trend (last 10 scans)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Overall Score
+  85 ┤                                    ╭── 82
+  80 ┤                              ╭─────╯
+  75 ┤                        ╭─────╯
+  70 ┤                  ╭─────╯
+  65 ┤            ╭─────╯
+  60 ┤      ╭─────╯
+  55 ┤──────╯
+     └────┬────┬────┬────┬────┬────┬────┬────
+       Jan1  Jan5  Jan9  Jan13 Jan17 Jan21 Jan25
+
+  📊 Breakdown:
+    code-hunter:     65 → 78 (+13) 📈
+    commit-roaster:  80 → 82 (+2)  📈
+    deps-shamer:     90 → 90 (=)   ➡️
+    pr-title-hunter: 75 → 78 (+3)  📈
+```
+
+**实现：**
+```
+src/trend/
+├── mod.rs          # 入口
+├── history.rs      # 历史记录读写
+└── display.rs      # 趋势图渲染（ASCII）
+```
+
+**时间估算：** 3 天
+- Day 1: 历史记录存储 + 读取
+- Day 2: 趋势图 ASCII 渲染
+- Day 3: CLI 集成 + 测试
+
+---
+
+### Phase 8: 自动修复 (garbage fix)
+
+**目标：** 自动修复简单代码问题，减少人工干预。
+
+**CLI 变更：**
+```bash
+garbage-code-hunter fix                      # 修复当前目录所有可修复问题
+garbage-code-hunter fix src/                 # 修复指定目录
+garbage-code-hunter fix --dry-run            # 预览修复，不实际修改
+garbage-code-hunter fix --rule unwrap-abuse  # 只修复特定规则
+```
+
+**可修复规则（第一阶段）：**
+```
+规则 ID               修复方式
+─────────────────────────────────────────────────────
+unwrap-abuse          .unwrap() → .expect("context")
+single-letter-var     单字母变量 → 推断有意义名称
+console-log (JS)      console.log → 注释或删除
+var-usage (JS)        var → let/const
+print-debug (Python)  print() → 注释或删除
+bare-except (Python)  except: → except Exception:
+```
+
+**实现策略：**
+```rust
+// 使用 syn/proc-macro2 进行精确的 AST 级别修改
+trait AutoFix: Rule {
+    fn fix(&self, file: &str, issue: &Issue) -> Result<String>;
+}
+
+// unwrap → expect 示例
+fn fix_unwrap(source: &str, line: usize) -> Result<String> {
+    // 1. 找到 unwrap() 位置
+    // 2. 分析上下文推断 expect 消息
+    // 3. 替换 .unwrap() → .expect("descriptive message")
+}
+```
+
+**安全策略：**
+- 默认创建 `.bak` 备份文件
+- `--dry-run` 模式预览变更
+- 修复前自动运行 `cargo check` 验证
+- 修复后自动运行 `make fmt`
+
+**时间估算：** 1 周
+- Day 1-2: AutoFix trait + unwrap 修复
+- Day 3: JS/Python 简单修复
+- Day 4-5: 测试 + 安全验证
+
+---
+
+### Phase 9: VS Code 集成增强
+
+**目标：** 实时在编辑器中显示代码质量分数，无需离开 IDE。
+
+**功能清单：**
+```
+功能                    描述
+─────────────────────────────────────────────────────
+实时诊断                保存文件时自动扫描，显示问题标记
+状态栏分数              底部状态栏显示当前文件质量分数
+CodeLens                函数上方显示复杂度评分
+Quick Fix               右键快速修复（集成 garbage fix）
+侧边栏面板              显示项目整体质量报告
+配置界面                GUI 配置规则和阈值
+```
+
+**技术方案：**
+- 基于现有 `vscode-extension/` TypeScript 扩展
+- 使用 `Language Server Protocol (LSP)` 通信
+- 后端调用 `garbage-code-hunter` CLI 或直接调用 Rust 库
+
+**架构：**
+```
+VS Code Extension (TypeScript)
+├── extension.ts        # 入口
+├── client.ts           # LSP 客户端
+├── statusBar.ts        # 状态栏
+├── codeLens.ts         # CodeLens provider
+└── quickFix.ts         # Quick Fix provider
+
+Rust LSP Server (新增)
+├── src/lsp/
+│   ├── mod.rs
+│   ├── server.rs       # LSP server 实现
+│   ├── diagnostics.rs  # 诊断信息
+│   └── handlers.rs     # 请求处理
+```
+
+**时间估算：** 2 周
+- Week 1: LSP server + 诊断信息
+- Week 2: VS Code 扩展增强 + CodeLens + Quick Fix
+
+---
+
+### Phase 10: CI/CD 集成 + 自定义规则
+
+**目标：** `garbage check` 子命令用于 CI/CD 流水线，支持自定义规则配置。
+
+**CLI 变更：**
+```bash
+# CI 模式：分数低于阈值返回非零 exit code
+garbage-code-hunter check --threshold 70
+garbage-code-hunter check --threshold 80 --format json
+
+# 自定义规则
+garbage-code-hunter check --config ./garbage.toml
+```
+
+**自定义规则配置 (`garbage.toml`)：**
+```toml
+[general]
+threshold = 70
+exclude = ["target/*", "node_modules/*", ".git/*"]
+
+[code_hunter]
+enabled = true
+rules = { unwrap-abuse = "error", magic-number = "warn" }
+
+[commit_roaster]
+enabled = true
+rules = { too-short = "error", wip-commit = "warn" }
+
+[deps_shamer]
+enabled = true
+too_many_deps_threshold = 50
+rules = { wildcard-version = "error", deprecated-dep = "warn" }
+
+[pr_title_hunter]
+enabled = true
+rules = { generic-title = "error", ticket-only = "warn" }
+
+[custom_rules]
+# 用户自定义规则
+[[custom_rules.regex]]
+id = "no-todo-in-main"
+pattern = "TODO"
+severity = "warn"
+message = "TODO found in main branch — time to fix it?"
+apply_to = "src/main.rs"
+```
+
+**时间估算：** 1 周
+- Day 1-2: `check` 子命令 + 阈值逻辑
+- Day 3-4: 配置文件解析 + 规则覆盖
+- Day 5: 测试 + 文档
+
+---
+
+### 总体时间线
 
 ```
-- --with-llm 可选调用 Ollama
-- 生成更智能的吐槽文案
-- 提供修复建议
+Phase 4:  多语言代码分析          2 周
+Phase 5:  GitHub API 集成         3 天
+Phase 6:  Badge 生成              2 天
+Phase 7:  历史趋势                3 天
+Phase 8:  自动修复                1 周
+Phase 9:  VS Code 集成增强        2 周
+Phase 10: CI/CD + 自定义规则      1 周
+────────────────────────────────────────
+总计:                             ~7 周
 ```
 
-### Phase 6: 社区
-
+**优先级排序：**
 ```
-- 开源治理
-- 贡献者指南
-- 插件系统
-- 规则市场
+P0 (立即):  Phase 10 CI/CD + 自定义规则
+P1 (高):    Phase 4 多语言分析
+P2 (中):    Phase 5 GitHub API + Phase 6 Badge + Phase 7 趋势
+P3 (低):    Phase 8 自动修复 + Phase 9 VS Code
 ```
 
 ---

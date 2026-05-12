@@ -11,6 +11,7 @@ pub mod educational;
 pub mod hall_of_shame;
 pub mod i18n;
 pub mod llm;
+pub mod pr_title_hunter;
 pub mod reporter;
 pub mod rules;
 pub mod scoring;

@@ -13,6 +13,7 @@ use garbage_code_hunter::{
     educational::EducationalAdvisor,
     hall_of_shame::HallOfShame,
     llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
+    pr_title_hunter,
     reporter::Reporter,
 };
 
@@ -37,6 +38,13 @@ enum Commands {
     /// Analyze project dependencies and shame bad practices
     #[command(alias = "ds")]
     DepsShamer(DepsShamerArgs),
+
+    /// Scan PR titles from merge commits and roast bad ones
+    #[command(alias = "pr")]
+    PrTitleHunter(PrTitleHunterArgs),
+
+    /// Run all tools and generate a combined garbage report
+    Scan(ScanArgs),
 }
 
 #[derive(Parser)]
@@ -168,6 +176,36 @@ struct DepsShamerArgs {
     format: String,
 }
 
+#[derive(Parser)]
+struct PrTitleHunterArgs {
+    /// Path to git repository (default: current directory)
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Maximum number of merge commits to analyze
+    #[arg(short, long, default_value = "50")]
+    limit: usize,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+}
+
+#[derive(Parser)]
+struct ScanArgs {
+    /// Path to project directory (default: current directory)
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+}
+
 fn main() {
     // Initialize tracing subscriber
     tracing_subscriber::fmt()
@@ -181,6 +219,8 @@ fn main() {
     match cli.command {
         Some(Commands::CommitRoaster(args)) => run_commit_roaster(args),
         Some(Commands::DepsShamer(args)) => run_deps_shamer(args),
+        Some(Commands::PrTitleHunter(args)) => run_pr_title_hunter(args),
+        Some(Commands::Scan(args)) => run_scan(args),
         Some(Commands::Analyze(args)) => run_analyze(args),
         None => run_analyze(AnalyzeArgs::default()),
     }
@@ -230,6 +270,187 @@ fn run_deps_shamer(args: DepsShamerArgs) {
             std::process::exit(1);
         }
     }
+}
+
+fn run_pr_title_hunter(args: PrTitleHunterArgs) {
+    use pr_title_hunter::{run, OutputFormat};
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match run(&args.path, args.limit, &format) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_scan(args: ScanArgs) {
+    use colored::Colorize;
+
+    let is_json = args.format == "json";
+    let mut all_scores: Vec<(&str, f64, usize)> = Vec::new();
+
+    // 1. Code Hunter (analyze)
+    if !is_json {
+        println!("\n{}\n", "\u{1f50d} Running Full Garbage Scan...".bold());
+        println!("{}", "\u{2501}".repeat(50));
+    }
+
+    let analyzer = CodeAnalyzer::new(&[], &args.lang);
+    let issues = analyzer.analyze_path(&args.path);
+    let (file_count, total_lines) = calculate_metrics(&args.path, &[]);
+    let code_issues = issues.len();
+    let code_score = if total_lines > 0 {
+        let issue_density = code_issues as f64 / total_lines as f64 * 1000.0;
+        (100.0 - issue_density * 2.0).clamp(0.0, 100.0)
+    } else {
+        100.0
+    };
+    all_scores.push(("code-hunter", code_score, code_issues));
+
+    if !is_json {
+        println!(
+            "  \u{2705} code-hunter: {:.0}/100 ({} issues in {} files)",
+            code_score, code_issues, file_count
+        );
+    }
+
+    // 2. Commit Roaster
+    let commit_config = commit_roaster::analyzer::AnalyzerConfig::default();
+    let commit_score = match commit_roaster::run(
+        &args.path,
+        &commit_config,
+        &commit_roaster::OutputFormat::Json,
+    ) {
+        Ok(json_str) => {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                let score = val["score"].as_f64().unwrap_or(100.0);
+                let total = val["stats"]["total_commits"].as_u64().unwrap_or(0) as usize;
+                all_scores.push(("commit-roaster", score, total));
+                if !is_json {
+                    println!(
+                        "  \u{2705} commit-roaster: {:.0}/100 ({} commits analyzed)",
+                        score, total
+                    );
+                }
+                score
+            } else {
+                all_scores.push(("commit-roaster", 100.0, 0));
+                100.0
+            }
+        }
+        Err(e) => {
+            if !is_json {
+                println!("  \u{26a0}\u{fe0f} commit-roaster: skipped ({})", e);
+            }
+            all_scores.push(("commit-roaster", 100.0, 0));
+            100.0
+        }
+    };
+    let _ = commit_score;
+
+    // 3. Deps Shamer
+    match deps_shamer::run(&args.path, &deps_shamer::OutputFormat::Json) {
+        Ok(json_str) => {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                let score = val["score"].as_f64().unwrap_or(100.0);
+                let total = val["total_deps"].as_u64().unwrap_or(0) as usize;
+                all_scores.push(("deps-shamer", score, total));
+                if !is_json {
+                    println!(
+                        "  \u{2705} deps-shamer: {:.0}/100 ({} dependencies)",
+                        score, total
+                    );
+                }
+            }
+        }
+        Err(e) => {
+            if !is_json {
+                println!("  \u{26a0}\u{fe0f} deps-shamer: skipped ({})", e);
+            }
+            all_scores.push(("deps-shamer", 100.0, 0));
+        }
+    }
+
+    // 4. PR Title Hunter
+    match pr_title_hunter::run(&args.path, 50, &pr_title_hunter::OutputFormat::Json) {
+        Ok(json_str) => {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                let score = val["score"].as_f64().unwrap_or(100.0);
+                let total = val["total_prs"].as_u64().unwrap_or(0) as usize;
+                all_scores.push(("pr-title-hunter", score, total));
+                if !is_json {
+                    println!(
+                        "  \u{2705} pr-title-hunter: {:.0}/100 ({} PRs checked)",
+                        score, total
+                    );
+                }
+            }
+        }
+        Err(e) => {
+            if !is_json {
+                println!("  \u{26a0}\u{fe0f} pr-title-hunter: skipped ({})", e);
+            }
+            all_scores.push(("pr-title-hunter", 100.0, 0));
+        }
+    }
+
+    // Combined report
+    if is_json {
+        let output = serde_json::json!({
+            "tools": all_scores.iter().map(|(name, score, count)| {
+                serde_json::json!({
+                    "tool": name,
+                    "score": score,
+                    "item_count": count,
+                })
+            }).collect::<Vec<_>>(),
+            "overall_score": overall_score(&all_scores),
+        });
+        if let Ok(json) = serde_json::to_string_pretty(&output) {
+            println!("{}", json);
+        }
+    } else {
+        println!("\n{}", "\u{1f4e6} Garbage Report \u{1f4e6}".bold());
+        println!("{}", "\u{2501}".repeat(50));
+        println!("\n  {}", "Tool Summary".bold());
+        println!("  {}", "\u{2500}".repeat(40));
+
+        for (name, score, count) in &all_scores {
+            let score_str = if *score >= 80.0 {
+                format!("{:.0}", score).green()
+            } else if *score >= 60.0 {
+                format!("{:.0}", score).yellow()
+            } else {
+                format!("{:.0}", score).red()
+            };
+            println!("  {:<20} {:>6}/100  ({} items)", name, score_str, count);
+        }
+
+        let overall = overall_score(&all_scores);
+        let overall_str = if overall >= 80.0 {
+            format!("{:.0}/100", overall).green().bold()
+        } else if overall >= 60.0 {
+            format!("{:.0}/100", overall).yellow().bold()
+        } else {
+            format!("{:.0}/100", overall).red().bold()
+        };
+        println!("\n  \u{1f3c6} Overall Garbage Score: {}", overall_str);
+        println!();
+    }
+}
+
+fn overall_score(scores: &[(&str, f64, usize)]) -> f64 {
+    if scores.is_empty() {
+        return 100.0;
+    }
+    let total: f64 = scores.iter().map(|(_, s, _)| s).sum();
+    total / scores.len() as f64
 }
 
 /// Parse YYYY-MM-DD to Unix timestamp.

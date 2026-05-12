@@ -7,11 +7,13 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 
+type DepParser<'a> = (&'a str, fn(&Path) -> Result<DepFile>);
+
 /// Detect and parse dependency files in the given directory.
 pub fn detect_and_parse(project_path: &Path) -> Result<Vec<DepFile>> {
     let mut results = Vec::new();
 
-    let candidates: &[(&str, fn(&Path) -> Result<DepFile>)] = &[
+    let candidates: &[DepParser] = &[
         ("Cargo.toml", parse_cargo_toml),
         ("package.json", parse_package_json),
         ("go.mod", parse_go_mod),
@@ -278,16 +280,15 @@ fn parse_requirements_txt(path: &Path) -> Result<DepFile> {
         }
 
         // Handle lines like: package>=1.0, package==1.0, package~=1.0, package!=1.0, package>1.0
-        let (name, version) = if let Some(pos) =
-            trimmed.find(|c: char| c == '>' || c == '<' || c == '=' || c == '!' || c == '~')
-        {
-            (&trimmed[..pos], &trimmed[pos..])
-        } else if let Some(pos) = trimmed.find('[') {
-            // Handle extras: package[extra]>=1.0
-            (&trimmed[..pos], "*")
-        } else {
-            (trimmed, "*")
-        };
+        let (name, version) =
+            if let Some(pos) = trimmed.find(|c: char| ['>', '<', '=', '!', '~'].contains(&c)) {
+                (&trimmed[..pos], &trimmed[pos..])
+            } else if let Some(pos) = trimmed.find('[') {
+                // Handle extras: package[extra]>=1.0
+                (&trimmed[..pos], "*")
+            } else {
+                (trimmed, "*")
+            };
 
         // Handle git URLs
         let source = if trimmed.starts_with("git+") || trimmed.contains("git://") {
@@ -413,9 +414,7 @@ fn parse_pyproject_toml(path: &Path) -> Result<DepFile> {
 }
 
 fn parse_python_dep_string(dep_str: &str) -> (String, String) {
-    if let Some(pos) =
-        dep_str.find(|c: char| c == '>' || c == '<' || c == '=' || c == '!' || c == '~')
-    {
+    if let Some(pos) = dep_str.find(|c: char| ['>', '<', '=', '!', '~'].contains(&c)) {
         let name_part = &dep_str[..pos];
         let name = if let Some(bracket_pos) = name_part.find('[') {
             &name_part[..bracket_pos]
