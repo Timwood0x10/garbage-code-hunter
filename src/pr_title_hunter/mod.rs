@@ -3,6 +3,7 @@
 //! Scans PR titles from git merge commits or GitHub API,
 //! checks them against quality rules, and generates a roasting report.
 
+pub mod github;
 pub mod report;
 pub mod rules;
 pub mod types;
@@ -96,6 +97,33 @@ pub fn analyze(repo_path: &Path, limit: usize) -> Result<(Vec<PrEntry>, Vec<type
     let prs = extract_prs_from_merges(repo_path, limit)?;
     let issues = check_prs(&prs);
     Ok((prs, issues))
+}
+
+/// Run PR title analysis on a remote GitHub repository.
+pub fn run_remote(config: &github::GitHubConfig, format: &OutputFormat) -> Result<String> {
+    let prs = github::fetch_prs(config)?;
+
+    if prs.is_empty() {
+        return match format {
+            OutputFormat::Terminal => Ok(format!(
+                "\n{}\n\n  No PRs found for {}\n",
+                "\u{1f3af} PR Title Roast Report \u{1f3af}",
+                config.repo
+            )),
+            OutputFormat::Json => {
+                Ok(r#"{"score":100,"total_prs":0,"issues":[],"stats":{"avg_title_length":0.0,"issues_found":0}}"#.to_string())
+            }
+        };
+    }
+
+    let issues = check_prs(&prs);
+
+    let output = match format {
+        OutputFormat::Terminal => format_terminal(&prs, &issues),
+        OutputFormat::Json => format_json(&prs, &issues),
+    };
+
+    Ok(output)
 }
 
 #[cfg(test)]

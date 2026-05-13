@@ -45,6 +45,12 @@ enum Commands {
 
     /// Run all tools and generate a combined garbage report
     Scan(ScanArgs),
+
+    /// Generate an SVG score badge
+    Badge(BadgeArgs),
+
+    /// Show quality score trend over time
+    Trend(TrendArgs),
 }
 
 #[derive(Parser)]
@@ -189,6 +195,22 @@ struct PrTitleHunterArgs {
     /// Output format (terminal, json)
     #[arg(short = 'f', long, default_value = "terminal")]
     format: String,
+
+    /// Remote repo in owner/repo format (enables GitHub API mode)
+    #[arg(short, long)]
+    repo: Option<String>,
+
+    /// PR state filter for GitHub API: open, closed, all
+    #[arg(long, default_value = "all")]
+    state: String,
+
+    /// GitHub token for authentication (or set GITHUB_TOKEN env var)
+    #[arg(long)]
+    token: Option<String>,
+
+    /// Filter by PR author (GitHub API mode)
+    #[arg(long)]
+    author: Option<String>,
 }
 
 #[derive(Parser)]
@@ -204,6 +226,40 @@ struct ScanArgs {
     /// Output format (terminal, json)
     #[arg(short = 'f', long, default_value = "terminal")]
     format: String,
+
+    /// Save scan result to history for trend tracking
+    #[arg(long)]
+    save: bool,
+}
+
+#[derive(Parser)]
+struct TrendArgs {
+    /// Number of recent scans to show
+    #[arg(short, long, default_value = "10")]
+    last: usize,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+}
+
+#[derive(Parser)]
+struct BadgeArgs {
+    /// Output file path
+    #[arg(short, long, default_value = "badge.svg")]
+    output: PathBuf,
+
+    /// Badge style: flat or plastic
+    #[arg(long, default_value = "flat")]
+    style: String,
+
+    /// Use a specific score instead of running analysis
+    #[arg(long)]
+    score: Option<f64>,
+
+    /// Path to project directory (used when --score is not set)
+    #[arg(default_value = ".")]
+    path: PathBuf,
 }
 
 fn main() {
@@ -221,6 +277,8 @@ fn main() {
         Some(Commands::DepsShamer(args)) => run_deps_shamer(args),
         Some(Commands::PrTitleHunter(args)) => run_pr_title_hunter(args),
         Some(Commands::Scan(args)) => run_scan(args),
+        Some(Commands::Badge(args)) => run_badge(args),
+        Some(Commands::Trend(args)) => run_trend(args),
         Some(Commands::Analyze(args)) => run_analyze(args),
         None => run_analyze(AnalyzeArgs::default()),
     }
@@ -273,13 +331,37 @@ fn run_deps_shamer(args: DepsShamerArgs) {
 }
 
 fn run_pr_title_hunter(args: PrTitleHunterArgs) {
-    use pr_title_hunter::{run, OutputFormat};
+    use pr_title_hunter::{run, run_remote, OutputFormat};
 
     let format = match args.format.as_str() {
         "json" => OutputFormat::Json,
         _ => OutputFormat::Terminal,
     };
 
+    // Remote mode if --repo is provided
+    if let Some(repo) = &args.repo {
+        let token = args
+            .token
+            .clone()
+            .or_else(|| std::env::var("GITHUB_TOKEN").ok());
+        let config = pr_title_hunter::github::GitHubConfig {
+            repo: repo.clone(),
+            state: args.state.clone(),
+            limit: args.limit,
+            token,
+            author: args.author.clone(),
+        };
+        match run_remote(&config, &format) {
+            Ok(output) => print!("{}", output),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    // Local mode (default)
     match run(&args.path, args.limit, &format) {
         Ok(output) => print!("{}", output),
         Err(e) => {
@@ -442,6 +524,112 @@ fn run_scan(args: ScanArgs) {
         };
         println!("\n  \u{1f3c6} Overall Garbage Score: {}", overall_str);
         println!();
+    }
+
+    // Save to history if requested
+    if args.save {
+        use garbage_code_hunter::trend;
+        let path_str = args.path.to_string_lossy().to_string();
+        let overall = overall_score(&all_scores);
+        let tools: Vec<garbage_code_hunter::trend::history::ToolScore> = all_scores
+            .iter()
+            .map(
+                |(name, score, count)| garbage_code_hunter::trend::history::ToolScore {
+                    name: name.to_string(),
+                    score: *score,
+                    item_count: *count,
+                },
+            )
+            .collect();
+        match trend::save_scan(&path_str, overall, tools) {
+            Ok(record) => {
+                if !is_json {
+                    println!("  \u{1f4be} Scan saved to history ({})", record.timestamp);
+                }
+            }
+            Err(e) => {
+                if !is_json {
+                    eprintln!("  \u{26a0}\u{fe0f} Failed to save history: {}", e);
+                }
+            }
+        }
+    }
+}
+
+fn run_badge(args: BadgeArgs) {
+    use garbage_code_hunter::badge;
+    use garbage_code_hunter::badge::generator::BadgeStyle;
+
+    let style = match args.style.as_str() {
+        "plastic" => BadgeStyle::Plastic,
+        _ => BadgeStyle::Flat,
+    };
+
+    // Use provided score or compute from scan
+    let score = if let Some(s) = args.score {
+        s
+    } else {
+        // Run a quick scan to get the overall score
+        let analyzer = CodeAnalyzer::new(&[], "en-US");
+        let issues = analyzer.analyze_path(&args.path);
+        let (file_count, total_lines) = calculate_metrics(&args.path, &[]);
+        let code_issues = issues.len();
+        let code_score = if total_lines > 0 {
+            let issue_density = code_issues as f64 / total_lines as f64 * 1000.0;
+            (100.0 - issue_density * 2.0).clamp(0.0, 100.0)
+        } else {
+            100.0
+        };
+
+        let commit_config = commit_roaster::analyzer::AnalyzerConfig::default();
+        let commit_score = commit_roaster::run(
+            &args.path,
+            &commit_config,
+            &commit_roaster::OutputFormat::Json,
+        )
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| v["score"].as_f64())
+        .unwrap_or(100.0);
+
+        let deps_score = deps_shamer::run(&args.path, &deps_shamer::OutputFormat::Json)
+            .ok()
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .and_then(|v| v["score"].as_f64())
+            .unwrap_or(100.0);
+
+        let scores = vec![
+            ("code-hunter", code_score, file_count),
+            ("commit-roaster", commit_score, 0),
+            ("deps-shamer", deps_score, 0),
+        ];
+        overall_score(&scores)
+    };
+
+    match badge::run(score, &args.output, &style) {
+        Ok(msg) => println!("{}", msg),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_trend(args: TrendArgs) {
+    use garbage_code_hunter::trend;
+    use garbage_code_hunter::trend::OutputFormat;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match trend::run(args.last, &format) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
     }
 }
 

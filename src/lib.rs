@@ -2,6 +2,7 @@
 // This allows the crate to be used both as a binary and a library
 
 pub mod analyzer;
+pub mod badge;
 pub mod commit_roaster;
 pub mod common;
 pub mod config;
@@ -16,6 +17,7 @@ pub mod pr_title_hunter;
 pub mod reporter;
 pub mod rules;
 pub mod scoring;
+pub mod trend;
 pub mod utils;
 
 pub use analyzer::{CodeAnalyzer, CodeIssue, Severity};
