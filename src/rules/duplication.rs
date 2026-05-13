@@ -135,12 +135,8 @@ impl Rule for CodeDuplicationRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         if let Some(warning) = get_pattern_warning() {
             eprintln!("\n⚠️  [code-duplication] {}\n", warning);
         }

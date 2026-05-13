@@ -6,7 +6,7 @@ use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::{count_non_comment_matches, find_line_of_str, get_position};
 
-/// Detect println! debugging statements everywhere
+/// Detects println!/eprintln! used as debugging output instead of proper logging.
 pub struct PrintlnDebuggingRule;
 
 impl Rule for PrintlnDebuggingRule {
@@ -20,12 +20,8 @@ impl Rule for PrintlnDebuggingRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut issues = Vec::new();
 
         // Check if this is a main.rs or lib.rs file (CLI tools legitimately use println!)
@@ -257,7 +253,7 @@ impl Rule for PrintlnDebuggingRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
         context: &FileContext,
         _config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
@@ -271,18 +267,18 @@ impl Rule for PrintlnDebuggingRule {
         let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
         if file_name == "main.rs" || file_name == "lib.rs" {
             // For entry files, only report Nuclear level issues (excessive debug output)
-            let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+            let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
             return issues
                 .into_iter()
                 .filter(|issue| issue.severity == Severity::Nuclear)
                 .collect();
         }
 
-        self.check(file_path, syntax_tree, content, lang, is_test_file)
+        self.check(file_path, syntax_tree, content, lang, _is_test_file)
     }
 }
 
-/// Detect casual use of panic! and unwrap()
+/// Detects casual use of panic! macro instead of proper error handling.
 pub struct PanicAbuseRule;
 
 impl Rule for PanicAbuseRule {
@@ -296,11 +292,8 @@ impl Rule for PanicAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = PanicAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -317,7 +310,7 @@ impl Rule for PanicAbuseRule {
     }
 }
 
-/// Detect excessive TODO comments (both macro calls and comment markers)
+/// Detects excessive TODO/FIXME/HACK comments and todo!/unimplemented! macros.
 pub struct TodoCommentRule;
 
 impl Rule for TodoCommentRule {
@@ -331,11 +324,8 @@ impl Rule for TodoCommentRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut issues = Vec::new();
 
         // 1. Check macro calls that cause panics (todo!, unimplemented!, etc.)
@@ -641,5 +631,52 @@ impl<'ast> Visit<'ast> for PanicAbuseVisitor {
             }
         }
         syn::visit::visit_expr_macro(self, expr_macro);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_rule(rule: &impl Rule, code: &str) -> Vec<CodeIssue> {
+        let path = std::path::Path::new("test.rs");
+        let ast = syn::parse_file(code).unwrap();
+        rule.check(path, &ast, code, "en-US", false)
+    }
+
+    #[test]
+    fn test_println_debugging_detects_debug_print() {
+        let code = r#"
+            fn main() {
+                println!("debug here");
+                println!("check this");
+                println!("test output");
+                println!("step 1");
+            }
+        "#;
+        let issues = check_rule(&PrintlnDebuggingRule, code);
+        assert!(!issues.is_empty());
+        assert!(issues.iter().any(|i| i.rule_name == "println-debugging"));
+    }
+
+    #[test]
+    fn test_panic_abuse_detects_panics() {
+        let code = r#"
+            fn main() {
+                panic!("oh no");
+                panic!("again");
+                panic!("and again");
+            }
+        "#;
+        let issues = check_rule(&PanicAbuseRule, code);
+        assert!(!issues.is_empty());
+        assert!(issues.iter().any(|i| i.rule_name == "panic-abuse"));
+    }
+
+    #[test]
+    fn test_rule_names() {
+        assert_eq!(PrintlnDebuggingRule.name(), "println-debugging");
+        assert_eq!(PanicAbuseRule.name(), "panic-abuse");
+        assert_eq!(TodoCommentRule.name(), "todo-comment");
     }
 }

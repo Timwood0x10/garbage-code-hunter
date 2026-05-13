@@ -19,6 +19,7 @@ pub struct CodeQualityScore {
     pub quality_level: QualityLevel,
 }
 
+/// Breakdown of issues by severity level.
 #[derive(Debug, Clone)]
 pub struct SeverityDistribution {
     pub nuclear: usize,
@@ -26,6 +27,7 @@ pub struct SeverityDistribution {
     pub mild: usize,
 }
 
+/// Overall code quality rating derived from the score.
 #[derive(Debug, Clone, PartialEq)]
 pub enum QualityLevel {
     Excellent, // 0-20
@@ -72,6 +74,7 @@ impl QualityLevel {
     }
 }
 
+/// Calculates severity-weighted, category-based code quality scores.
 pub struct CodeScorer;
 
 impl CodeScorer {
@@ -155,17 +158,34 @@ impl CodeScorer {
         total_lines: usize,
     ) -> HashMap<String, f64> {
         let mut category_scores = HashMap::new();
-        let mut category_counts: HashMap<String, usize> = HashMap::new();
+        let mut category_weighted_counts: HashMap<String, f64> = HashMap::new();
 
-        // Define categories with weights and thresholds
+        // Define categories with their rule mappings
         let categories = [
-            ("naming", vec!["terrible-naming", "single-letter-variable"]),
+            (
+                "naming",
+                vec![
+                    "terrible-naming",
+                    "single-letter-variable",
+                    "meaningless-naming",
+                    "hungarian-notation",
+                    "abbreviation-abuse",
+                ],
+            ),
             (
                 "complexity",
                 vec!["deep-nesting", "long-function", "cyclomatic-complexity"],
             ),
             ("duplication", vec!["code-duplication"]),
-            ("rust-basics", vec!["unwrap-abuse", "unnecessary-clone"]),
+            (
+                "rust-basics",
+                vec![
+                    "unwrap-abuse",
+                    "unnecessary-clone",
+                    "string-abuse",
+                    "vec-abuse",
+                ],
+            ),
             (
                 "advanced-rust",
                 vec![
@@ -194,25 +214,51 @@ impl CodeScorer {
                     "reference-abuse",
                     "box-abuse",
                     "slice-abuse",
+                    "file-too-long",
+                    "duplicate-imports",
+                    "deep-module-nesting",
                 ],
+            ),
+            (
+                "code-smells",
+                vec![
+                    "magic-number",
+                    "god-function",
+                    "commented-code",
+                    "dead-code",
+                ],
+            ),
+            (
+                "student-code",
+                vec!["println-debugging", "panic-abuse", "todo-comment"],
             ),
         ];
 
-        // Count issues per category
+        // Severity weights: Nuclear issues count 6x as much as Mild
+        let severity_weight = |severity: &Severity| -> f64 {
+            match severity {
+                Severity::Nuclear => 3.0,
+                Severity::Spicy => 1.5,
+                Severity::Mild => 0.5,
+            }
+        };
+
+        // Accumulate severity-weighted counts per category
         for issue in issues {
+            let weight = severity_weight(&issue.severity);
             for (category_name, rules) in &categories {
                 if rules.contains(&issue.rule_name.as_str()) {
-                    *category_counts
+                    *category_weighted_counts
                         .entry(category_name.to_string())
-                        .or_insert(0) += 1;
+                        .or_insert(0.0) += weight;
                 }
             }
         }
 
         // Calculate normalized scores for each category (0-100)
         for (category_name, _) in &categories {
-            let count = category_counts.get(*category_name).unwrap_or(&0);
-            let score = self.calculate_category_score(*count, total_lines, category_name);
+            let weighted_count = category_weighted_counts.get(*category_name).unwrap_or(&0.0);
+            let score = self.calculate_category_score(*weighted_count, total_lines, category_name);
             category_scores.insert(category_name.to_string(), score);
         }
 
@@ -222,7 +268,7 @@ impl CodeScorer {
     /// Calculate score for a specific category (0-100, where 0 is perfect, 100 is terrible, maximum 90)
     fn calculate_category_score(
         &self,
-        issue_count: usize,
+        weighted_count: f64,
         total_lines: usize,
         category: &str,
     ) -> f64 {
@@ -230,8 +276,8 @@ impl CodeScorer {
             return 0.0; // Perfect score when no code
         }
 
-        // Calculate issues per 1000 lines for this category
-        let issues_per_1k_lines = (issue_count as f64 / total_lines as f64) * 1000.0;
+        // Calculate weighted issues per 1000 lines for this category
+        let issues_per_1k_lines = (weighted_count / total_lines as f64) * 1000.0;
 
         // Different thresholds for different categories
         let (excellent_threshold, good_threshold, average_threshold, poor_threshold) =
@@ -243,6 +289,8 @@ impl CodeScorer {
                 "advanced-rust" => (0.0, 0.5, 2.0, 4.0), // Advanced features should be used carefully
                 "rust-features" => (0.0, 0.5, 1.5, 3.0), // Special features should be rare
                 "structure" => (0.0, 1.0, 3.0, 6.0),     // Structure issues
+                "code-smells" => (0.0, 1.5, 4.0, 8.0),   // Code smells are common
+                "student-code" => (0.0, 1.0, 3.0, 6.0),  // Student patterns
                 _ => (0.0, 1.0, 3.0, 6.0),               // Default thresholds
             };
 
@@ -268,15 +316,17 @@ impl CodeScorer {
 
     /// Calculate weighted final score from category scores
     fn calculate_weighted_final_score(&self, category_scores: &HashMap<String, f64>) -> f64 {
-        // Category weights (should sum to 1.0)
+        // Category weights (sum to ~0.95, normalized by total_weight)
         let weights = [
-            ("naming", 0.25),        // 25% - Very important
-            ("complexity", 0.20),    // 20% - Very important
-            ("duplication", 0.15),   // 15% - Important
-            ("rust-basics", 0.15),   // 15% - Important
+            ("naming", 0.20),        // 20% - Very important (includes garbage-naming)
+            ("complexity", 0.15),    // 15% - Very important
+            ("duplication", 0.10),   // 10% - Important
+            ("rust-basics", 0.15),   // 15% - Important (includes string/vec abuse)
             ("advanced-rust", 0.10), // 10% - Moderate
-            ("rust-features", 0.10), // 10% - Moderate
-            ("structure", 0.05),     // 5% - Less critical
+            ("rust-features", 0.05), // 5% - Moderate
+            ("structure", 0.05),     // 5% - Less critical (includes file-structure)
+            ("code-smells", 0.10),   // 10% - Common issues
+            ("student-code", 0.05),  // 5% - Beginner patterns
         ];
 
         let mut weighted_sum = 0.0;

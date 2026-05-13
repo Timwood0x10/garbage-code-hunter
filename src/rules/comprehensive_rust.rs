@@ -8,13 +8,21 @@ use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::{count_non_import_matches, find_line_of_str, get_position};
 
+/// Detects excessive channel usage that may indicate architectural issues.
 pub struct ChannelAbuseRule;
+/// Detects async/await misuse or unnecessary async blocks.
 pub struct AsyncAbuseRule;
+/// Detects excessive use of `dyn Trait` instead of static dispatch.
 pub struct DynTraitAbuseRule;
+/// Detects unsafe blocks that may be avoidable with safe alternatives.
 pub struct UnsafeAbuseRule;
+/// Detects excessive or unsafe FFI (Foreign Function Interface) usage.
 pub struct FFIAbuseRule;
+/// Detects excessive macro usage that harms readability.
 pub struct MacroAbuseRule;
+/// Detects overly complex module structures.
 pub struct ModuleComplexityRule;
+/// Detects pattern matching that could be simplified.
 pub struct PatternMatchingAbuseRule;
 
 impl Rule for ChannelAbuseRule {
@@ -28,11 +36,8 @@ impl Rule for ChannelAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = ChannelVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -59,11 +64,8 @@ impl Rule for AsyncAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = AsyncVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -81,11 +83,8 @@ impl Rule for DynTraitAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = DynTraitVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -103,11 +102,8 @@ impl Rule for UnsafeAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = UnsafeVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -128,11 +124,8 @@ impl Rule for FFIAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = FFIVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
 
@@ -153,12 +146,8 @@ impl Rule for MacroAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut visitor = MacroVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -176,11 +165,8 @@ impl Rule for ModuleComplexityRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = ModuleVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -198,12 +184,8 @@ impl Rule for PatternMatchingAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         // Skip i18n/internationalization files (they legitimately have many match branches)
         let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
         if file_name.contains("i18n") || file_name.contains("locale") || file_name.contains("lang")

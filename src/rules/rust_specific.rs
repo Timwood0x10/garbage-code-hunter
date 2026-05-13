@@ -6,6 +6,7 @@ use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
+/// Detects excessive use of `.unwrap()` instead of proper error handling.
 pub struct UnwrapAbuseRule;
 
 impl Rule for UnwrapAbuseRule {
@@ -19,11 +20,8 @@ impl Rule for UnwrapAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = UnwrapVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -35,7 +33,7 @@ impl Rule for UnwrapAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
         context: &FileContext,
         _config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
@@ -47,7 +45,7 @@ impl Rule for UnwrapAbuseRule {
 
         // Example/Demo: 提高阈值到 >10 才报告
         if weight < 0.7 {
-            let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+            let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
             // 仅当 unwrap 数量 > 10 时才报告
             if issues.len() > 10 {
                 return issues;
@@ -55,10 +53,11 @@ impl Rule for UnwrapAbuseRule {
             return Vec::new();
         }
 
-        self.check(file_path, syntax_tree, content, lang, is_test_file)
+        self.check(file_path, syntax_tree, content, lang, _is_test_file)
     }
 }
 
+/// Detects excessive use of `.clone()` that may indicate ownership issues.
 pub struct UnnecessaryCloneRule;
 
 impl Rule for UnnecessaryCloneRule {
@@ -72,11 +71,8 @@ impl Rule for UnnecessaryCloneRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = CloneVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -333,5 +329,49 @@ impl<'ast> Visit<'ast> for CloneVisitor {
         }
 
         syn::visit::visit_expr_method_call(self, method_call);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_rule(rule: &impl Rule, code: &str) -> Vec<CodeIssue> {
+        let path = std::path::Path::new("test.rs");
+        let ast = syn::parse_file(code).unwrap();
+        rule.check(path, &ast, code, "en-US", false)
+    }
+
+    #[test]
+    fn test_unwrap_abuse_detects_unwrap() {
+        let code = r#"
+            fn main() {
+                let x = Some(1).unwrap();
+                let y = Some(2).unwrap();
+                let z = Some(3).unwrap();
+                let w = Some(4).unwrap();
+            }
+        "#;
+        let issues = check_rule(&UnwrapAbuseRule, code);
+        assert!(!issues.is_empty());
+        assert!(issues.iter().any(|i| i.rule_name == "unwrap-abuse"));
+    }
+
+    #[test]
+    fn test_unwrap_abuse_clean_code() {
+        let code = r#"
+            fn main() -> Result<(), Box<dyn std::error::Error>> {
+                let x = Some(1).ok_or("missing")?;
+                Ok(())
+            }
+        "#;
+        let issues = check_rule(&UnwrapAbuseRule, code);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_rule_names() {
+        assert_eq!(UnwrapAbuseRule.name(), "unwrap-abuse");
+        assert_eq!(UnnecessaryCloneRule.name(), "unnecessary-clone");
     }
 }

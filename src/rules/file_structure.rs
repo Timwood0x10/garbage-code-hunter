@@ -13,6 +13,10 @@ impl Rule for FileStructureRule {
         "file-structure"
     }
 
+    fn skips_test_files(&self) -> bool {
+        false
+    }
+
     fn check(
         &self,
         file_path: &Path,
@@ -87,12 +91,8 @@ impl Rule for ImportChaosRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut issues = Vec::new();
 
         // Check for duplicate use statements
@@ -142,6 +142,10 @@ pub struct ModuleNestingRule;
 impl Rule for ModuleNestingRule {
     fn name(&self) -> &'static str {
         "module-nesting"
+    }
+
+    fn skips_test_files(&self) -> bool {
+        false
     }
 
     fn check(

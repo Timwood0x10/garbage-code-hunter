@@ -1,5 +1,6 @@
 //! Shared types and utilities used across multiple analysis modules.
 
+pub mod i18n_ext;
 pub mod severity;
 pub use severity::Severity;
 

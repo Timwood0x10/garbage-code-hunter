@@ -5,6 +5,7 @@ use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
+/// Detects closures that are too complex and should be extracted to named functions.
 pub struct ComplexClosureRule;
 
 impl Rule for ComplexClosureRule {
@@ -18,17 +19,15 @@ impl Rule for ComplexClosureRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = ClosureVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
 }
 
+/// Detects excessive or unnecessary lifetime annotations.
 pub struct LifetimeAbuseRule;
 
 impl Rule for LifetimeAbuseRule {
@@ -42,18 +41,15 @@ impl Rule for LifetimeAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut visitor = LifetimeVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
 }
 
+/// Detects overly complex trait definitions with too many methods or bounds.
 pub struct TraitComplexityRule;
 
 impl Rule for TraitComplexityRule {
@@ -67,17 +63,15 @@ impl Rule for TraitComplexityRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = TraitVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
     }
 }
 
+/// Detects excessive generic type parameters that hurt readability.
 pub struct GenericAbuseRule;
 
 impl Rule for GenericAbuseRule {
@@ -91,11 +85,8 @@ impl Rule for GenericAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = GenericVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues

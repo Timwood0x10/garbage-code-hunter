@@ -5,11 +5,16 @@ use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::get_position;
 
+/// Detects deeply nested code blocks (if/for/while/match).
 pub struct DeepNestingRule;
 
 impl Rule for DeepNestingRule {
     fn name(&self) -> &'static str {
         "deep-nesting"
+    }
+
+    fn skips_test_files(&self) -> bool {
+        false
     }
 
     fn check(
@@ -26,11 +31,16 @@ impl Rule for DeepNestingRule {
     }
 }
 
+/// Detects functions that exceed a reasonable line count threshold.
 pub struct LongFunctionRule;
 
 impl Rule for LongFunctionRule {
     fn name(&self) -> &'static str {
         "long-function"
+    }
+
+    fn skips_test_files(&self) -> bool {
+        false
     }
 
     fn check(
@@ -271,5 +281,59 @@ impl<'ast> Visit<'ast> for FunctionLengthVisitor {
         }
 
         syn::visit::visit_item_fn(self, func);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_rule(rule: &impl Rule, code: &str) -> Vec<CodeIssue> {
+        let path = std::path::Path::new("test.rs");
+        let ast = syn::parse_file(code).unwrap();
+        rule.check(path, &ast, code, "en-US", false)
+    }
+
+    #[test]
+    fn test_deep_nesting_detects_nested_code() {
+        let code = r#"
+            fn main() {
+                if true {
+                    if true {
+                        if true {
+                            if true {
+                                if true {
+                                    if true {
+                                        println!("deep");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        "#;
+        let issues = check_rule(&DeepNestingRule, code);
+        assert!(!issues.is_empty());
+        assert!(issues.iter().any(|i| i.rule_name == "deep-nesting"));
+    }
+
+    #[test]
+    fn test_deep_nesting_clean_code() {
+        let code = r#"
+            fn main() {
+                if true {
+                    println!("shallow");
+                }
+            }
+        "#;
+        let issues = check_rule(&DeepNestingRule, code);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_rule_names() {
+        assert_eq!(DeepNestingRule.name(), "deep-nesting");
+        assert_eq!(LongFunctionRule.name(), "long-function");
     }
 }

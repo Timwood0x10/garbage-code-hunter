@@ -17,10 +17,23 @@ pub mod rust_specific;
 pub mod struct_patterns;
 pub mod student_code;
 
+/// A code quality rule that analyzes Rust source files for issues.
+///
+/// Each rule targets a specific category of code smell or anti-pattern.
+/// Implementors must provide [`name()`](Rule::name) and at least one of
+/// [`check()`](Rule::check) or [`check_with_context()`](Rule::check_with_context).
 pub trait Rule {
+    /// Returns the unique identifier for this rule (e.g. `"unwrap-abuse"`).
     fn name(&self) -> &'static str;
 
-    /// Original check method (backward compatible)
+    /// Whether this rule should skip test files (default: true).
+    /// Rules that adjust thresholds for test files instead of skipping
+    /// should override this to return `false`.
+    fn skips_test_files(&self) -> bool {
+        true
+    }
+
+    /// Analyze a file and return a list of detected issues.
     fn check(
         &self,
         file_path: &Path,
@@ -40,7 +53,9 @@ pub trait Rule {
         )
     }
 
-    /// New method: check with context (recommended)
+    /// Analyze a file with additional context about the file's role in the project.
+    /// Prefer overriding this method when the rule needs to adjust behavior based
+    /// on file context (e.g. skipping UI files, relaxing thresholds for examples).
     #[allow(clippy::too_many_arguments)]
     fn check_with_context(
         &self,
@@ -56,6 +71,10 @@ pub trait Rule {
     }
 }
 
+/// Central engine that runs all registered rules against source files.
+///
+/// Handles test-file skipping via [`Rule::skips_test_files()`] and
+/// context-aware analysis via [`Rule::check_with_context()`].
 pub struct RuleEngine {
     rules: Vec<Box<dyn Rule>>,
     config: ProjectConfig,
@@ -138,6 +157,10 @@ impl RuleEngine {
 
         for rule in &self.rules {
             if context.should_skip_rule(rule.name()) {
+                continue;
+            }
+
+            if is_test_file && rule.skips_test_files() {
                 continue;
             }
 

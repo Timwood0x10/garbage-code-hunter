@@ -24,7 +24,7 @@ enum MagicNumberCategory {
     General,
 }
 
-/// Detect magic numbers (hardcoded numeric constants)
+/// Detects hardcoded magic numbers that should be named constants.
 pub struct MagicNumberRule;
 
 impl Rule for MagicNumberRule {
@@ -38,12 +38,8 @@ impl Rule for MagicNumberRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut visitor = MagicNumberVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -55,7 +51,7 @@ impl Rule for MagicNumberRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
         context: &FileContext,
         _config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
@@ -66,7 +62,7 @@ impl Rule for MagicNumberRule {
         }
 
         // 获取所有问题
-        let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+        let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
 
         // UI/TUI 文件过滤：检测到 UI 相关路径时，仅保留严重问题
         let path_str = file_path.to_string_lossy().to_lowercase();
@@ -105,11 +101,8 @@ impl Rule for GodFunctionRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = GodFunctionVisitor::new(file_path.to_path_buf(), content, lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -130,11 +123,8 @@ impl Rule for CommentedCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
 
@@ -207,12 +197,8 @@ impl Rule for DeadCodeRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut issues = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
         let mut dead_code_start: Option<usize> = None;
@@ -697,5 +683,50 @@ impl<'ast> Visit<'ast> for GodFunctionVisitor {
     fn visit_item_fn(&mut self, func: &'ast ItemFn) {
         self.analyze_function_complexity(func);
         syn::visit::visit_item_fn(self, func);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_rule(rule: &impl Rule, code: &str) -> Vec<CodeIssue> {
+        let path = std::path::Path::new("test.rs");
+        let ast = syn::parse_file(code).unwrap();
+        rule.check(path, &ast, code, "en-US", false)
+    }
+
+    #[test]
+    fn test_magic_number_detects_hardcoded_value() {
+        let code = r#"
+            fn main() {
+                let timeout = 3742;
+                let retries = 99;
+            }
+        "#;
+        let issues = check_rule(&MagicNumberRule, code);
+        assert!(!issues.is_empty());
+        assert!(issues.iter().any(|i| i.rule_name == "magic-number"));
+    }
+
+    #[test]
+    fn test_magic_number_ignores_common_values() {
+        let code = r#"
+            fn main() {
+                let x = 0;
+                let y = 1;
+                let z = 100;
+            }
+        "#;
+        let issues = check_rule(&MagicNumberRule, code);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_rule_names() {
+        assert_eq!(MagicNumberRule.name(), "magic-number");
+        assert_eq!(GodFunctionRule.name(), "god-function");
+        assert_eq!(CommentedCodeRule.name(), "commented-code");
+        assert_eq!(DeadCodeRule.name(), "dead-code");
     }
 }

@@ -6,7 +6,7 @@ use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
-/// Detect meaningless placeholder names: foo, bar, baz, qux, test, temp, etc.
+/// Detects meaningless placeholder names: foo, bar, baz, qux, test, temp, etc.
 pub struct MeaninglessNamingRule;
 
 impl Rule for MeaninglessNamingRule {
@@ -20,12 +20,8 @@ impl Rule for MeaninglessNamingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut visitor = MeaninglessNamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -37,7 +33,7 @@ impl Rule for MeaninglessNamingRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
         context: &FileContext,
         _config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
@@ -49,7 +45,7 @@ impl Rule for MeaninglessNamingRule {
 
             // Example/Demo: 仅报告 Nuclear 级别问题（极少）
             Example => {
-                let issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
                 return issues
                     .into_iter()
                     .filter(|issue| issue.severity == Severity::Nuclear)
@@ -58,7 +54,7 @@ impl Rule for MeaninglessNamingRule {
 
             // UI/TUI code: Skip UI-specific common names (x, y, w, h, r, g, b, etc.)
             UI => {
-                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let all_issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
                 let ui_whitelist = [
                     // Coordinates and dimensions
                     "x", "y", "w", "h", // Colors
@@ -86,7 +82,7 @@ impl Rule for MeaninglessNamingRule {
 
             // GPU code: Skip GPU-common names (i, j, k, idx, src, dst, etc.)
             GPU => {
-                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let all_issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
                 let gpu_whitelist = [
                     "i", "j", "k",   // loop indices
                     "idx", // index abbreviation
@@ -110,7 +106,7 @@ impl Rule for MeaninglessNamingRule {
 
             // Web code: Slightly relaxed - allow common web naming
             Web => {
-                let all_issues = self.check(file_path, syntax_tree, content, lang, is_test_file);
+                let all_issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
                 let web_whitelist = [
                     "data", // request/response data
                     "info", // metadata
@@ -138,7 +134,7 @@ impl Rule for MeaninglessNamingRule {
             Config => return Vec::new(),
         }
 
-        self.check(file_path, syntax_tree, content, lang, is_test_file)
+        self.check(file_path, syntax_tree, content, lang, _is_test_file)
     }
 }
 
@@ -156,11 +152,8 @@ impl Rule for HungarianNotationRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = HungarianNotationVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -181,11 +174,8 @@ impl Rule for AbbreviationAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = AbbreviationAbuseVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -515,5 +505,48 @@ impl<'ast> Visit<'ast> for AbbreviationAbuseVisitor {
                 .push(self.create_issue(&name, suggestion, line, column));
         }
         syn::visit::visit_ident(self, ident);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_rule(rule: &impl Rule, code: &str) -> Vec<CodeIssue> {
+        let path = std::path::Path::new("test.rs");
+        let ast = syn::parse_file(code).unwrap();
+        rule.check(path, &ast, code, "en-US", false)
+    }
+
+    #[test]
+    fn test_meaningless_naming_detects_foo() {
+        let code = r#"
+            fn main() {
+                let foo = 1;
+                let bar = 2;
+            }
+        "#;
+        let issues = check_rule(&MeaninglessNamingRule, code);
+        assert!(!issues.is_empty());
+        assert!(issues.iter().any(|i| i.rule_name == "meaningless-naming"));
+    }
+
+    #[test]
+    fn test_meaningless_naming_clean_code() {
+        let code = r#"
+            fn main() {
+                let user_count = 1;
+                let max_retries = 3;
+            }
+        "#;
+        let issues = check_rule(&MeaninglessNamingRule, code);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_rule_names() {
+        assert_eq!(MeaninglessNamingRule.name(), "meaningless-naming");
+        assert_eq!(HungarianNotationRule.name(), "hungarian-notation");
+        assert_eq!(AbbreviationAbuseRule.name(), "abbreviation-abuse");
     }
 }

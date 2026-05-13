@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="340" viewBox="0 0 300 340">
+  <style>
+    text { font-family: sans-serif; font-size: 11px; fill: #333; }
+    .title { font-size: 14px; font-weight: bold; fill: #111; }
+  </style>
+  <text x="150" y="20" text-anchor="middle" class="title">Code Smell Radar</text>
+  <circle cx="150" cy="150" r="30" fill="none" stroke="#ddd" stroke-width="0.5"/>
+  <circle cx="150" cy="150" r="60" fill="none" stroke="#ddd" stroke-width="0.5"/>
+  <circle cx="150" cy="150" r="90" fill="none" stroke="#ddd" stroke-width="0.5"/>
+  <circle cx="150" cy="150" r="120" fill="none" stroke="#ddd" stroke-width="0.5"/>
+  <line x1="150" y1="150" x2="150" y2="30" stroke="#ccc" stroke-width="0.5"/>
+  <text x="150" y="12" text-anchor="middle">Complexity</text>
+  <line x1="150" y1="150" x2="253.92304845413264" y2="90" stroke="#ccc" stroke-width="0.5"/>
+  <text x="269.51150572225254" y="81" text-anchor="start">Duplication</text>
+  <line x1="150" y1="150" x2="253.92304845413264" y2="209.99999999999997" stroke="#ccc" stroke-width="0.5"/>
+  <text x="269.51150572225254" y="218.99999999999997" text-anchor="start">Naming</text>
+  <line x1="150" y1="150" x2="150" y2="270" stroke="#ccc" stroke-width="0.5"/>
+  <text x="150" y="288" text-anchor="middle">Panic Risk</text>
+  <line x1="150" y1="150" x2="46.07695154586739" y2="210.00000000000006" stroke="#ccc" stroke-width="0.5"/>
+  <text x="30.488494277747492" y="219.00000000000006" text-anchor="end">Dep Hell</text>
+  <line x1="150" y1="150" x2="46.07695154586732" y2="90.00000000000007" stroke="#ccc" stroke-width="0.5"/>
+  <text x="30.488494277747407" y="81.00000000000009" text-anchor="end">Legacy Smell</text>
+  <polygon points="150,30 253.92304845413264,90 253.92304845413264,209.99999999999997 150,168 150,150 46.07695154586732,90.00000000000007" fill="rgba(255,99,71,0.25)" stroke="#e74c3c" stroke-width="2"/>
+  <circle cx="150" cy="30" r="3" fill="#e74c3c"/>
+  <text x="150" y="22" text-anchor="middle" font-size="9" fill="#666">100</text>
+  <circle cx="253.92304845413264" cy="90" r="3" fill="#e74c3c"/>
+  <text x="253.92304845413264" y="82" text-anchor="middle" font-size="9" fill="#666">100</text>
+  <circle cx="253.92304845413264" cy="209.99999999999997" r="3" fill="#e74c3c"/>
+  <text x="253.92304845413264" y="201.99999999999997" text-anchor="middle" font-size="9" fill="#666">100</text>
+  <circle cx="150" cy="168" r="3" fill="#e74c3c"/>
+  <text x="150" y="160" text-anchor="middle" font-size="9" fill="#666">15</text>
+  <circle cx="150" cy="150" r="3" fill="#e74c3c"/>
+  <text x="150" y="142" text-anchor="middle" font-size="9" fill="#666">0</text>
+  <circle cx="46.07695154586732" cy="90.00000000000007" r="3" fill="#e74c3c"/>
+  <text x="46.07695154586732" y="82.00000000000007" text-anchor="middle" font-size="9" fill="#666">100</text>
+  <text x="150" y="330" text-anchor="middle" font-size="10" fill="#666">Higher = worse smell</text>
+</svg>

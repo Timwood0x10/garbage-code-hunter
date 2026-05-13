@@ -84,35 +84,61 @@ pub fn generate_svg(score: f64, style: &BadgeStyle) -> String {
         BadgeStyle::Plastic => {
             let mut s = String::new();
             s.push_str(&format!(
-                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{}\" height=\"18\">\n",
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{}\" height=\"20\">\n",
                 total_width
             ));
+            // Top shine highlight gradient (visible 3D effect)
             s.push_str("  <linearGradient id=\"a\" x2=\"0\" y2=\"100%\">\n");
-            s.push_str("    <stop offset=\"0\" stop-color=\"#fcfcfc\" stop-opacity=\"0\"/>\n");
-            s.push_str("    <stop offset=\"1\" stop-opacity=\"0\"/>\n");
+            s.push_str("    <stop offset=\"0\" stop-color=\"#fff\" stop-opacity=\".35\"/>\n");
+            s.push_str("    <stop offset=\"1\" stop-opacity=\".15\"/>\n");
+            s.push_str("  </linearGradient>\n");
+            // Bottom shadow gradient
+            s.push_str("  <linearGradient id=\"b\" x2=\"0\" y2=\"100%\">\n");
+            s.push_str("    <stop offset=\"0\" stop-color=\"#000\" stop-opacity=\".12\"/>\n");
+            s.push_str("    <stop offset=\"1\" stop-opacity=\".25\"/>\n");
             s.push_str("  </linearGradient>\n");
             s.push_str(&format!(
-                "  <mask id=\"m\"><rect width=\"{}\" height=\"18\" rx=\"4\" fill=\"#fff\"/></mask>\n",
+                "  <mask id=\"m\"><rect width=\"{}\" height=\"20\" rx=\"5\" fill=\"#fff\"/></mask>\n",
                 total_width
             ));
             s.push_str("  <g mask=\"url(#m)\">\n");
+            // Base colors
             s.push_str(&format!(
-                "    <rect width=\"{}\" height=\"18\" fill=\"#555\"/>\n",
+                "    <rect width=\"{}\" height=\"20\" fill=\"#555\"/>\n",
                 label_width
             ));
             s.push_str(&format!(
-                "    <rect x=\"{}\" width=\"{}\" height=\"18\" fill=\"{}\"/>\n",
+                "    <rect x=\"{}\" width=\"{}\" height=\"20\" fill=\"{}\"/>\n",
                 label_width, score_width, color
             ));
+            // Top shine strip (the signature plastic look)
             s.push_str(&format!(
-                "    <rect width=\"{}\" height=\"18\" fill=\"url(#a)\"/>\n",
+                "    <rect width=\"{}\" height=\"10\" fill=\"url(#a)\"/>\n",
+                total_width
+            ));
+            // Bottom shadow
+            s.push_str(&format!(
+                "    <rect y=\"10\" width=\"{}\" height=\"10\" fill=\"url(#b)\"/>\n",
                 total_width
             ));
             s.push_str("  </g>\n");
+            // Thin white highlight line at very top for extra 3D pop
+            s.push_str(&format!(
+                "  <rect width=\"{}\" height=\"1\" fill=\"#fff\" fill-opacity=\".3\" rx=\"5\"/>\n",
+                total_width
+            ));
             s.push_str("  <g fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\">\n");
+            s.push_str(&format!(
+                "    <text x=\"{}\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">{}</text>\n",
+                label_center, label
+            ));
             s.push_str(&format!(
                 "    <text x=\"{}\" y=\"14\">{}</text>\n",
                 label_center, label
+            ));
+            s.push_str(&format!(
+                "    <text x=\"{}\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">{}</text>\n",
+                score_center, score_str
             ));
             s.push_str(&format!(
                 "    <text x=\"{}\" y=\"14\">{}</text>\n",

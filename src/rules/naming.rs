@@ -7,6 +7,7 @@ use crate::context::FileContext;
 use crate::rules::Rule;
 use crate::utils::get_position;
 
+/// Detects generic/meaningless variable names like `data`, `temp`, `value`.
 pub struct TerribleNamingRule;
 
 impl Rule for TerribleNamingRule {
@@ -20,12 +21,8 @@ impl Rule for TerribleNamingRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut visitor = NamingVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -37,7 +34,7 @@ impl Rule for TerribleNamingRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
         context: &FileContext,
         _config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
@@ -47,10 +44,11 @@ impl Rule for TerribleNamingRule {
             return Vec::new();
         }
 
-        self.check(file_path, syntax_tree, content, lang, is_test_file)
+        self.check(file_path, syntax_tree, content, lang, _is_test_file)
     }
 }
 
+/// Detects single-letter variable names (excluding common ones like `i`, `x`, `y`).
 pub struct SingleLetterVariableRule;
 
 impl Rule for SingleLetterVariableRule {
@@ -64,12 +62,8 @@ impl Rule for SingleLetterVariableRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut visitor = SingleLetterVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -264,5 +258,59 @@ impl<'ast> Visit<'ast> for SingleLetterVisitor {
         }
 
         syn::visit::visit_pat_ident(self, pat_ident);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_rule(rule: &impl Rule, code: &str) -> Vec<CodeIssue> {
+        let path = std::path::Path::new("test.rs");
+        let ast = syn::parse_file(code).unwrap();
+        rule.check(path, &ast, code, "en-US", false)
+    }
+
+    #[test]
+    fn test_terrible_naming_detects_data() {
+        let issues = check_rule(&TerribleNamingRule, "fn main() { let data = 1; }");
+        assert!(!issues.is_empty());
+        assert!(issues.iter().any(|i| i.rule_name == "terrible-naming"));
+    }
+
+    #[test]
+    fn test_terrible_naming_clean_code() {
+        let issues = check_rule(&TerribleNamingRule, "fn main() { let user_count = 1; }");
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_terrible_naming_detects_temp() {
+        let issues = check_rule(&TerribleNamingRule, "fn process() { let temp = 42; }");
+        assert!(!issues.is_empty());
+    }
+
+    #[test]
+    fn test_single_letter_detects_bad_var() {
+        let issues = check_rule(&SingleLetterVariableRule, "fn main() { let q = 1; }");
+        assert!(!issues.is_empty());
+        assert!(issues
+            .iter()
+            .any(|i| i.rule_name == "single-letter-variable"));
+    }
+
+    #[test]
+    fn test_single_letter_allows_common_vars() {
+        let issues = check_rule(
+            &SingleLetterVariableRule,
+            "fn main() { let i = 0; let x = 1; let y = 2; }",
+        );
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_rule_names() {
+        assert_eq!(TerribleNamingRule.name(), "terrible-naming");
+        assert_eq!(SingleLetterVariableRule.name(), "single-letter-variable");
     }
 }

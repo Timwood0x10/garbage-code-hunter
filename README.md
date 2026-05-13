@@ -26,6 +26,16 @@ Garbage Code Hunter is a CLI toolkit for code quality analysis. Unlike tradition
 | **Full Scan** | `scan` | - | Run all tools, get combined score |
 | **Badge** | `badge` | - | Generate SVG score badge |
 | **Trend** | `trend` | - | Show quality score trend over time |
+| **Last Words** | `last-words` | `lw` | Find legacy TODO/FIXME/HACK comments and their age |
+| **Debt Invoice** | `debt-invoice` | `debt` | Generate a technical debt invoice with cost estimates |
+| **Personality** | `personality` | - | Analyze your developer personality based on code patterns |
+| **Decay** | `decay` | - | Analyze project quality decay over git history |
+| **Autopsy** | `autopsy` | - | Generate a code autopsy report (root cause analysis) |
+| **Radar** | `radar` | - | Generate a code smell radar chart (SVG) |
+| **CI Bot** | `ci-bot` | - | Generate a CI-style PR review comment |
+| **Persona** | `persona` | - | Analyze code with a specific roast personality |
+| **Danger Zone** | `danger-zone` | `dz` | Identify the most dangerous files in the codebase |
+| **Team Roast** | `team-roast` | - | Per-developer team analysis and roasting |
 
 ## Architecture
 
@@ -38,6 +48,19 @@ graph TB
         CR["Commit Roaster<br/>Commit Message Review"]
         DS["Deps Shamer<br/>Dependency Analysis"]
         PR["PR Title Hunter<br/>PR Title Review"]
+    end
+
+    subgraph FunTools["Entertainment Tools"]
+        LW["Last Words<br/>TODO/FIXME Tracker"]
+        DI["Debt Invoice<br/>Cost Estimation"]
+        PE["Personality<br/>Developer Profiling"]
+        DC["Decay<br/>Quality Degradation"]
+        AU["Autopsy<br/>Root Cause Analysis"]
+        RD["Radar<br/>Smell Chart SVG"]
+        CB["CI Bot<br/>PR Review Comments"]
+        PA["Persona<br/>Roast Personalities"]
+        DZ["Danger Zone<br/>Risk Heatmap"]
+        TR["Team Roast<br/>Per-Developer Stats"]
     end
 
     subgraph Extensions["Extended Features"]
@@ -55,7 +78,7 @@ graph TB
     subgraph Output["Output"]
         TERM["Terminal<br/>Colored Output"]
         JSON["JSON<br/>Machine Readable"]
-        SVG["SVG<br/>Badge Image"]
+        SVG["SVG<br/>Badge/Radar Image"]
     end
 
     CLI --> CH
@@ -65,6 +88,16 @@ graph TB
     CLI --> SCAN
     CLI --> BADGE
     CLI --> TREND
+    CLI --> LW
+    CLI --> DI
+    CLI --> PE
+    CLI --> DC
+    CLI --> AU
+    CLI --> RD
+    CLI --> CB
+    CLI --> PA
+    CLI --> DZ
+    CLI --> TR
 
     SCAN --> CH
     SCAN --> CR
@@ -90,6 +123,7 @@ graph TB
     PR --> TERM
     PR --> JSON
     BADGE --> SVG
+    RD --> SVG
     TREND --> TERM
     TREND --> JSON
 ```
@@ -127,13 +161,20 @@ graph LR
 
 ## Features
 
-- **Multi-tool analysis**: 4 independent tools covering code, commits, deps, and PRs
+- **18 tools**: Static analysis, git roasting, dependency shaming, PR review, and 11 entertainment tools
 - **Multi-ecosystem deps**: Cargo.toml, package.json, go.mod, requirements.txt, pyproject.toml
 - **GitHub API**: PR Title Hunter supports remote repos (`--repo owner/repo`)
 - **Historical trends**: Track quality over time with ASCII charts
 - **SVG badges**: Generate shields.io-style badges for READMEs
+- **Code smell radar**: SVG radar chart for README visualization
+- **Developer personality**: Profile your coding style with fun personas
+- **Technical debt invoice**: Estimate the real cost of your code smells
+- **Code autopsy**: Root cause analysis of codebase problems
+- **Danger zone**: Identify the riskiest files by churn, complexity, and contributors
+- **Team roast**: Per-developer analysis with commit habit roasting
+- **CI comment bot**: Generate PR review comments for GitHub Actions
+- **Multiple personas**: Roast as Linux Kernel Maintainer, Silicon Valley CTO, Japanese Enterprise Engineer, or Rust Evangelist
 - **Context-aware**: Adjusts sensitivity for test/example/UI code
-- **Severity-weighted scoring**: 0-100 scale per tool with penalty system
 - **Dual output**: Colored terminal or JSON for all commands
 - **Bilingual**: English and Chinese roasts
 - **LLM powered**: Optional Ollama integration for creative roasts
@@ -206,6 +247,69 @@ garbage-code-hunter badge --style plastic         # Plastic style
 garbage-code-hunter trend              # Show last 10 scans
 garbage-code-hunter trend --last 20    # Show last 20 scans
 garbage-code-hunter trend -f json      # JSON output
+```
+
+#### Last Words
+```bash
+garbage-code-hunter last-words         # Find TODO/FIXME/HACK comments
+garbage-code-hunter lw --age           # Include age via git blame (slower)
+garbage-code-hunter lw -f json         # JSON output
+```
+
+#### Debt Invoice
+```bash
+garbage-code-hunter debt-invoice       # Generate cost estimate
+garbage-code-hunter debt -f json       # JSON output
+```
+
+#### Personality
+```bash
+garbage-code-hunter personality        # Analyze developer personality
+garbage-code-hunter personality -f json
+```
+
+#### Decay
+```bash
+garbage-code-hunter decay              # Analyze quality over git history
+garbage-code-hunter decay -f json
+```
+
+#### Autopsy
+```bash
+garbage-code-hunter autopsy            # Root cause analysis
+garbage-code-hunter autopsy -f json
+```
+
+#### Radar
+```bash
+garbage-code-hunter radar              # Show code smell radar
+garbage-code-hunter radar --output radar.svg  # Generate SVG chart
+```
+
+#### CI Bot
+```bash
+garbage-code-hunter ci-bot             # Generate PR review comment
+garbage-code-hunter ci-bot -f json     # JSON with Markdown comment
+```
+
+#### Persona
+```bash
+garbage-code-hunter persona --persona linux-kernel
+garbage-code-hunter persona --persona silicon-valley
+garbage-code-hunter persona --persona japanese-enterprise
+garbage-code-hunter persona --persona rust-fanatic
+```
+
+#### Danger Zone
+```bash
+garbage-code-hunter danger-zone        # Find most dangerous files
+garbage-code-hunter dz -f json
+```
+
+#### Team Roast
+```bash
+garbage-code-hunter team-roast         # Per-developer analysis
+garbage-code-hunter team-roast --limit 200
 ```
 
 ### Output Formats

@@ -5,8 +5,11 @@ use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::{find_line_of_str_non_import, get_position};
 
+/// Detects excessive use of references that may indicate ownership issues.
 pub struct ReferenceAbuseRule;
+/// Detects excessive use of `Box` where other types would be more appropriate.
 pub struct BoxAbuseRule;
+/// Detects excessive use of slices where vectors or arrays would be clearer.
 pub struct SliceAbuseRule;
 
 impl Rule for ReferenceAbuseRule {
@@ -20,12 +23,8 @@ impl Rule for ReferenceAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut visitor = ReferenceVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues
@@ -43,11 +42,8 @@ impl Rule for BoxAbuseRule {
         syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = BoxVisitor::new();
         visitor.visit_file(syntax_tree);
 
@@ -107,11 +103,8 @@ impl Rule for SliceAbuseRule {
         syntax_tree: &File,
         _content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
         let mut visitor = SliceVisitor::new(file_path.to_path_buf(), lang);
         visitor.visit_file(syntax_tree);
         visitor.issues

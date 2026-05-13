@@ -51,6 +51,39 @@ enum Commands {
 
     /// Show quality score trend over time
     Trend(TrendArgs),
+
+    /// Find legacy TODO/FIXME/HACK comments and their age
+    #[command(alias = "lw")]
+    LastWords(LastWordsArgs),
+
+    /// Generate a technical debt invoice with cost estimates
+    #[command(alias = "debt")]
+    DebtInvoice(DebtInvoiceArgs),
+
+    /// Analyze your developer personality based on code patterns
+    Personality(PersonalityArgs),
+
+    /// Analyze project quality decay over git history
+    Decay(DecayArgs),
+
+    /// Generate a code autopsy report (root cause analysis)
+    Autopsy(AutopsyArgs),
+
+    /// Generate a code smell radar chart
+    Radar(RadarArgs),
+
+    /// Generate a CI-style PR review comment
+    CiBot(CiBotArgs),
+
+    /// Analyze code with a specific roast personality
+    Persona(PersonaArgs),
+
+    /// Identify the most dangerous files in the codebase
+    #[command(alias = "dz")]
+    DangerZone(DangerZoneArgs),
+
+    /// Per-developer team analysis and roasting
+    TeamRoast(TeamRoastArgs),
 }
 
 #[derive(Parser)]
@@ -262,6 +295,172 @@ struct BadgeArgs {
     path: PathBuf,
 }
 
+#[derive(Parser)]
+struct LastWordsArgs {
+    /// Path to scan (file or directory)
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Try to get age of comments via git blame (slower)
+    #[arg(long)]
+    age: bool,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct DebtInvoiceArgs {
+    /// Path to project directory
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct PersonalityArgs {
+    /// Path to project directory
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct DecayArgs {
+    /// Path to git repository
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct AutopsyArgs {
+    /// Path to project directory
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct RadarArgs {
+    /// Path to project directory
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+
+    /// Output SVG file path
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct CiBotArgs {
+    /// Path to project directory
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct PersonaArgs {
+    /// Path to project directory
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Persona: linux-kernel, silicon-valley, japanese-enterprise, rust-fanatic
+    #[arg(short, long, default_value = "linux-kernel")]
+    persona: String,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct DangerZoneArgs {
+    /// Path to project directory
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
+#[derive(Parser)]
+struct TeamRoastArgs {
+    /// Path to git repository
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Maximum number of commits to analyze
+    #[arg(short, long, default_value = "100")]
+    limit: usize,
+
+    /// Output format (terminal, json)
+    #[arg(short = 'f', long, default_value = "terminal")]
+    format: String,
+
+    /// Output language (zh-CN, en-US)
+    #[arg(short, long, default_value = "en-US")]
+    lang: String,
+}
+
 fn main() {
     // Initialize tracing subscriber
     tracing_subscriber::fmt()
@@ -279,6 +478,16 @@ fn main() {
         Some(Commands::Scan(args)) => run_scan(args),
         Some(Commands::Badge(args)) => run_badge(args),
         Some(Commands::Trend(args)) => run_trend(args),
+        Some(Commands::LastWords(args)) => run_last_words(args),
+        Some(Commands::DebtInvoice(args)) => run_debt_invoice(args),
+        Some(Commands::Personality(args)) => run_personality(args),
+        Some(Commands::Decay(args)) => run_decay(args),
+        Some(Commands::Autopsy(args)) => run_autopsy(args),
+        Some(Commands::Radar(args)) => run_radar(args),
+        Some(Commands::CiBot(args)) => run_ci_bot(args),
+        Some(Commands::Persona(args)) => run_persona(args),
+        Some(Commands::DangerZone(args)) => run_danger_zone(args),
+        Some(Commands::TeamRoast(args)) => run_team_roast(args),
         Some(Commands::Analyze(args)) => run_analyze(args),
         None => run_analyze(AnalyzeArgs::default()),
     }
@@ -934,5 +1143,193 @@ fn output_json(issues: &[CodeIssue]) {
     } else {
         eprintln!("Error: Failed to serialize issues to JSON");
         std::process::exit(1);
+    }
+}
+
+fn run_last_words(args: LastWordsArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::last_words;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match last_words::run(&args.path, &format, args.age, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_debt_invoice(args: DebtInvoiceArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::debt_invoice;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match debt_invoice::run(&args.path, &format, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_personality(args: PersonalityArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::personality;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match personality::run(&args.path, &format, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_decay(args: DecayArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::decay;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match decay::run(&args.path, &format, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_autopsy(args: AutopsyArgs) {
+    use garbage_code_hunter::autopsy;
+    use garbage_code_hunter::common::OutputFormat;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match autopsy::run(&args.path, &format, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_radar(args: RadarArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::radar;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match radar::run(&args.path, &format, &args.lang, args.output.as_deref()) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_ci_bot(args: CiBotArgs) {
+    use garbage_code_hunter::ci_bot;
+    use garbage_code_hunter::common::OutputFormat;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match ci_bot::run(&args.path, &format, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_persona(args: PersonaArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::personas;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    let persona = match personas::Persona::parse_persona(&args.persona) {
+        Some(p) => p,
+        None => {
+            eprintln!("Unknown persona '{}'. Available: linux-kernel, silicon-valley, japanese-enterprise, rust-fanatic", args.persona);
+            std::process::exit(1);
+        }
+    };
+
+    match personas::run(&args.path, persona, &format, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_danger_zone(args: DangerZoneArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::danger_zone;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match danger_zone::run(&args.path, &format, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run_team_roast(args: TeamRoastArgs) {
+    use garbage_code_hunter::common::OutputFormat;
+    use garbage_code_hunter::team_roast;
+
+    let format = match args.format.as_str() {
+        "json" => OutputFormat::Json,
+        _ => OutputFormat::Terminal,
+    };
+
+    match team_roast::run(&args.path, &format, args.limit, &args.lang) {
+        Ok(output) => print!("{}", output),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
     }
 }

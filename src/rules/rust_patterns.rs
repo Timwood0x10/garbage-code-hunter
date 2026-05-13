@@ -5,7 +5,7 @@ use crate::analyzer::{CodeIssue, Severity};
 use crate::rules::Rule;
 use crate::utils::{count_non_import_matches, find_line_of_str_non_import};
 
-/// Detect using String everywhere instead of &str
+/// Detects using `String` everywhere instead of `&str` where borrowing suffices.
 pub struct StringAbuseRule;
 
 impl Rule for StringAbuseRule {
@@ -19,12 +19,8 @@ impl Rule for StringAbuseRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut issues = Vec::new();
 
         // Check String usage patterns in content (excluding comments and imports)
@@ -97,12 +93,8 @@ impl Rule for VecAbuseRule {
         _syntax_tree: &File,
         content: &str,
         lang: &str,
-        is_test_file: bool,
+        _is_test_file: bool,
     ) -> Vec<CodeIssue> {
-        if is_test_file {
-            return Vec::new();
-        }
-
         let mut issues = Vec::new();
 
         // Check Vec usage patterns in content (excluding comments and imports)

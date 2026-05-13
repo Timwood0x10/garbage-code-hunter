@@ -21,6 +21,16 @@ Garbage Code Hunter 是一个 CLI 工具集，用于代码质量分析。不同�
 | **Full Scan** | `scan` | - | 跑所有工具，输出综合评分 |
 | **Badge** | `badge` | - | 生成 SVG 评分徽章 |
 | **Trend** | `trend` | - | 查看质量评分历史趋势 |
+| **Last Words** | `last-words` | `lw` | 发现遗留的 TODO/FIXME/HACK 注释及其存活天数 |
+| **Debt Invoice** | `debt-invoice` | `debt` | 生成技术债账单，估算维护成本 |
+| **Personality** | `personality` | - | 分析你的开发者人格画像 |
+| **Decay** | `decay` | - | 分析项目质量随 git 历史的衰减曲线 |
+| **Autopsy** | `autopsy` | - | 代码尸检报告：根因分析 |
+| **Radar** | `radar` | - | 代码气味雷达图（SVG） |
+| **CI Bot** | `ci-bot` | - | 生成 CI 风格的 PR 审查评论 |
+| **Persona** | `persona` | - | 用特定人格模式吐槽代码 |
+| **Danger Zone** | `danger-zone` | `dz` | 找出最危险的文件 |
+| **Team Roast** | `team-roast` | - | 按开发者分析，团队吐槽 |
 
 ## 架构图
 
@@ -33,6 +43,19 @@ graph TB
         CR["Commit Roaster<br/>Commit 消息审查"]
         DS["Deps Shamer<br/>依赖分析"]
         PR["PR Title Hunter<br/>PR 标题审查"]
+    end
+
+    subgraph FunTools["娱乐工具层"]
+        LW["Last Words<br/>遗言系统"]
+        DI["Debt Invoice<br/>技术债账单"]
+        PE["Personality<br/>人格分析"]
+        DC["Decay<br/>衰减曲线"]
+        AU["Autopsy<br/>尸检报告"]
+        RD["Radar<br/>气味雷达"]
+        CB["CI Bot<br/>PR 评论"]
+        PA["Persona<br/>人格模式"]
+        DZ["Danger Zone<br/>危险热图"]
+        TR["Team Roast<br/>团队吐槽"]
     end
 
     subgraph Extensions["扩展功能"]
@@ -50,7 +73,7 @@ graph TB
     subgraph Output["输出层"]
         TERM["Terminal<br/>彩色终端"]
         JSON["JSON<br/>机器可读"]
-        SVG["SVG<br/>徽章图片"]
+        SVG["SVG<br/>徽章/雷达图"]
     end
 
     CLI --> CH
@@ -60,6 +83,16 @@ graph TB
     CLI --> SCAN
     CLI --> BADGE
     CLI --> TREND
+    CLI --> LW
+    CLI --> DI
+    CLI --> PE
+    CLI --> DC
+    CLI --> AU
+    CLI --> RD
+    CLI --> CB
+    CLI --> PA
+    CLI --> DZ
+    CLI --> TR
 
     SCAN --> CH
     SCAN --> CR
@@ -122,13 +155,20 @@ graph LR
 
 ## 特性一览
 
-- **多工具分析**：4 个独立工具覆盖代码、commit、依赖、PR
+- **18 个工具**：静态分析、git 吐槽、依赖羞耻、PR 审查 + 11 个娱乐工具
 - **多生态依赖**：Cargo.toml、package.json、go.mod、requirements.txt、pyproject.toml
 - **GitHub API**：PR Title Hunter 支持远程仓库（`--repo owner/repo`）
 - **历史趋势**：用 ASCII 图表追踪质量变化
 - **SVG 徽章**：生成 shields.io 风格徽章嵌入 README
+- **代码气味雷达**：SVG 雷达图可视化代码质量问题
+- **开发者人格画像**：分析你的编码风格，生成趣味人格
+- **技术债账单**：估算代码问题的真实维护成本
+- **代码尸检**：根因分析项目为什么变烂
+- **危险文件热力图**：按修改频率、复杂度、贡献者找出最危险文件
+- **团队吐槽**：按开发者分析 commit 习惯和技术债贡献
+- **CI 评论机器人**：为 GitHub Action 生成 PR 审查评论
+- **多种吐槽人格**：Linux 内核维护者、硅谷 CTO、日本企业工程师、Rust 布道者
 - **上下文感知**：对测试/示例/UI 代码自动降低检测灵敏度
-- **严重级别加权评分**：每个工具 0-100 分，按惩罚权重扣分
 - **双输出格式**：彩色终端或 JSON
 - **中英双语**：支持中文和英文吐槽
 - **LLM 增强**：可选接入 Ollama 生成创意吐槽
@@ -201,6 +241,69 @@ garbage-code-hunter badge --style plastic         # 塑料风格
 garbage-code-hunter trend              # 显示最近 10 次扫描
 garbage-code-hunter trend --last 20    # 显示最近 20 次
 garbage-code-hunter trend -f json      # JSON 输出
+```
+
+#### 代码遗言
+```bash
+garbage-code-hunter last-words         # 发现 TODO/FIXME/HACK 注释
+garbage-code-hunter lw --age           # 用 git blame 查看存活天数（较慢）
+garbage-code-hunter lw -f json         # JSON 输出
+```
+
+#### 技术债账单
+```bash
+garbage-code-hunter debt-invoice       # 生成维护成本估算
+garbage-code-hunter debt -f json       # JSON 输出
+```
+
+#### 开发者人格
+```bash
+garbage-code-hunter personality        # 分析你的开发者人格
+garbage-code-hunter personality -f json
+```
+
+#### 衰减曲线
+```bash
+garbage-code-hunter decay              # 分析 git 历史的质量变化
+garbage-code-hunter decay -f json
+```
+
+#### 尸检报告
+```bash
+garbage-code-hunter autopsy            # 根因分析
+garbage-code-hunter autopsy -f json
+```
+
+#### 代码气味雷达
+```bash
+garbage-code-hunter radar              # 显示代码气味雷达
+garbage-code-hunter radar --output radar.svg  # 生成 SVG 雷达图
+```
+
+#### CI 评论机器人
+```bash
+garbage-code-hunter ci-bot             # 生成 PR 审查评论
+garbage-code-hunter ci-bot -f json     # JSON 含 Markdown 评论
+```
+
+#### 人格模式
+```bash
+garbage-code-hunter persona --persona linux-kernel      # Linux 内核维护者
+garbage-code-hunter persona --persona silicon-valley     # 硅谷 CTO
+garbage-code-hunter persona --persona japanese-enterprise # 日本企业工程师
+garbage-code-hunter persona --persona rust-fanatic       # Rust 布道者
+```
+
+#### 危险区域
+```bash
+garbage-code-hunter danger-zone        # 找出最危险的文件
+garbage-code-hunter dz -f json
+```
+
+#### 团队吐槽
+```bash
+garbage-code-hunter team-roast         # 按开发者分析
+garbage-code-hunter team-roast --limit 200
 ```
 
 ### 输出格式
