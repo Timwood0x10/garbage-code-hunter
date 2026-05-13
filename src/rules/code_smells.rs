@@ -49,20 +49,26 @@ impl Rule for MagicNumberRule {
         &self,
         file_path: &Path,
         syntax_tree: &File,
-        content: &str,
+        _content: &str,
         lang: &str,
         _is_test_file: bool,
         context: &FileContext,
-        _config: &crate::context::ProjectConfig,
+        config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
-        // Test/Documentation/Benchmark: 完全跳过
+        // Test/Documentation/Benchmark: skip entirely
         let weight = context.rule_weight_multiplier();
         if weight < 0.3 {
             return Vec::new();
         }
 
-        // 获取所有问题
-        let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
+        // Merge whitelists from config
+        let mut allowed = config.whitelists.magic_numbers.clone();
+        allowed.extend(&config.rules.magic_number.allowed_numbers);
+        allowed.extend(&config.rules.magic_number.ui_layout_numbers);
+
+        let mut visitor = MagicNumberVisitor::with_allowed(file_path.to_path_buf(), lang, allowed);
+        visitor.visit_file(syntax_tree);
+        let issues = visitor.issues;
 
         // UI/TUI 文件过滤：检测到 UI 相关路径时，仅保留严重问题
         let path_str = file_path.to_string_lossy().to_lowercase();
@@ -383,6 +389,7 @@ struct MagicNumberVisitor {
     file_path: std::path::PathBuf,
     issues: Vec<CodeIssue>,
     lang: String,
+    extra_allowed: Vec<i64>,
 }
 
 impl MagicNumberVisitor {
@@ -391,6 +398,16 @@ impl MagicNumberVisitor {
             file_path,
             issues: Vec::new(),
             lang: lang.to_string(),
+            extra_allowed: Vec::new(),
+        }
+    }
+
+    fn with_allowed(file_path: std::path::PathBuf, lang: &str, allowed: Vec<i64>) -> Self {
+        Self {
+            file_path,
+            issues: Vec::new(),
+            lang: lang.to_string(),
+            extra_allowed: allowed,
         }
     }
 
@@ -430,7 +447,7 @@ impl MagicNumberVisitor {
             1000000, // 1M
         ];
 
-        !safe_numbers.contains(&value)
+        !safe_numbers.contains(&value) && !self.extra_allowed.contains(&value)
     }
 
     fn create_magic_number_issue(&self, value: i64, line: usize, column: usize) -> CodeIssue {

@@ -31,29 +31,46 @@ impl Rule for UnwrapAbuseRule {
         &self,
         file_path: &Path,
         syntax_tree: &File,
-        content: &str,
+        _content: &str,
         lang: &str,
         _is_test_file: bool,
         context: &FileContext,
-        _config: &crate::context::ProjectConfig,
+        config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
-        // Test/Benchmark/Documentation: 完全跳过（unwrap 在测试中很常见）
+        // Test/Benchmark/Documentation: skip entirely
         let weight = context.rule_weight_multiplier();
         if weight < 0.5 {
             return Vec::new();
         }
 
-        // Example/Demo: 提高阈值到 >10 才报告
-        if weight < 0.7 {
-            let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
-            // 仅当 unwrap 数量 > 10 时才报告
-            if issues.len() > 10 {
-                return issues;
+        let unwrap_cfg = &config.rules.unwrap;
+        let threshold = unwrap_cfg.threshold;
+        let nuclear_threshold = unwrap_cfg.nuclear_threshold;
+
+        // Example/Demo: use a higher threshold
+        let effective_threshold = if weight < 0.7 {
+            threshold.max(10)
+        } else {
+            threshold
+        };
+
+        let mut visitor = UnwrapVisitor::new(file_path.to_path_buf(), lang);
+        visitor.visit_file(syntax_tree);
+
+        // Apply nuclear threshold — upgrade severity for excessive unwraps
+        let mut issues = visitor.issues;
+        if issues.len() >= nuclear_threshold {
+            for issue in &mut issues {
+                issue.severity = Severity::Nuclear;
             }
-            return Vec::new();
         }
 
-        self.check(file_path, syntax_tree, content, lang, _is_test_file)
+        // Filter by threshold
+        if issues.len() >= effective_threshold {
+            issues
+        } else {
+            Vec::new()
+        }
     }
 }
 

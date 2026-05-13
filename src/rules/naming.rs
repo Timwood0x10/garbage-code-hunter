@@ -32,19 +32,25 @@ impl Rule for TerribleNamingRule {
         &self,
         file_path: &Path,
         syntax_tree: &File,
-        content: &str,
+        _content: &str,
         lang: &str,
         _is_test_file: bool,
         context: &FileContext,
-        _config: &crate::context::ProjectConfig,
+        config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
-        // Example/Demo/Documentation: 完全跳过
+        // Example/Demo/Documentation: skip entirely
         let weight = context.rule_weight_multiplier();
         if weight < 0.5 {
             return Vec::new();
         }
 
-        self.check(file_path, syntax_tree, content, lang, _is_test_file)
+        // Merge allowed names from config
+        let mut allowed = config.rules.naming.allowed_names.clone();
+        allowed.extend(config.whitelists.variable_names.clone());
+
+        let mut visitor = NamingVisitor::with_allowed(file_path.to_path_buf(), lang, allowed);
+        visitor.visit_file(syntax_tree);
+        visitor.issues
     }
 }
 
@@ -75,6 +81,7 @@ struct NamingVisitor {
     issues: Vec<CodeIssue>,
     terrible_names: Regex,
     lang: String,
+    extra_allowed: Vec<String>,
 }
 
 impl NamingVisitor {
@@ -87,11 +94,33 @@ impl NamingVisitor {
             issues: Vec::new(),
             terrible_names,
             lang: lang.to_string(),
+            extra_allowed: Vec::new(),
+        }
+    }
+
+    fn with_allowed(file_path: std::path::PathBuf, lang: &str, allowed: Vec<String>) -> Self {
+        let terrible_names = Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").unwrap();
+
+        Self {
+            file_path,
+            issues: Vec::new(),
+            terrible_names,
+            lang: lang.to_string(),
+            extra_allowed: allowed,
         }
     }
 
     fn check_name(&mut self, ident: &Ident, context: &str) {
         let name = ident.to_string();
+
+        // Skip names that are explicitly allowed in config
+        if self
+            .extra_allowed
+            .iter()
+            .any(|a| a.eq_ignore_ascii_case(&name))
+        {
+            return;
+        }
 
         if self.terrible_names.is_match(&name.to_lowercase()) {
             // Select messages based on language setting

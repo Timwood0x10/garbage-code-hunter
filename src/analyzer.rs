@@ -1,9 +1,11 @@
+use rayon::prelude::*;
 use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 use syn::parse_file;
 use walkdir::WalkDir;
 
+use crate::context::ProjectConfig;
 use crate::cross_file::{CrossFileAnalyzer, CrossFileConfig};
 use crate::rules::RuleEngine;
 
@@ -36,6 +38,10 @@ impl CodeAnalyzer {
     }
 
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
+        Self::with_config(exclude_patterns, lang, ProjectConfig::default())
+    }
+
+    pub fn with_config(exclude_patterns: &[String], lang: &str, config: ProjectConfig) -> Self {
         // Default exclude patterns for common build/dependency directories
         let default_excludes = [
             "target",
@@ -54,6 +60,9 @@ impl CodeAnalyzer {
             default_excludes.iter().map(|s| s.to_string()).collect();
         all_patterns.extend(exclude_patterns.iter().cloned());
 
+        // Also add exclude patterns from project config
+        all_patterns.extend(config.whitelists.exclude_patterns.clone());
+
         let patterns = all_patterns
             .iter()
             .filter_map(|pattern| {
@@ -67,7 +76,7 @@ impl CodeAnalyzer {
             .collect();
 
         Self {
-            rule_engine: RuleEngine::new(),
+            rule_engine: RuleEngine::with_config(config),
             exclude_patterns: patterns,
             lang: lang.to_string(),
         }
@@ -81,58 +90,59 @@ impl CodeAnalyzer {
     }
 
     pub fn analyze_path(&self, path: &Path) -> Vec<CodeIssue> {
-        let mut issues = Vec::new();
-
         if path.is_file() {
             if !self.should_exclude(path) {
                 if let Some(ext) = path.extension() {
                     if ext == "rs" {
-                        issues.extend(self.analyze_file(path));
+                        return self.analyze_file(path);
                     }
                 }
             }
-        } else if path.is_dir() {
-            // Initialize cross-file analyzer for directory analysis
-            let mut cross_file = CrossFileAnalyzer::with_config(CrossFileConfig::default());
+            return Vec::new();
+        }
 
-            for entry in WalkDir::new(path)
-                .into_iter()
-                .filter_map(|e| e.ok())
-                .filter(|e| !self.should_exclude(e.path()))
-                .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
-            {
-                // Run standard single-file analysis
-                issues.extend(self.analyze_file(entry.path()));
+        if !path.is_dir() {
+            return Vec::new();
+        }
 
-                // Also feed into cross-file analyzer for duplication detection
-                if let Ok(content) = fs::read_to_string(entry.path()) {
-                    if let Err(e) = cross_file.process_file(entry.path(), &content) {
-                        eprintln!(
-                            "Warning: Failed to process {} for cross-file analysis: {}",
-                            entry.path().display(),
-                            e
-                        );
-                    }
-                }
+        // Collect all matching file paths
+        let files: Vec<PathBuf> = WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| !self.should_exclude(e.path()))
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+            .map(|e| e.path().to_path_buf())
+            .collect();
+
+        // Phase 1: Parallel single-file analysis
+        let mut issues: Vec<CodeIssue> = files
+            .par_iter()
+            .flat_map(|file_path| self.analyze_file(file_path))
+            .collect();
+
+        // Phase 2: Cross-file duplication detection (sequential — accumulates state)
+        let mut cross_file = CrossFileAnalyzer::with_config(CrossFileConfig::default());
+        for file_path in &files {
+            if let Ok(content) = fs::read_to_string(file_path) {
+                let _ = cross_file.process_file(file_path, &content);
             }
+        }
 
-            // Find cross-file duplicates and convert to CodeIssue format
-            let duplicates = cross_file.find_all_duplicates();
-            for dup in duplicates {
-                let severity = dup.severity.clone();
-                for location in &dup.fingerprint.locations {
-                    issues.push(CodeIssue {
-                        file_path: location.file_path.clone(),
-                        line: location.line_start,
-                        column: 0,
-                        rule_name: "cross-file-duplication".to_string(),
-                        message: format!(
-                            "Duplicated function '{}' found in {} files ({} occurrences)",
-                            dup.fingerprint.function_name, dup.file_count, dup.total_occurrences
-                        ),
-                        severity: severity.clone(),
-                    });
-                }
+        let duplicates = cross_file.find_all_duplicates();
+        for dup in duplicates {
+            let severity = dup.severity.clone();
+            for location in &dup.fingerprint.locations {
+                issues.push(CodeIssue {
+                    file_path: location.file_path.clone(),
+                    line: location.line_start,
+                    column: 0,
+                    rule_name: "cross-file-duplication".to_string(),
+                    message: format!(
+                        "Duplicated function '{}' found in {} files ({} occurrences)",
+                        dup.fingerprint.function_name, dup.file_count, dup.total_occurrences
+                    ),
+                    severity: severity.clone(),
+                });
             }
         }
 

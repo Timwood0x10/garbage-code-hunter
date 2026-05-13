@@ -7,14 +7,18 @@ use walkdir::WalkDir;
 // Use modules from library (lib.rs)
 use garbage_code_hunter::{
     analyzer::{CodeAnalyzer, CodeIssue},
-    commit_roaster,
+    autopsy, ci_bot, commit_roaster,
+    common::OutputFormat,
     config::{AppConfig, AppMode},
-    deps_shamer,
+    context::ProjectConfig,
+    danger_zone, debt_invoice, decay, deps_shamer,
     educational::EducationalAdvisor,
     hall_of_shame::HallOfShame,
+    last_words,
     llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
-    pr_title_hunter,
+    personality, personas, pr_title_hunter, radar,
     reporter::Reporter,
+    team_roast,
 };
 
 #[derive(Parser)]
@@ -131,6 +135,10 @@ struct AnalyzeArgs {
     /// Show educational advice for each issue type
     #[arg(long)]
     educational: bool,
+
+    /// Path to .garbage-code-hunter.toml config file (auto-discovered if omitted)
+    #[arg(long)]
+    project_config: Option<PathBuf>,
 
     /// Show hall of shame (worst files and patterns)
     #[arg(long)]
@@ -263,6 +271,10 @@ struct ScanArgs {
     /// Save scan result to history for trend tracking
     #[arg(long)]
     save: bool,
+
+    /// Path to .garbage-code-hunter.toml config file (auto-discovered if omitted)
+    #[arg(long)]
+    project_config: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -580,116 +592,362 @@ fn run_pr_title_hunter(args: PrTitleHunterArgs) {
     }
 }
 
+fn derive_count_score(count: f64, weight: f64) -> f64 {
+    (100.0 - count * weight).clamp(0.0, 100.0)
+}
+
+fn derive_radar_score(val: &serde_json::Value) -> f64 {
+    let dims = [
+        "complexity",
+        "duplication",
+        "naming",
+        "panic_risk",
+        "dependency_hell",
+        "legacy_smell",
+    ];
+    let sum: f64 = dims.iter().filter_map(|d| val[*d].as_f64()).sum();
+    let n = dims.iter().filter(|d| val[**d].is_number()).count() as f64;
+    if n > 0.0 {
+        sum / n
+    } else {
+        100.0
+    }
+}
+
+fn derive_danger_zone_score(val: &serde_json::Value) -> f64 {
+    match val["files"].as_array() {
+        Some(arr) if !arr.is_empty() => {
+            let sum: f64 = arr.iter().filter_map(|f| f["risk_score"].as_f64()).sum();
+            sum / arr.len() as f64
+        }
+        _ => 100.0,
+    }
+}
+
+/// Run all 14 scan tools in parallel using scoped threads.
+/// Returns ordered Vec of (tool_name, score, item_count, detail_string).
+/// A negative score means the tool was skipped/failed.
+fn run_all_tools(
+    path: &std::path::Path,
+    lang: &str,
+    config: &ProjectConfig,
+) -> Vec<(&'static str, f64, usize, String)> {
+    // We use std::thread::scope so closures can borrow `path`, `lang`, and `config`.
+    std::thread::scope(|s| {
+        // Spawn all tools; each returns its result tuple.
+        let h_code = s.spawn(|| {
+            let analyzer = CodeAnalyzer::with_config(&[], lang, config.clone());
+            let issues = analyzer.analyze_path(path);
+            let path_buf = path.to_path_buf();
+            let (_, total_lines) = calculate_metrics(&path_buf, &[]);
+            let score = if total_lines > 0 {
+                let density = issues.len() as f64 / total_lines as f64 * 1000.0;
+                (100.0 - density * 2.0).clamp(0.0, 100.0)
+            } else {
+                100.0
+            };
+            (
+                "code-hunter",
+                score,
+                issues.len(),
+                format!("{} issues", issues.len()),
+            )
+        });
+
+        let h_commit = s.spawn(|| {
+            match commit_roaster::run(
+                path,
+                &commit_roaster::analyzer::AnalyzerConfig::default(),
+                &OutputFormat::Json,
+            ) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => {
+                        let score = v["score"].as_f64().unwrap_or(100.0);
+                        let count = v["total_commits"].as_u64().unwrap_or(0) as usize;
+                        ("commit-roaster", score, count, format!("{} commits", count))
+                    }
+                    Err(_) => ("commit-roaster", -1.0, 0, "json parse error".into()),
+                },
+                Err(e) => ("commit-roaster", -1.0, 0, e.to_string()),
+            }
+        });
+
+        let h_deps = s.spawn(|| match deps_shamer::run(path, &OutputFormat::Json) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => {
+                    let score = v["score"].as_f64().unwrap_or(100.0);
+                    let count = v["total_deps"].as_u64().unwrap_or(0) as usize;
+                    ("deps-shamer", score, count, format!("{} deps", count))
+                }
+                Err(_) => ("deps-shamer", -1.0, 0, "json parse error".into()),
+            },
+            Err(e) => ("deps-shamer", -1.0, 0, e.to_string()),
+        });
+
+        let h_pr = s.spawn(
+            || match pr_title_hunter::run(path, 50, &OutputFormat::Json) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => {
+                        let score = v["score"].as_f64().unwrap_or(100.0);
+                        let count = v["total_prs"].as_u64().unwrap_or(0) as usize;
+                        ("pr-title-hunter", score, count, format!("{} PRs", count))
+                    }
+                    Err(_) => ("pr-title-hunter", -1.0, 0, "json parse error".into()),
+                },
+                Err(e) => ("pr-title-hunter", -1.0, 0, e.to_string()),
+            },
+        );
+
+        let h_lw = s.spawn(
+            || match last_words::run(path, &OutputFormat::Json, false, lang) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => {
+                        let total = v["total"].as_u64().unwrap_or(0) as f64;
+                        let score = derive_count_score(total, 0.005);
+                        (
+                            "last-words",
+                            score,
+                            total as usize,
+                            format!("{} stale comments", total as usize),
+                        )
+                    }
+                    Err(_) => ("last-words", -1.0, 0, "json parse error".into()),
+                },
+                Err(e) => ("last-words", -1.0, 0, e.to_string()),
+            },
+        );
+
+        let h_debt = s.spawn(
+            || match debt_invoice::run(path, &OutputFormat::Json, lang) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => {
+                        let hours = v["total_hours"].as_f64().unwrap_or(0.0);
+                        let score = derive_count_score(hours, 0.05);
+                        (
+                            "debt-invoice",
+                            score,
+                            hours as usize,
+                            format!("{:.1} hours", hours),
+                        )
+                    }
+                    Err(_) => ("debt-invoice", -1.0, 0, "json parse error".into()),
+                },
+                Err(e) => ("debt-invoice", -1.0, 0, e.to_string()),
+            },
+        );
+
+        let h_pers = s.spawn(|| match personality::run(path, &OutputFormat::Json, lang) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => {
+                    let score = v["score"].as_f64().unwrap_or(50.0);
+                    let title = v["title"].as_str().unwrap_or("unknown").to_string();
+                    ("personality", score, 0, title)
+                }
+                Err(_) => ("personality", -1.0, 0, "json parse error".into()),
+            },
+            Err(e) => ("personality", -1.0, 0, e.to_string()),
+        });
+
+        let h_decay = s.spawn(|| match decay::run(path, &OutputFormat::Json, lang) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => {
+                    let score = v["current_health"].as_f64().unwrap_or(50.0);
+                    ("decay", score, 0, format!("health {:.0}", score))
+                }
+                Err(_) => ("decay", -1.0, 0, "json parse error".into()),
+            },
+            Err(e) => ("decay", -1.0, 0, e.to_string()),
+        });
+
+        let h_autopsy = s.spawn(|| match autopsy::run(path, &OutputFormat::Json, lang) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => {
+                    let factors = v["contributing_factors"]
+                        .as_array()
+                        .map(|a| a.len())
+                        .unwrap_or(0) as f64;
+                    let score = derive_count_score(factors, 3.0);
+                    (
+                        "autopsy",
+                        score,
+                        factors as usize,
+                        format!("{} factors", factors as usize),
+                    )
+                }
+                Err(_) => ("autopsy", -1.0, 0, "json parse error".into()),
+            },
+            Err(e) => ("autopsy", -1.0, 0, e.to_string()),
+        });
+
+        let h_radar = s.spawn(|| match radar::run(path, &OutputFormat::Json, lang, None) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => {
+                    let score = derive_radar_score(&v);
+                    ("radar", score, 6, "6 dimensions".into())
+                }
+                Err(_) => ("radar", -1.0, 0, "json parse error".into()),
+            },
+            Err(e) => ("radar", -1.0, 0, e.to_string()),
+        });
+
+        let h_ci = s.spawn(|| match ci_bot::run(path, &OutputFormat::Json, lang) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => {
+                    let issues = v["total_issues"].as_u64().unwrap_or(0) as f64;
+                    let score = derive_count_score(issues, 0.01);
+                    (
+                        "ci-bot",
+                        score,
+                        issues as usize,
+                        format!("{} issues", issues as usize),
+                    )
+                }
+                Err(_) => ("ci-bot", -1.0, 0, "json parse error".into()),
+            },
+            Err(e) => ("ci-bot", -1.0, 0, e.to_string()),
+        });
+
+        let h_persona = s.spawn(|| {
+            match personas::run(
+                path,
+                personas::Persona::LinuxKernel,
+                &OutputFormat::Json,
+                lang,
+            ) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => {
+                        let issues = v["total_issues"].as_u64().unwrap_or(0) as f64;
+                        let score = derive_count_score(issues, 0.005);
+                        (
+                            "persona",
+                            score,
+                            issues as usize,
+                            format!("{} issues", issues as usize),
+                        )
+                    }
+                    Err(_) => ("persona", -1.0, 0, "json parse error".into()),
+                },
+                Err(e) => ("persona", -1.0, 0, e.to_string()),
+            }
+        });
+
+        let h_danger = s.spawn(|| match danger_zone::run(path, &OutputFormat::Json, lang) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => {
+                    let file_count = v["files"].as_array().map(|a| a.len()).unwrap_or(0);
+                    let score = derive_danger_zone_score(&v);
+                    (
+                        "danger-zone",
+                        score,
+                        file_count,
+                        format!("{} risky files", file_count),
+                    )
+                }
+                Err(_) => ("danger-zone", -1.0, 0, "json parse error".into()),
+            },
+            Err(e) => ("danger-zone", -1.0, 0, e.to_string()),
+        });
+
+        let h_team = s.spawn(
+            || match team_roast::run(path, &OutputFormat::Json, 20, lang) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => {
+                        let members = v["members"].as_array().map(|a| a.len()).unwrap_or(0) as f64;
+                        let score = derive_count_score(members, 2.0);
+                        (
+                            "team-roast",
+                            score,
+                            members as usize,
+                            format!("{} members", members as usize),
+                        )
+                    }
+                    Err(_) => ("team-roast", -1.0, 0, "json parse error".into()),
+                },
+                Err(e) => ("team-roast", -1.0, 0, e.to_string()),
+            },
+        );
+
+        // Join in deterministic order
+        vec![
+            h_code
+                .join()
+                .unwrap_or(("code-hunter", -1.0, 0, "thread panicked".into())),
+            h_commit
+                .join()
+                .unwrap_or(("commit-roaster", -1.0, 0, "thread panicked".into())),
+            h_deps
+                .join()
+                .unwrap_or(("deps-shamer", -1.0, 0, "thread panicked".into())),
+            h_pr.join()
+                .unwrap_or(("pr-title-hunter", -1.0, 0, "thread panicked".into())),
+            h_lw.join()
+                .unwrap_or(("last-words", -1.0, 0, "thread panicked".into())),
+            h_debt
+                .join()
+                .unwrap_or(("debt-invoice", -1.0, 0, "thread panicked".into())),
+            h_pers
+                .join()
+                .unwrap_or(("personality", -1.0, 0, "thread panicked".into())),
+            h_decay
+                .join()
+                .unwrap_or(("decay", -1.0, 0, "thread panicked".into())),
+            h_autopsy
+                .join()
+                .unwrap_or(("autopsy", -1.0, 0, "thread panicked".into())),
+            h_radar
+                .join()
+                .unwrap_or(("radar", -1.0, 0, "thread panicked".into())),
+            h_ci.join()
+                .unwrap_or(("ci-bot", -1.0, 0, "thread panicked".into())),
+            h_persona
+                .join()
+                .unwrap_or(("persona", -1.0, 0, "thread panicked".into())),
+            h_danger
+                .join()
+                .unwrap_or(("danger-zone", -1.0, 0, "thread panicked".into())),
+            h_team
+                .join()
+                .unwrap_or(("team-roast", -1.0, 0, "thread panicked".into())),
+        ]
+    })
+}
+
 fn run_scan(args: ScanArgs) {
     use colored::Colorize;
 
     let is_json = args.format == "json";
-    let mut all_scores: Vec<(&str, f64, usize)> = Vec::new();
 
-    // 1. Code Hunter (analyze)
     if !is_json {
         println!("\n{}\n", "\u{1f50d} Running Full Garbage Scan...".bold());
         println!("{}", "\u{2501}".repeat(50));
     }
 
-    let analyzer = CodeAnalyzer::new(&[], &args.lang);
-    let issues = analyzer.analyze_path(&args.path);
-    let (file_count, total_lines) = calculate_metrics(&args.path, &[]);
-    let code_issues = issues.len();
-    let code_score = if total_lines > 0 {
-        let issue_density = code_issues as f64 / total_lines as f64 * 1000.0;
-        (100.0 - issue_density * 2.0).clamp(0.0, 100.0)
-    } else {
-        100.0
+    // Load project config (--project-config flag or auto-discover .garbage-code-hunter.toml)
+    let project_config = match &args.project_config {
+        Some(path) => ProjectConfig::load_from_file(path).unwrap_or_default(),
+        None => ProjectConfig::discover(&args.path),
     };
-    all_scores.push(("code-hunter", code_score, code_issues));
 
+    // Run all tools in parallel
+    let results = run_all_tools(&args.path, &args.lang, &project_config);
+
+    // Print per-tool status (preserves ordering)
     if !is_json {
-        println!(
-            "  \u{2705} code-hunter: {:.0}/100 ({} issues in {} files)",
-            code_score, code_issues, file_count
-        );
-    }
-
-    // 2. Commit Roaster
-    let commit_config = commit_roaster::analyzer::AnalyzerConfig::default();
-    let commit_score = match commit_roaster::run(
-        &args.path,
-        &commit_config,
-        &commit_roaster::OutputFormat::Json,
-    ) {
-        Ok(json_str) => {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                let score = val["score"].as_f64().unwrap_or(100.0);
-                let total = val["stats"]["total_commits"].as_u64().unwrap_or(0) as usize;
-                all_scores.push(("commit-roaster", score, total));
-                if !is_json {
-                    println!(
-                        "  \u{2705} commit-roaster: {:.0}/100 ({} commits analyzed)",
-                        score, total
-                    );
-                }
-                score
+        for (name, score, _count, detail) in &results {
+            if *score >= 0.0 {
+                println!("  \u{2705} {}: {:.0}/100 ({})", name, score, detail);
             } else {
-                all_scores.push(("commit-roaster", 100.0, 0));
-                100.0
+                println!("  \u{26a0}\u{fe0f} {}: skipped ({})", name, detail);
             }
-        }
-        Err(e) => {
-            if !is_json {
-                println!("  \u{26a0}\u{fe0f} commit-roaster: skipped ({})", e);
-            }
-            all_scores.push(("commit-roaster", 100.0, 0));
-            100.0
-        }
-    };
-    let _ = commit_score;
-
-    // 3. Deps Shamer
-    match deps_shamer::run(&args.path, &deps_shamer::OutputFormat::Json) {
-        Ok(json_str) => {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                let score = val["score"].as_f64().unwrap_or(100.0);
-                let total = val["total_deps"].as_u64().unwrap_or(0) as usize;
-                all_scores.push(("deps-shamer", score, total));
-                if !is_json {
-                    println!(
-                        "  \u{2705} deps-shamer: {:.0}/100 ({} dependencies)",
-                        score, total
-                    );
-                }
-            }
-        }
-        Err(e) => {
-            if !is_json {
-                println!("  \u{26a0}\u{fe0f} deps-shamer: skipped ({})", e);
-            }
-            all_scores.push(("deps-shamer", 100.0, 0));
         }
     }
 
-    // 4. PR Title Hunter
-    match pr_title_hunter::run(&args.path, 50, &pr_title_hunter::OutputFormat::Json) {
-        Ok(json_str) => {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                let score = val["score"].as_f64().unwrap_or(100.0);
-                let total = val["total_prs"].as_u64().unwrap_or(0) as usize;
-                all_scores.push(("pr-title-hunter", score, total));
-                if !is_json {
-                    println!(
-                        "  \u{2705} pr-title-hunter: {:.0}/100 ({} PRs checked)",
-                        score, total
-                    );
-                }
-            }
-        }
-        Err(e) => {
-            if !is_json {
-                println!("  \u{26a0}\u{fe0f} pr-title-hunter: skipped ({})", e);
-            }
-            all_scores.push(("pr-title-hunter", 100.0, 0));
-        }
-    }
+    // Build all_scores (filter out skipped tools with score < 0)
+    let all_scores: Vec<(&str, f64, usize)> = results
+        .iter()
+        .filter(|(_, score, _, _)| *score >= 0.0)
+        .map(|(name, score, count, _)| (*name, *score, *count))
+        .collect();
 
     // Combined report
     if is_json {
@@ -765,6 +1023,97 @@ fn run_scan(args: ScanArgs) {
     }
 }
 
+fn quick_scan_score(path: &std::path::Path, config: &ProjectConfig) -> f64 {
+    // Run 7 key tools in parallel for fast badge scoring
+    let results: Vec<(&str, f64, usize)> = std::thread::scope(|s| {
+        let h_code = s.spawn(|| {
+            let analyzer = CodeAnalyzer::with_config(&[], "en-US", config.clone());
+            let issues = analyzer.analyze_path(path);
+            let path_buf = path.to_path_buf();
+            let (_, total_lines) = calculate_metrics(&path_buf, &[]);
+            let score = if total_lines > 0 {
+                let density = issues.len() as f64 / total_lines as f64 * 1000.0;
+                (100.0 - density * 2.0).clamp(0.0, 100.0)
+            } else {
+                100.0
+            };
+            ("code-hunter", score, issues.len())
+        });
+
+        let h_commit = s.spawn(|| {
+            let cfg = commit_roaster::analyzer::AnalyzerConfig::default();
+            match commit_roaster::run(path, &cfg, &OutputFormat::Json) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => ("commit-roaster", v["score"].as_f64().unwrap_or(100.0), 0),
+                    Err(_) => ("commit-roaster", 100.0, 0),
+                },
+                Err(_) => ("commit-roaster", 100.0, 0),
+            }
+        });
+
+        let h_deps = s.spawn(|| match deps_shamer::run(path, &OutputFormat::Json) {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => ("deps-shamer", v["score"].as_f64().unwrap_or(100.0), 0),
+                Err(_) => ("deps-shamer", 100.0, 0),
+            },
+            Err(_) => ("deps-shamer", 100.0, 0),
+        });
+
+        let h_pr = s.spawn(
+            || match pr_title_hunter::run(path, 50, &OutputFormat::Json) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => ("pr-title-hunter", v["score"].as_f64().unwrap_or(100.0), 0),
+                    Err(_) => ("pr-title-hunter", 100.0, 0),
+                },
+                Err(_) => ("pr-title-hunter", 100.0, 0),
+            },
+        );
+
+        let h_decay = s.spawn(|| match decay::run(path, &OutputFormat::Json, "en-US") {
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(v) => ("decay", v["current_health"].as_f64().unwrap_or(50.0), 0),
+                Err(_) => ("decay", 50.0, 0),
+            },
+            Err(_) => ("decay", 50.0, 0),
+        });
+
+        let h_radar = s.spawn(
+            || match radar::run(path, &OutputFormat::Json, "en-US", None) {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => ("radar", derive_radar_score(&v), 0),
+                    Err(_) => ("radar", 50.0, 0),
+                },
+                Err(_) => ("radar", 50.0, 0),
+            },
+        );
+
+        let h_debt = s.spawn(
+            || match debt_invoice::run(path, &OutputFormat::Json, "en-US") {
+                Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                    Ok(v) => {
+                        let hours = v["total_hours"].as_f64().unwrap_or(0.0);
+                        ("debt-invoice", derive_count_score(hours, 0.5), 0)
+                    }
+                    Err(_) => ("debt-invoice", 100.0, 0),
+                },
+                Err(_) => ("debt-invoice", 100.0, 0),
+            },
+        );
+
+        vec![
+            h_code.join().unwrap_or(("code-hunter", 100.0, 0)),
+            h_commit.join().unwrap_or(("commit-roaster", 100.0, 0)),
+            h_deps.join().unwrap_or(("deps-shamer", 100.0, 0)),
+            h_pr.join().unwrap_or(("pr-title-hunter", 100.0, 0)),
+            h_decay.join().unwrap_or(("decay", 50.0, 0)),
+            h_radar.join().unwrap_or(("radar", 50.0, 0)),
+            h_debt.join().unwrap_or(("debt-invoice", 100.0, 0)),
+        ]
+    });
+
+    overall_score(&results)
+}
+
 fn run_badge(args: BadgeArgs) {
     use garbage_code_hunter::badge;
     use garbage_code_hunter::badge::generator::BadgeStyle;
@@ -774,45 +1123,11 @@ fn run_badge(args: BadgeArgs) {
         _ => BadgeStyle::Flat,
     };
 
-    // Use provided score or compute from scan
     let score = if let Some(s) = args.score {
         s
     } else {
-        // Run a quick scan to get the overall score
-        let analyzer = CodeAnalyzer::new(&[], "en-US");
-        let issues = analyzer.analyze_path(&args.path);
-        let (file_count, total_lines) = calculate_metrics(&args.path, &[]);
-        let code_issues = issues.len();
-        let code_score = if total_lines > 0 {
-            let issue_density = code_issues as f64 / total_lines as f64 * 1000.0;
-            (100.0 - issue_density * 2.0).clamp(0.0, 100.0)
-        } else {
-            100.0
-        };
-
-        let commit_config = commit_roaster::analyzer::AnalyzerConfig::default();
-        let commit_score = commit_roaster::run(
-            &args.path,
-            &commit_config,
-            &commit_roaster::OutputFormat::Json,
-        )
-        .ok()
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-        .and_then(|v| v["score"].as_f64())
-        .unwrap_or(100.0);
-
-        let deps_score = deps_shamer::run(&args.path, &deps_shamer::OutputFormat::Json)
-            .ok()
-            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-            .and_then(|v| v["score"].as_f64())
-            .unwrap_or(100.0);
-
-        let scores = vec![
-            ("code-hunter", code_score, file_count),
-            ("commit-roaster", commit_score, 0),
-            ("deps-shamer", deps_score, 0),
-        ];
-        overall_score(&scores)
+        let config = ProjectConfig::discover(&args.path);
+        quick_scan_score(&args.path, &config)
     };
 
     match badge::run(score, &args.output, &style) {
@@ -846,8 +1161,38 @@ fn overall_score(scores: &[(&str, f64, usize)]) -> f64 {
     if scores.is_empty() {
         return 100.0;
     }
-    let total: f64 = scores.iter().map(|(_, s, _)| s).sum();
-    total / scores.len() as f64
+
+    let weights: std::collections::HashMap<&str, f64> = [
+        ("code-hunter", 0.20),
+        ("commit-roaster", 0.10),
+        ("deps-shamer", 0.05),
+        ("pr-title-hunter", 0.05),
+        ("last-words", 0.05),
+        ("debt-invoice", 0.10),
+        ("personality", 0.05),
+        ("decay", 0.10),
+        ("autopsy", 0.05),
+        ("radar", 0.10),
+        ("ci-bot", 0.05),
+        ("persona", 0.03),
+        ("danger-zone", 0.05),
+        ("team-roast", 0.02),
+    ]
+    .into_iter()
+    .collect();
+
+    let mut weighted_sum = 0.0;
+    let mut total_weight = 0.0;
+    for (name, score, _) in scores {
+        let w = weights.get(name).copied().unwrap_or(0.05);
+        weighted_sum += score * w;
+        total_weight += w;
+    }
+    if total_weight > 0.0 {
+        weighted_sum / total_weight
+    } else {
+        100.0
+    }
 }
 
 /// Parse YYYY-MM-DD to Unix timestamp.
@@ -903,6 +1248,7 @@ impl Default for AnalyzeArgs {
             llm_api_key: None,
             llm_timeout: 30,
             config: None,
+            project_config: None,
         }
     }
 }
@@ -924,7 +1270,13 @@ fn run_analyze(args: AnalyzeArgs) {
         Some(args.llm_timeout),
     );
 
-    let analyzer = CodeAnalyzer::new(&args.exclude, &args.lang);
+    // Load project config (--project-config flag or auto-discover .garbage-code-hunter.toml)
+    let project_config = match &args.project_config {
+        Some(path) => ProjectConfig::load_from_file(path).unwrap_or_default(),
+        None => ProjectConfig::discover(&args.path),
+    };
+
+    let analyzer = CodeAnalyzer::with_config(&args.exclude, &args.lang, project_config);
     let issues = analyzer.analyze_path(&args.path);
 
     // Calculate metrics for scoring

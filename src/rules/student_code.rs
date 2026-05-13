@@ -255,7 +255,7 @@ impl Rule for PrintlnDebuggingRule {
         lang: &str,
         _is_test_file: bool,
         context: &FileContext,
-        _config: &crate::context::ProjectConfig,
+        config: &crate::context::ProjectConfig,
     ) -> Vec<CodeIssue> {
         // Example, Test, Benchmark, Documentation: skip completely
         let weight = context.rule_weight_multiplier();
@@ -263,9 +263,12 @@ impl Rule for PrintlnDebuggingRule {
             return Vec::new();
         }
 
-        // main.rs/lib.rs files: allow more println (normal for CLI tools)
+        let println_cfg = &config.rules.println;
+
+        // main.rs/lib.rs files: respect config for whether to allow println
         let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
-        if file_name == "main.rs" || file_name == "lib.rs" {
+        let is_main_file = file_name == "main.rs" || file_name == "lib.rs";
+        if is_main_file && println_cfg.allow_in_main_files {
             // For entry files, only report Nuclear level issues (excessive debug output)
             let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
             return issues
@@ -274,7 +277,14 @@ impl Rule for PrintlnDebuggingRule {
                 .collect();
         }
 
-        self.check(file_path, syntax_tree, content, lang, _is_test_file)
+        let issues = self.check(file_path, syntax_tree, content, lang, _is_test_file);
+
+        // Apply threshold: only report if count >= threshold
+        if issues.len() >= println_cfg.threshold {
+            issues
+        } else {
+            Vec::new()
+        }
     }
 }
 

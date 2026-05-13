@@ -22,7 +22,7 @@ pub mod student_code;
 /// Each rule targets a specific category of code smell or anti-pattern.
 /// Implementors must provide [`name()`](Rule::name) and at least one of
 /// [`check()`](Rule::check) or [`check_with_context()`](Rule::check_with_context).
-pub trait Rule {
+pub trait Rule: Send + Sync {
     /// Returns the unique identifier for this rule (e.g. `"unwrap-abuse"`).
     fn name(&self) -> &'static str;
 
@@ -155,13 +155,30 @@ impl RuleEngine {
         let context = FileContext::from_path(file_path);
         let mut issues = Vec::new();
 
+        // Check file-level overrides from project config
+        let override_config = self.config.get_override_for_path(file_path);
+
         for rule in &self.rules {
-            if context.should_skip_rule(rule.name()) {
+            let name = rule.name();
+
+            if context.should_skip_rule(name) {
                 continue;
             }
 
             if is_test_file && rule.skips_test_files() {
                 continue;
+            }
+
+            // Check if rule is disabled in project config
+            if self.is_rule_disabled_by_config(name) {
+                continue;
+            }
+
+            // Check if rule is disabled by file-level override
+            if let Some(ov) = override_config {
+                if ov.disabled_rules.iter().any(|r| r == name) {
+                    continue;
+                }
             }
 
             let rule_issues = rule.check_with_context(
@@ -178,6 +195,22 @@ impl RuleEngine {
         }
 
         issues
+    }
+
+    /// Check if a rule is disabled via the project config's `rules` section.
+    fn is_rule_disabled_by_config(&self, rule_name: &str) -> bool {
+        let rules = &self.config.rules;
+        match rule_name {
+            "terrible-naming"
+            | "single-letter-variable"
+            | "meaningless-naming"
+            | "hungarian-notation"
+            | "abbreviation-abuse" => !rules.naming.enabled,
+            "unwrap-abuse" => !rules.unwrap.enabled,
+            "magic-number" => !rules.magic_number.enabled,
+            "println-debugging" => !rules.println.enabled,
+            _ => false,
+        }
     }
 
     /// Legacy check method (backward compatible)
