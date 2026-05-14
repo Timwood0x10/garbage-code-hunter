@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garbage Code Hunter - AI Chat Room</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #1a1b26; color: #c0caf5; display: flex; height: 100vh; overflow: hidden; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #1a1b26; }
+  ::-webkit-scrollbar-thumb { background: #3b4261; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4c52a0; }
+
+  /* Sidebar */
+  .sidebar { width: 260px; min-width: 260px; background: #16161e; display: flex; flex-direction: column; border-right: 1px solid #2a2b3d; }
+  .sidebar-header { padding: 20px; font-size: 14px; font-weight: 700; color: #7aa2f7; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #2a2b3d; }
+  .sidebar-header span { color: #565f89; }
+  .ai-panel { flex: 1; padding: 12px; overflow-y: auto; }
+  .ai-card { background: #1f2035; border-radius: 10px; padding: 14px; margin-bottom: 10px; border: 1px solid #2a2b3d; transition: all 0.3s; }
+  .ai-card.active { border-color: #7aa2f7; background: #1a2140; }
+  .ai-card.done { border-color: #41a6b5; background: #1a2a35; }
+  .ai-card.troublemaker-revealed { border-color: #f7768e; background: #2a1a2a; }
+  .ai-card-header { display: flex; align-items: center; gap: 10px; }
+  .ai-emoji { font-size: 24px; }
+  .ai-info { flex: 1; }
+  .ai-name { font-size: 14px; font-weight: 600; color: #c0caf5; }
+  .ai-role { font-size: 11px; color: #565f89; }
+  .ai-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .status-waiting { background: #2a2b3d; color: #565f89; }
+  .status-thinking { background: #1a3a5c; color: #7dcfff; animation: pulse 1.5s infinite; }
+  .status-done { background: #1a3a35; color: #41a6b5; }
+  .status-revealed { background: #3a1a2a; color: #f7768e; }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .top-bar { padding: 14px 20px; background: #1f2035; border-bottom: 1px solid #2a2b3d; display: flex; gap: 10px; align-items: center; }
+  .top-bar input { flex: 1; background: #1a1b26; border: 1px solid #2a2b3d; border-radius: 8px; padding: 10px 14px; color: #c0caf5; font-size: 14px; outline: none; }
+  .top-bar input:focus { border-color: #7aa2f7; }
+  .top-bar button { background: #7aa2f7; color: #1a1b26; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 600; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+  .top-bar button:hover { background: #89b4fa; }
+  .top-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Messages */
+  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .message { display: flex; gap: 12px; animation: fadeIn 0.3s; }
+  .message-avatar { font-size: 32px; width: 40px; text-align: center; flex-shrink: 0; }
+  .message-content { flex: 1; min-width: 0; }
+  .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .message-name { font-weight: 700; font-size: 14px; }
+  .message-time { font-size: 11px; color: #565f89; }
+  .message-body { font-size: 14px; line-height: 1.6; color: #a9b1d6; white-space: pre-wrap; word-wrap: break-word; }
+  .message-body p { margin-bottom: 8px; }
+  .message-body code { background: #1f2035; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #ff9e64; }
+  .message-body pre { background: #1f2035; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; border: 1px solid #2a2b3d; }
+  .message-body pre code { background: none; padding: 0; color: #c0caf5; }
+  .message-body ul, .message-body ol { padding-left: 20px; margin: 8px 0; }
+  .message-body blockquote { border-left: 3px solid #7aa2f7; padding-left: 12px; color: #565f89; margin: 8px 0; }
+
+  .message.system .message-body { color: #7dcfff; font-style: italic; }
+  .message.user .message-name { color: #bb9af7; }
+  .message.system { align-self: center; background: #1a2140; border-radius: 10px; padding: 10px 16px; max-width: 80%; }
+
+  .typing-dots::after { content: ''; animation: dots 1.5s infinite; }
+  @keyframes dots { 0% { content: ''; } 33% { content: '.'; } 66% { content: '..'; } 100% { content: '...'; } }
+
+  /* Bottom bar */
+  .bottom-bar { padding: 14px 20px; background: #1f2035; border-top: 1px solid #2a2b3d; display: flex; gap: 10px; align-items: center; }
+  .bottom-bar input { flex: 1; background: #1a1b26; border: 1px solid #2a2b3d; border-radius: 8px; padding: 10px 14px; color: #c0caf5; font-size: 14px; outline: none; }
+  .bottom-bar input:focus { border-color: #7aa2f7; }
+  .bottom-bar button { background: #3b4261; color: #c0caf5; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 600; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+  .bottom-bar button:hover { background: #4c52a0; }
+  .bottom-bar button.primary { background: #7aa2f7; color: #1a1b26; }
+  .bottom-bar button.primary:hover { background: #89b4fa; }
+  .bottom-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Vote overlay */
+  .vote-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+  .vote-overlay.show { display: flex; }
+  .vote-modal { background: #1f2035; border-radius: 16px; padding: 30px; max-width: 500px; width: 90%; border: 1px solid #2a2b3d; text-align: center; }
+  .vote-modal h2 { margin-bottom: 20px; color: #7aa2f7; }
+  .vote-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .vote-btn { background: #1a1b26; border: 2px solid #2a2b3d; border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.2s; text-align: center; }
+  .vote-btn:hover { border-color: #7aa2f7; background: #1a2140; }
+  .vote-btn .emoji { font-size: 28px; display: block; margin-bottom: 4px; }
+  .vote-btn .name { font-size: 13px; font-weight: 600; color: #c0caf5; }
+  .vote-btn.selected { border-color: #7aa2f7; background: #1a3a5c; }
+  .vote-submit { background: #7aa2f7; color: #1a1b26; border: none; border-radius: 8px; padding: 12px 30px; font-weight: 600; cursor: pointer; font-size: 16px; }
+
+  /* Result */
+  .result-container { display: none; text-align: center; margin: 20px 0; }
+  .result-container.show { display: block; }
+  .result-icon { font-size: 64px; margin-bottom: 10px; }
+  .result-text { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .result-sub { font-size: 14px; color: #565f89; }
+  .result-correct { color: #41a6b5; }
+  .result-wrong { color: #f7768e; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+  @keyframes revealPop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  .reveal-card { animation: revealPop 0.4s ease-out; }
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="sidebar-header">AI Reviewers <span>| code review</span></div>
+  <div class="ai-panel" id="aiPanel"></div>
+  <div style="padding:12px;font-size:11px;color:#565f89;text-align:center;border-top:1px solid #2a2b3d;">
+    One of them is secretly a troublemaker
+  </div>
+</div>
+<div class="main">
+  <div class="top-bar">
+    <input id="projectPath" placeholder="Enter project path (e.g. /path/to/project)" value="." />
+    <button id="submitBtn" onclick="submitProject()">🔍 Analyze</button>
+  </div>
+  <div class="messages" id="messages"></div>
+  <div class="bottom-bar">
+    <input id="chatInput" placeholder="Ask a question..." disabled />
+    <button id="chatBtn" disabled onclick="sendMessage()">Send</button>
+    <button id="voteBtn" class="primary" disabled onclick="showVoteModal()">🗳️ Vote</button>
+  </div>
+</div>
+
+<div class="vote-overlay" id="voteOverlay">
+  <div class="vote-modal">
+    <h2>Who is the Troublemaker? 🕵️</h2>
+    <div class="vote-options" id="voteOptions"></div>
+    <button class="vote-submit" onclick="submitVote()">Cast Vote</button>
+  </div>
+</div>
+
+<div class="result-container" id="resultContainer">
+  <div class="result-icon" id="resultIcon"></div>
+  <div class="result-text" id="resultText"></div>
+  <div class="result-sub" id="resultSub"></div>
+</div>
+
+<script>
+let ws = null;
+let ais = [];
+let aiDone = [false, false, false, false];
+let aiMessages = ['', '', '', ''];
+let selectedVote = -1;
+let troublemakerIndex = -1;
+
+function connect() {
+  const host = window.location.host;
+  ws = new WebSocket('ws://' + host + '/ws');
+  ws.onopen = () => addSystemMessage('Connected to Garbage Code Hunter! Submit a project path to begin.');
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    handleMessage(data);
+  };
+  ws.onclose = () => {
+    addSystemMessage('Disconnected. Reconnecting...');
+    setTimeout(connect, 2000);
+  };
+  ws.onerror = () => ws.close();
+}
+
+function handleMessage(data) {
+  switch (data.type) {
+    case 'init':
+      ais = data.ais;
+      troublemakerIndex = -1;
+      aiDone = [false, false, false, false];
+      aiMessages = ['', '', '', ''];
+      renderAIPanel();
+      document.getElementById('submitBtn').disabled = false;
+      break;
+    case 'progress':
+      addSystemMessage(data.message);
+      break;
+    case 'analysis':
+      addSystemMessage('\u{1f4ca} Analysis: ' + data.summary.total + ' issues found');
+      if (data.summary.top) {
+        let top = data.summary.top.map(r => r.rule + '(' + r.count + ')').join(', ');
+        addSystemMessage('\u{1f4cb} Top issues: ' + top);
+      }
+      break;
+    case 'ai_start':
+      aiDone[data.index] = false;
+      aiMessages[data.index] = '';
+      updateAICard(data.index, 'thinking');
+      showAIMessage(data.index, '', true);
+      break;
+    case 'ai_chunk':
+      aiMessages[data.index] += data.text;
+      updateAIMessage(data.index, aiMessages[data.index]);
+      break;
+    case 'ai_end':
+      aiDone[data.index] = true;
+      updateAICard(data.index, 'done');
+      finalizeAIMessage(data.index, aiMessages[data.index]);
+      if (aiDone.every(d => d)) {
+        document.getElementById('voteBtn').disabled = false;
+        document.getElementById('chatInput').disabled = false;
+        document.getElementById('chatBtn').disabled = false;
+      }
+      break;
+    case 'message':
+      addUserMessage(data.text);
+      break;
+    case 'system':
+      addSystemMessage(data.message);
+      break;
+    case 'vote_result':
+      troublemakerIndex = data.troublemaker_index;
+      showVoteResult(data.correct, data.troublemaker_index);
+      break;
+    case 'reveal':
+      revealAll(data.personas);
+      break;
+  }
+}
+
+function submitProject() {
+  const path = document.getElementById('projectPath').value.trim() || '.';
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  aiDone = [false, false, false, false];
+  aiMessages = ['', '', '', ''];
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('voteBtn').disabled = true;
+  document.getElementById('chatInput').disabled = true;
+  document.getElementById('chatBtn').disabled = true;
+  document.getElementById('resultContainer').classList.remove('show');
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('voteOverlay').classList.remove('show');
+  ws.send(JSON.stringify({type: 'submit', path: path}));
+}
+
+function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !ws) return;
+  addUserMessage(text);
+  ws.send(JSON.stringify({type: 'message', text: text}));
+  input.value = '';
+}
+
+function showVoteModal() {
+  const overlay = document.getElementById('voteOverlay');
+  const options = document.getElementById('voteOptions');
+  options.innerHTML = '';
+  selectedVote = -1;
+  ais.forEach((ai, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'vote-btn';
+    btn.innerHTML = '<span class="emoji">' + ai.emoji + '</span><span class="name">' + ai.name + '</span>';
+    btn.onclick = () => {
+      document.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedVote = i;
+    };
+    options.appendChild(btn);
+  });
+  overlay.classList.add('show');
+}
+
+function submitVote() {
+  if (selectedVote < 0) return;
+  document.getElementById('voteOverlay').classList.remove('show');
+  if (ws) ws.send(JSON.stringify({type: 'vote', target: selectedVote}));
+}
+
+function showVoteResult(correct, idx) {
+  const container = document.getElementById('resultContainer');
+  const icon = document.getElementById('resultIcon');
+  const text = document.getElementById('resultText');
+  const sub = document.getElementById('resultSub');
+  if (correct) {
+    icon.textContent = '\u{1f389}';
+    text.textContent = 'Correct! You found the troublemaker!';
+    text.className = 'result-text result-correct';
+    sub.textContent = ais[idx] ? ais[idx].emoji + ' ' + ais[idx].name + ' was the troublemaker' : '';
+  } else {
+    icon.textContent = '\u{1f937}';
+    text.textContent = 'Not quite! The troublemaker was...';
+    text.className = 'result-text result-wrong';
+    sub.textContent = ais[idx] ? ais[idx].emoji + ' ' + ais[idx].name : '';
+  }
+  container.classList.add('show');
+}
+
+function revealAll(personas) {
+  personas.forEach(p => {
+    const card = document.querySelector('.ai-card[data-index="' + p.index + '"]');
+    if (card) {
+      const status = card.querySelector('.ai-status');
+      if (p.role === 'troublemaker') {
+        card.classList.add('troublemaker-revealed');
+        status.textContent = '\u{1f525} Troublemaker!';
+        status.className = 'ai-status status-revealed';
+      } else {
+        status.textContent = '\u2705 Good';
+        status.className = 'ai-status status-done';
+      }
+    }
+  });
+}
+
+function renderAIPanel() {
+  const panel = document.getElementById('aiPanel');
+  panel.innerHTML = '';
+  ais.forEach((ai, i) => {
+    const card = document.createElement('div');
+    card.className = 'ai-card';
+    card.dataset.index = i;
+    card.innerHTML = `
+      <div class="ai-card-header">
+        <div class="ai-emoji">${ai.emoji}</div>
+        <div class="ai-info">
+          <div class="ai-name">${ai.name}</div>
+          <div class="ai-role">Expert Reviewer</div>
+        </div>
+        <div class="ai-status status-waiting">waiting</div>
+      </div>
+    `;
+    panel.appendChild(card);
+  });
+}
+
+function updateAICard(index, status) {
+  const card = document.querySelector('.ai-card[data-index="' + index + '"]');
+  if (!card) return;
+  card.className = 'ai-card ' + (status === 'thinking' ? 'active' : 'done');
+  const statusEl = card.querySelector('.ai-status');
+  if (status === 'thinking') {
+    statusEl.textContent = '\u{1f4ad} thinking...';
+    statusEl.className = 'ai-status status-thinking';
+  } else if (status === 'done') {
+    statusEl.textContent = '\u2705 done';
+    statusEl.className = 'ai-status status-done';
+  }
+}
+
+function showAIMessage(index, text, typing) {
+  const msgs = document.getElementById('messages');
+  let msg = document.querySelector('.message[data-ai="' + index + '"]');
+  if (!msg) {
+    msg = document.createElement('div');
+    msg.className = 'message';
+    msg.dataset.ai = index;
+    msg.innerHTML = `
+      <div class="message-avatar">${ais[index].emoji}</div>
+      <div class="message-content">
+        <div class="message-header">
+          <span class="message-name" style="color:#7aa2f7">${ais[index].name}</span>
+          <span class="message-time">${new Date().toLocaleTimeString()}</span>
+        </div>
+        <div class="message-body"></div>
+      </div>
+    `;
+    msgs.appendChild(msg);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  const body = msg.querySelector('.message-body');
+  if (typing) {
+    body.textContent = text + ' \u{1f4ad}';
+  } else {
+    body.innerHTML = renderMarkdown(text);
+  }
+}
+
+function updateAIMessage(index, text) {
+  const msg = document.querySelector('.message[data-ai="' + index + '"]');
+  if (!msg) return;
+  const body = msg.querySelector('.message-body');
+  body.innerHTML = renderMarkdown(text);
+  document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+}
+
+function finalizeAIMessage(index, text) {
+  const msg = document.querySelector('.message[data-ai="' + index + '"]');
+  if (!msg) return;
+  const body = msg.querySelector('.message-body');
+  body.innerHTML = renderMarkdown(text);
+}
+
+function addSystemMessage(text) {
+  const msgs = document.getElementById('messages');
+  const msg = document.createElement('div');
+  msg.className = 'message system';
+  msg.innerHTML = '<div class="message-body">' + text + '</div>';
+  msgs.appendChild(msg);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addUserMessage(text) {
+  const msgs = document.getElementById('messages');
+  const msg = document.createElement('div');
+  msg.className = 'message user';
+  msg.innerHTML = `
+    <div class="message-avatar">👤</div>
+    <div class="message-content">
+      <div class="message-header">
+        <span class="message-name">You</span>
+        <span class="message-time">${new Date().toLocaleTimeString()}</span>
+      </div>
+      <div class="message-body">${escapeHtml(text)}</div>
+    </div>
+  `;
+  msgs.appendChild(msg);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderMarkdown(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+document.getElementById('chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendMessage();
+});
+
+connect();
+</script>
+</body>
+</html>

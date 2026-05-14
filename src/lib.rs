@@ -4,6 +4,7 @@
 pub mod analyzer;
 pub mod autopsy;
 pub mod badge;
+pub mod chat;
 pub mod ci_bot;
 pub mod commit_roaster;
 pub mod common;
@@ -35,6 +36,8 @@ pub use analyzer::{CodeAnalyzer, CodeIssue, Severity};
 pub use educational::{EducationalAdvice, EducationalAdvisor};
 pub use hall_of_shame::{HallOfShame, ProjectShameStats, ShameEntry};
 pub use i18n::I18n;
-pub use llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastMap, RoastProvider};
+pub use llm::{
+    LlmClient, LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastMap, RoastProvider,
+};
 pub use reporter::Reporter;
 pub use scoring::{CodeQualityScore, CodeScorer, QualityLevel};

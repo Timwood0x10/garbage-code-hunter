@@ -23,14 +23,13 @@ pub struct LlmConfig {
     pub endpoint: String,
     pub model: String,
     pub api_key: Option<String>,
+    /// Custom auth header name (e.g. "api-key"). Default: uses Bearer auth via Authorization header.
+    pub auth_header: Option<String>,
     pub timeout_secs: u64,
 }
 
 impl LlmConfig {
     /// Build configuration from CLI arguments with sensible defaults.
-    ///
-    /// - Ollama default endpoint: `http://localhost:11434`, model: `llama3.2`
-    /// - OpenAI-compatible default endpoint: `http://localhost:1234`, model: `default`
     pub fn from_args(
         provider: &str,
         endpoint: Option<&str>,
@@ -58,6 +57,7 @@ impl LlmConfig {
             endpoint: endpoint.unwrap_or(default_endpoint).to_string(),
             model: model.unwrap_or(default_model).to_string(),
             api_key: api_key.map(String::from),
+            auth_header: None,
             timeout_secs: timeout,
         }
     }
@@ -81,27 +81,9 @@ struct OllamaResponse {
 // --- OpenAI-compatible request/response types ---
 
 #[derive(Serialize)]
-struct OpenAIRequest {
-    model: String,
-    messages: Vec<OpenAIMessage>,
-    temperature: f64,
-    response_format: Option<serde_json::Value>,
-}
-
-#[derive(Serialize, Deserialize)]
 struct OpenAIMessage {
     role: String,
     content: String,
-}
-
-#[derive(Deserialize)]
-struct OpenAIResponse {
-    choices: Vec<OpenAIChoice>,
-}
-
-#[derive(Deserialize)]
-struct OpenAIChoice {
-    message: OpenAIMessage,
 }
 
 // --- Client ---
@@ -191,13 +173,34 @@ impl LlmClient {
         client: &reqwest::Client,
         prompt: &str,
     ) -> Result<String> {
-        let url = format!("{}/v1/chat/completions", self.config.endpoint);
+        let base = self.config.endpoint.trim_end_matches('/');
+
+        // Detect API format from endpoint URL
+        if base.contains("/responses") {
+            self.call_responses_api(client, prompt, base).await
+        } else {
+            self.call_chat_api(client, prompt, base).await
+        }
+    }
+
+    /// Call any OpenAI-compatible API and return the raw response body.
+    /// Tries chat/completions first, falls back to raw dump on error.
+    async fn call_chat_api(
+        &self,
+        client: &reqwest::Client,
+        prompt: &str,
+        base: &str,
+    ) -> Result<String> {
+        let url = if base.ends_with("/v1") || base.ends_with("/v1/chat/completions") {
+            format!("{}/chat/completions", base)
+        } else {
+            format!("{}/v1/chat/completions", base)
+        };
 
         let messages = vec![
             OpenAIMessage {
                 role: "system".to_string(),
-                content: "You are a sarcastic code reviewer. Always respond with valid JSON."
-                    .to_string(),
+                content: "You are a sarcastic code reviewer.".to_string(),
             },
             OpenAIMessage {
                 role: "user".to_string(),
@@ -205,34 +208,84 @@ impl LlmClient {
             },
         ];
 
-        let request = OpenAIRequest {
-            model: self.config.model.clone(),
-            messages,
-            temperature: 0.8,
-            response_format: Some(serde_json::json!({"type": "json_object"})),
+        let request = serde_json::json!({"model": self.config.model, "messages": messages, "temperature": 0.8});
+        let req_builder = self.apply_auth(client.post(&url).json(&request));
+        let resp = req_builder.send().await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        let preview = &text[..text.len().min(500)];
+
+        if status.is_success() {
+            if let Ok(body) = serde_json::from_str::<serde_json::Value>(&text) {
+                if let Some(c) = body["choices"][0]["message"]["content"].as_str() {
+                    if !c.is_empty() {
+                        return Ok(c.to_string());
+                    }
+                }
+            }
+        }
+        anyhow::bail!("chat/completions error [{}]: {}", status, preview)
+    }
+
+    /// Apply auth header: custom header name or default Bearer token.
+    fn apply_auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(ref key) = self.config.api_key {
+            if key.is_empty() {
+                return req;
+            }
+            if let Some(ref header) = self.config.auth_header {
+                req.header(header.as_str(), key.as_str())
+            } else {
+                req.bearer_auth(key.as_str())
+            }
+        } else {
+            req
+        }
+    }
+
+    /// OpenAI responses API
+    async fn call_responses_api(
+        &self,
+        client: &reqwest::Client,
+        prompt: &str,
+        base: &str,
+    ) -> Result<String> {
+        let url = if base.ends_with("/v1") || base.ends_with("/v1/responses") {
+            format!("{}/responses", base)
+        } else {
+            format!("{}/v1/responses", base)
         };
 
-        let mut req_builder = client.post(&url).json(&request);
+        let request =
+            serde_json::json!({"model": self.config.model, "input": prompt, "temperature": 0.8});
+        let req_builder = self.apply_auth(client.post(&url).json(&request));
+        let resp = req_builder.send().await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        let preview = &text[..text.len().min(500)];
 
-        if let Some(ref api_key) = self.config.api_key {
-            req_builder = req_builder.bearer_auth(api_key);
+        if status.is_success() {
+            if let Ok(body) = serde_json::from_str::<serde_json::Value>(&text) {
+                if let Some(output) = body["output"].as_array() {
+                    for item in output {
+                        if item["type"] == "message" {
+                            if let Some(content) = item["content"].as_array() {
+                                for c in content {
+                                    if c["type"] == "output_text" {
+                                        if let Some(t) = c["text"].as_str() {
+                                            if !t.is_empty() {
+                                                return Ok(t.to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-
-        let resp = req_builder
-            .send()
-            .await
-            .context("Failed to send request to OpenAI-compatible endpoint")?;
-
-        let body: OpenAIResponse = resp
-            .json()
-            .await
-            .context("Failed to parse OpenAI-compatible response")?;
-
-        body.choices
-            .into_iter()
-            .next()
-            .map(|c| c.message.content)
-            .ok_or_else(|| anyhow::anyhow!("No choices in LLM response"))
+        anyhow::bail!("responses API error [{}]: {}", status, preview)
     }
 }
 

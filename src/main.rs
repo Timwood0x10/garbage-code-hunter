@@ -7,7 +7,7 @@ use walkdir::WalkDir;
 // Use modules from library (lib.rs)
 use garbage_code_hunter::{
     analyzer::{CodeAnalyzer, CodeIssue},
-    autopsy, ci_bot, commit_roaster,
+    autopsy, chat, ci_bot, commit_roaster,
     common::OutputFormat,
     config::{AppConfig, AppMode},
     context::ProjectConfig,
@@ -88,6 +88,17 @@ enum Commands {
 
     /// Per-developer team analysis and roasting
     TeamRoast(TeamRoastArgs),
+
+    /// Start the AI chat room server (multi-player code review game)
+    #[command(alias = "c")]
+    Chat(ChatArgs),
+}
+
+#[derive(Parser)]
+struct ChatArgs {
+    /// Port to listen on
+    #[arg(short, long, default_value = "8765")]
+    port: u16,
 }
 
 #[derive(Parser)]
@@ -500,6 +511,7 @@ fn main() {
         Some(Commands::Persona(args)) => run_persona(args),
         Some(Commands::DangerZone(args)) => run_danger_zone(args),
         Some(Commands::TeamRoast(args)) => run_team_roast(args),
+        Some(Commands::Chat(args)) => run_chat(args),
         Some(Commands::Analyze(args)) => run_analyze(args),
         None => run_analyze(AnalyzeArgs::default()),
     }
@@ -1669,19 +1681,20 @@ fn run_danger_zone(args: DangerZoneArgs) {
 }
 
 fn run_team_roast(args: TeamRoastArgs) {
-    use garbage_code_hunter::common::OutputFormat;
-    use garbage_code_hunter::team_roast;
-
-    let format = match args.format.as_str() {
+    let fmt = match args.format.as_str() {
         "json" => OutputFormat::Json,
         _ => OutputFormat::Terminal,
     };
-
-    match team_roast::run(&args.path, &format, args.limit, &args.lang) {
+    match team_roast::run(&args.path, &fmt, args.limit, &args.lang) {
         Ok(output) => print!("{}", output),
         Err(e) => {
             eprintln!("Error: {}", e);
             std::process::exit(1);
         }
     }
+}
+
+fn run_chat(args: ChatArgs) {
+    let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+    rt.block_on(chat::run_chat_server(args.port));
 }
