@@ -469,7 +469,7 @@ struct TeamRoastArgs {
     format: String,
 
     /// Output language (zh-CN, en-US)
-    #[arg(short, long, default_value = "en-US")]
+    #[arg(short = 'L', long, default_value = "en-US")]
     lang: String,
 }
 
@@ -608,7 +608,7 @@ fn derive_radar_score(val: &serde_json::Value) -> f64 {
     let sum: f64 = dims.iter().filter_map(|d| val[*d].as_f64()).sum();
     let n = dims.iter().filter(|d| val[**d].is_number()).count() as f64;
     if n > 0.0 {
-        sum / n
+        (sum / n).clamp(0.0, 100.0)
     } else {
         100.0
     }
@@ -618,7 +618,7 @@ fn derive_danger_zone_score(val: &serde_json::Value) -> f64 {
     match val["files"].as_array() {
         Some(arr) if !arr.is_empty() => {
             let sum: f64 = arr.iter().filter_map(|f| f["risk_score"].as_f64()).sum();
-            sum / arr.len() as f64
+            (sum / arr.len() as f64).clamp(0.0, 100.0)
         }
         _ => 100.0,
     }

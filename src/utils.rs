@@ -68,6 +68,22 @@ pub fn get_position_from_content(content: &str, byte_offset: usize) -> (usize, u
     (line, col)
 }
 
+/// Truncate a string to a maximum length, appending "..." if truncated.
+///
+/// Uses char-aware slicing to avoid panicking on multi-byte UTF-8 boundaries.
+pub fn truncate(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        let mut end = max.saturating_sub(3);
+        // Find a valid char boundary
+        while !s.is_char_boundary(end) && end > 0 {
+            end -= 1;
+        }
+        format!("{}...", &s[..end])
+    }
+}
+
 /// Count non-comment, non-import occurrences of a pattern in source content
 pub fn count_non_import_matches(content: &str, target: &str) -> usize {
     let mut count = 0;

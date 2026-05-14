@@ -38,88 +38,50 @@ Garbage Code Hunter 是一个 CLI 工具集，用于代码质量分析。不同�
 graph TB
     CLI["garbage-code-hunter<br/>CLI 入口 (clap)"]
 
-    subgraph Tools["分析工具层"]
-        CH["Code Hunter<br/>Rust 静态分析"]
-        CR["Commit Roaster<br/>Commit 消息审查"]
-        DS["Deps Shamer<br/>依赖分析"]
-        PR["PR Title Hunter<br/>PR 标题审查"]
+    subgraph Core["核心引擎"]
+        TS["Tree-Sitter 引擎<br/>AST 解析 (11 种语言)"]
+        GA["通用分析器<br/>正则 fallback"]
+        AN["CodeAnalyzer<br/>统一分析流水线"]
+        CTX["上下文系统<br/>文件类型检测"]
     end
 
-    subgraph FunTools["娱乐工具层"]
-        LW["Last Words<br/>遗言系统"]
-        DI["Debt Invoice<br/>技术债账单"]
-        PE["Personality<br/>人格分析"]
-        DC["Decay<br/>衰减曲线"]
-        AU["Autopsy<br/>尸检报告"]
-        RD["Radar<br/>气味雷达"]
-        CB["CI Bot<br/>PR 评论"]
-        PA["Persona<br/>人格模式"]
-        DZ["Danger Zone<br/>危险热图"]
-        TR["Team Roast<br/>团队吐槽"]
+    subgraph Rules["规则引擎 (tree-sitter)"]
+        BR["基础规则<br/>嵌套、命名、长度"]
+        CR_R["复杂规则<br/>上帝函数、重复检测"]
+        RR["Rust 规则<br/>unwrap、生命周期、宏"]
+        REM["其他规则<br/>魔法数字、死代码"]
     end
 
-    subgraph Extensions["扩展功能"]
-        SCAN["Scan<br/>综合扫描"]
-        BADGE["Badge<br/>SVG 徽章"]
-        TREND["Trend<br/>历史趋势"]
+    subgraph Tools["18 个分析工具"]
+        CH["Code Hunter<br/>静态分析"]
+        CMR["Commit Roaster<br/>Git 历史"]
+        DS["Deps Shamer<br/>5 大生态"]
+        PR["PR Title Hunter<br/>本地 + GitHub"]
     end
 
-    subgraph Shared["共享模块 (common)"]
-        SEV["Severity<br/>严重级别"]
-        OF["OutputFormat<br/>输出格式"]
-        SCORE["score_to_grade<br/>评分等级"]
+    subgraph FunTools["娱乐工具"]
+        LW["Last Words"] DI["Debt Invoice"]
+        PE["Personality"] DC["Decay"]
+        AU["Autopsy"] RD["Radar SVG"]
+        CB["CI Bot"] PA["Persona"]
+        DZ["Danger Zone"] TR["Team Roast"]
     end
 
     subgraph Output["输出层"]
-        TERM["Terminal<br/>彩色终端"]
-        JSON["JSON<br/>机器可读"]
+        TERM["终端<br/>彩色"]
+        JSON["JSON"]
         SVG["SVG<br/>徽章/雷达图"]
     end
 
-    CLI --> CH
-    CLI --> CR
-    CLI --> DS
-    CLI --> PR
-    CLI --> SCAN
-    CLI --> BADGE
-    CLI --> TREND
-    CLI --> LW
-    CLI --> DI
-    CLI --> PE
-    CLI --> DC
-    CLI --> AU
-    CLI --> RD
-    CLI --> CB
-    CLI --> PA
-    CLI --> DZ
-    CLI --> TR
-
-    SCAN --> CH
-    SCAN --> CR
-    SCAN --> DS
-    SCAN --> PR
-
-    CH --> SEV
-    CR --> SEV
-    DS --> SEV
-    PR --> SEV
-
-    CH --> OF
-    CR --> OF
-    DS --> OF
-    PR --> OF
-
-    CH --> TERM
-    CH --> JSON
-    CR --> TERM
-    CR --> JSON
-    DS --> TERM
-    DS --> JSON
-    PR --> TERM
-    PR --> JSON
-    BADGE --> SVG
-    TREND --> TERM
-    TREND --> JSON
+    CLI --> AN
+    AN --> TS
+    AN --> GA
+    TS --> BR & CR_R & RR & REM
+    AN --> CTX
+    CLI --> CH & CMR & DS & PR
+    CLI --> FunTools
+    CH & CMR & DS & PR --> TERM & JSON
+    RD --> SVG
 ```
 
 ```mermaid
@@ -173,6 +135,134 @@ graph LR
 - **中英双语**：支持中文和英文吐槽
 - **LLM 增强**：可选接入 Ollama 生成创意吐槽
 - **VSCode 插件**：编辑器内实时分析
+- **11 种语言**：Rust、C、C++、Python、JavaScript、TypeScript、Go、Java、Ruby、Swift、Zig
+
+## 怎么玩
+
+### 第 1 关：快速吐槽（30 秒）
+```bash
+# 安装
+cargo install garbage-code-hunter
+
+# 分析当前项目 — 立刻被吐槽
+garbage-code-hunter
+
+# 中文模式
+garbage-code-hunter --lang zh-CN
+```
+
+### 第 2 关：全面扫描（2 分钟）
+```bash
+# 跑全部 18 个工具 — 拿到综合垃圾评分
+garbage-code-hunter scan
+
+# 保存到历史，追踪趋势
+garbage-code-hunter scan --save
+
+# 看评分趋势
+garbage-code-hunter trend
+```
+
+### 第 3 关：深度诊断（5 分钟）
+```bash
+# 吐槽你的 commit 历史
+garbage-code-hunter cr --limit 100
+
+# 羞耻你的依赖
+garbage-code-hunter ds
+
+# 找出最危险的文件
+garbage-code-hunter dz
+
+# 生成雷达图
+garbage-code-hunter radar --output radar.svg
+```
+
+### 第 4 关：团队对战
+```bash
+# 谁是最差提交者？
+garbage-code-hunter team-roast
+
+# 你的开发者人格是什么？
+garbage-code-hunter personality
+
+# 生成技术债账单
+garbage-code-hunter debt-invoice
+```
+
+### 第 5 关：CI 集成
+```bash
+# 生成 PR 审查评论
+garbage-code-hunter ci-bot -f json
+
+# 生成 README 徽章
+garbage-code-hunter badge -o badge.svg
+```
+
+## 真实项目检测报告
+
+### 自检：garbage-code-hunter（本项目）
+
+```
+📊 综合扫描报告
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  code-hunter       0/100   (44,836 个问题，93 个文件)
+  commit-roaster   57/100   (分析了 50 条 commit)
+  deps-shamer     100/100   (29 个依赖 — 很干净!)
+  pr-title-hunter 100/100   (检查了 0 个 PR)
+  last-words       64/100   (发现 7,085 个 TODO/FIXME)
+  debt-invoice      0/100   (估算技术债 $89,069)
+  personality       0/100   (人格：复制粘贴艺术家)
+  decay            50/100   (状态：衰退中)
+  autopsy          97/100   (发现 1 个根因)
+  radar            58/100   (6 个维度评分)
+  danger-zone      52/100   (10 个危险文件)
+  team-roast       98/100   (2 个团队成员)
+
+  综合评分: 39/100 (等级: B)
+```
+
+**开发者人格**：复制粘贴艺术家
+> "Ctrl+C, Ctrl+V 是你 IDE 最常用的快捷键。为什么要抽象？直接复制不就好了？"
+
+**代码气味雷达**：
+```
+  复杂度             100 ████████████████████
+  重复度             100 ████████████████████
+  命名               30 ██████
+  panic 风险          20 ████
+  依赖地狱             0
+  遗留气味           100 ████████████████████
+```
+
+**团队数据**：
+```
+  #1 Timwood0x10    53 次提交 | 36% 修复率 | 最差消息: "fix ci"
+  #2 Marky-Shi       5 次提交 | 60% 修复率 | 最差消息: "fix: Add debugging..."
+```
+
+**最危险的 5 个文件**：
+```
+  1. mod.rs           (6,352 个问题 — i18n 吐槽消息)
+  2. rust_rules.rs    (2,260 个问题 — tree-sitter 规则)
+  3. complex_rules.rs (2,050 个问题 — 复杂模式)
+  4. display.rs       (1,997 个问题 — 报告格式化)
+  5. duplication.rs   (1,804 个问题 — 重复检测)
+```
+
+### JSON 输出（CI/CD 集成）
+
+```bash
+$ garbage-code-hunter scan -f json | jq '.overall_score'
+39.18
+
+$ garbage-code-hunter cr -f json | jq '.score'
+57.0
+
+$ garbage-code-hunter ds -f json | jq '.issues | length'
+0
+```
 
 ## 快速开始
 

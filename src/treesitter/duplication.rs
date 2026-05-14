@@ -366,11 +366,6 @@ mod tests {
             .expect("Should parse")
     }
 
-    #[allow(dead_code)]
-    fn parse_python(code: &str) -> ParsedFile {
-        parse_python_as("default.py", code)
-    }
-
     #[test]
     fn test_find_function_nodes() {
         let file =

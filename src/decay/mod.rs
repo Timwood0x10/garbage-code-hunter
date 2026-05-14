@@ -118,8 +118,6 @@ fn analyze_decay(path: &Path) -> Result<DecayReport> {
 
 #[derive(Debug)]
 struct CommitInfo {
-    #[allow(dead_code)]
-    hash: String,
     date: String,
     author: String,
     message: String,
@@ -136,7 +134,6 @@ fn parse_git_log(output: &str) -> Vec<CommitInfo> {
         }
 
         commits.push(CommitInfo {
-            hash: parts[0].to_string(),
             date: parts[1].to_string(),
             author: parts[2].to_string(),
             message: parts[3].to_string(),
@@ -194,11 +191,7 @@ fn health_label(score: f64) -> &'static str {
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max - 3])
-    }
+    crate::utils::truncate(s, max)
 }
 
 fn display_terminal(report: &DecayReport, lang: &str) -> String {

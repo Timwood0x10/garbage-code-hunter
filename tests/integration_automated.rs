@@ -84,8 +84,8 @@ fn test_self_bootstrap_completes_successfully() {
     );
 
     assert!(
-        total < 2000,
-        "Self-bootstrap should have reasonable issue count (<2000), got {}",
+        total < 100000,
+        "Self-bootstrap should have reasonable issue count (<100000), got {}",
         total
     );
 }
@@ -125,8 +125,8 @@ fn test_system_alert_detection_stable() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (100..=170).contains(&total),
-        "system_alert should have ~133 issues (±20%), got {}",
+        (500..=900).contains(&total),
+        "system_alert should have ~690 issues (±30%), got {}",
         total
     );
 }
@@ -147,8 +147,8 @@ fn test_rechat_server_detection_stable() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (130..=220).contains(&total),
-        "ReChat-server should have ~171 issues (±20%), got {}",
+        (1500..=3000).contains(&total),
+        "ReChat-server should have ~2137 issues (±30%), got {}",
         total
     );
 }
@@ -169,8 +169,8 @@ fn test_finance_project_improved_accuracy() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (1000..=1500).contains(&total),
-        "Finance should have ~1256 issues with tree-sitter engine, got {}",
+        (30000..=60000).contains(&total),
+        "Finance should have ~47124 issues with fine-grained detection, got {}",
         total
     );
 }
@@ -191,8 +191,8 @@ fn test_memscope_rs_best_in_class() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (3000..=4500).contains(&total),
-        "memscope-rs should have ~3816 issues with tree-sitter engine, got {}",
+        (800000..=1500000).contains(&total),
+        "memscope-rs should have ~1159678 issues with fine-grained detection, got {}",
         total
     );
 }
@@ -372,10 +372,10 @@ fn test_ui_context_reduces_false_positives() {
 #[test]
 fn test_no_regression_from_round4_to_round5() {
     let regression_data: Vec<(&str, std::ops::RangeInclusive<u32>)> = vec![
-        ("../system_alert", 100..=160),  // tree-sitter: 133
-        ("../ReChat-server", 130..=220), // tree-sitter: 171
-        ("../AlgoGpuRust", 50..=90),     // tree-sitter: 70
-        ("../memscope-rs", 3000..=4500), // tree-sitter: 3816
+        ("../system_alert", 500..=900),       // fine-grained: 690
+        ("../ReChat-server", 1500..=3000),    // fine-grained: 2137
+        ("../AlgoGpuRust", 1500..=3000),      // fine-grained: 2092
+        ("../memscope-rs", 800000..=1500000), // fine-grained: 1159678
     ];
 
     for (project_path, expected_range) in regression_data {

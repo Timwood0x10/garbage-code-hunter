@@ -29,6 +29,8 @@ impl Language {
             "go" => Language::Go,
             "java" => Language::Java,
             "rb" => Language::Ruby,
+            "swift" => Language::Swift,
+            "zig" => Language::Zig,
             _ => Language::Unknown,
         }
     }

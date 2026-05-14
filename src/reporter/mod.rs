@@ -220,7 +220,6 @@ impl Reporter {
             }
 
             // Show limited number of issues per rule type
-            let _max_per_rule = 5;
             let mut total_shown = 0;
             let max_total = if self.max_issues_per_file > 0 {
                 self.max_issues_per_file

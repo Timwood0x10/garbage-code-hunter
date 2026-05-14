@@ -712,12 +712,16 @@ impl Reporter {
         }
 
         // Use the new random roast system
-        let category_name = match category {
-            "naming" => "命名规范",
-            "complexity" => "复杂度",
-            "duplication" => "代码重复",
-            "rust-features" => "Rust功能",
-            _ => category,
+        let category_name = match (self.i18n.lang.as_str(), category) {
+            ("zh-CN", "naming") => "命名规范",
+            ("zh-CN", "complexity") => "复杂度",
+            ("zh-CN", "duplication") => "代码重复",
+            ("zh-CN", "rust-features") => "Rust功能",
+            ("en-US", "naming") => "Naming",
+            ("en-US", "complexity") => "Complexity",
+            ("en-US", "duplication") => "Duplication",
+            ("en-US", "rust-features") => "Rust Features",
+            (_, other) => other,
         };
 
         // Use timestamp as seed to ensure different roasts each run

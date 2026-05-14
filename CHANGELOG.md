@@ -17,6 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - PrintlnDebuggingRule: Completely skips Test/Example files
   - UnwrapAbuseRule: Higher threshold in Test contexts
   - TerribleNamingRule: Skips Example/Demo files
+- **Shared `truncate()` utility**: UTF-8 safe string truncation in `utils.rs`, replacing 3 duplicate buggy implementations
+
+### Fixed
+- **🔴 Critical: UTF-8 panic in `truncate()`** — 3 copies of the same bug in `decay/mod.rs`, `team_roast/mod.rs`, `commit_roaster/report.rs` would panic on multi-byte characters (Chinese, emoji). Extracted shared UTF-8-safe implementation into `utils.rs`
+- **🔴 High: Missing Swift/Zig language detection** — `Language::from_extension()` never matched `"swift"` or `"zig"`, silently classifying these files as `Unknown` despite full tree-sitter grammar support
+- **🟡 Medium: Unclamped score functions** — `derive_radar_score()` and `derive_danger_zone_score()` in `main.rs` did not clamp return values to `[0.0, 100.0]`, unlike `derive_count_score()`
+- **🟡 Medium: Hardcoded Chinese in English mode** — `reporter/display.rs` `get_category_roast()` always used Chinese category names ("命名规范") regardless of locale setting
+- **🟡 Medium: CLI short flag conflict** — `team-roast` subcommand had `-l` used by both `--limit` and `--lang`, causing panic on any invocation. Changed `--lang` to `-L`
+- **🟢 Low: Dead code cleanup**
+  - Removed unused `all_rules()`, `single_letter_variable()`, `deep_nesting()` from `treesitter/rules/mod.rs`
+  - Removed unused `_max_per_rule` variable from `reporter/mod.rs`
+  - Removed unused `CommitInfo::hash` field from `decay/mod.rs`
+  - Removed dead `parse_python()` test helper from `treesitter/duplication.rs`
+  - Removed empty `src/evolution_chat/` directory
+  - Deleted `RELEASE_NOTE.md` (content merged into CHANGELOG)
 
 ### Fixed
 - **🔴 Critical: Scoring logic bug** ([scoring.rs:91](src/scoring.rs#L91))

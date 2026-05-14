@@ -1,6 +1,6 @@
 # Garbage Code Hunter
 
-[![CI/CD](https://github.com/yourusername/garbage-code-hunter/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/garbage-code-hunter/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/TimWood0x10/garbage-code-hunter/actions/workflows/ci.yml/badge.svg)](https://github.com/TimWood0x10/garbage-code-hunter/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/garbage-code-hunter.svg)](https://crates.io/crates/garbage-code-hunter)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Rust Version](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
@@ -43,89 +43,50 @@ Garbage Code Hunter is a CLI toolkit for code quality analysis. Unlike tradition
 graph TB
     CLI["garbage-code-hunter<br/>CLI Entry (clap)"]
 
-    subgraph Tools["Analysis Tools"]
-        CH["Code Hunter<br/>Rust Static Analysis"]
-        CR["Commit Roaster<br/>Commit Message Review"]
-        DS["Deps Shamer<br/>Dependency Analysis"]
-        PR["PR Title Hunter<br/>PR Title Review"]
+    subgraph Core["Core Engine"]
+        TS["Tree-Sitter Engine<br/>AST Parsing (11 languages)"]
+        GA["Generic Analyzer<br/>Regex-based fallback"]
+        AN["CodeAnalyzer<br/>Unified analysis pipeline"]
+        CTX["Context System<br/>File type detection"]
     end
 
-    subgraph FunTools["Entertainment Tools"]
-        LW["Last Words<br/>TODO/FIXME Tracker"]
-        DI["Debt Invoice<br/>Cost Estimation"]
-        PE["Personality<br/>Developer Profiling"]
-        DC["Decay<br/>Quality Degradation"]
-        AU["Autopsy<br/>Root Cause Analysis"]
-        RD["Radar<br/>Smell Chart SVG"]
-        CB["CI Bot<br/>PR Review Comments"]
-        PA["Persona<br/>Roast Personalities"]
-        DZ["Danger Zone<br/>Risk Heatmap"]
-        TR["Team Roast<br/>Per-Developer Stats"]
+    subgraph Rules["Rule Engine (tree-sitter)"]
+        BR["Base Rules<br/>nesting, naming, length"]
+        CR_R["Complex Rules<br/>god-function, duplication"]
+        RR["Rust Rules<br/>unwrap, lifetime, macro"]
+        REM["Remaining Rules<br/>magic-number, dead-code"]
     end
 
-    subgraph Extensions["Extended Features"]
-        SCAN["Scan<br/>Combined Analysis"]
-        BADGE["Badge<br/>SVG Badge"]
-        TREND["Trend<br/>History Tracking"]
+    subgraph Tools["18 Analysis Tools"]
+        CH["Code Hunter<br/>Static Analysis"]
+        CMR["Commit Roaster<br/>Git History"]
+        DS["Deps Shamer<br/>5 Ecosystems"]
+        PR["PR Title Hunter<br/>Local + GitHub"]
     end
 
-    subgraph Shared["Shared Module (common)"]
-        SEV["Severity<br/>Issue Severity"]
-        OF["OutputFormat<br/>Terminal/JSON"]
-        SCORE["score_to_grade<br/>Grade Mapping"]
+    subgraph FunTools["Fun Tools"]
+        LW["Last Words"] DI["Debt Invoice"]
+        PE["Personality"] DC["Decay"]
+        AU["Autopsy"] RD["Radar SVG"]
+        CB["CI Bot"] PA["Persona"]
+        DZ["Danger Zone"] TR["Team Roast"]
     end
 
     subgraph Output["Output"]
-        TERM["Terminal<br/>Colored Output"]
-        JSON["JSON<br/>Machine Readable"]
-        SVG["SVG<br/>Badge/Radar Image"]
+        TERM["Terminal<br/>Colored"]
+        JSON["JSON"]
+        SVG["SVG<br/>Badge/Radar"]
     end
 
-    CLI --> CH
-    CLI --> CR
-    CLI --> DS
-    CLI --> PR
-    CLI --> SCAN
-    CLI --> BADGE
-    CLI --> TREND
-    CLI --> LW
-    CLI --> DI
-    CLI --> PE
-    CLI --> DC
-    CLI --> AU
-    CLI --> RD
-    CLI --> CB
-    CLI --> PA
-    CLI --> DZ
-    CLI --> TR
-
-    SCAN --> CH
-    SCAN --> CR
-    SCAN --> DS
-    SCAN --> PR
-
-    CH --> SEV
-    CR --> SEV
-    DS --> SEV
-    PR --> SEV
-
-    CH --> OF
-    CR --> OF
-    DS --> OF
-    PR --> OF
-
-    CH --> TERM
-    CH --> JSON
-    CR --> TERM
-    CR --> JSON
-    DS --> TERM
-    DS --> JSON
-    PR --> TERM
-    PR --> JSON
-    BADGE --> SVG
-    RD --> SVG
-    TREND --> TERM
-    TREND --> JSON
+    CLI --> AN
+    AN --> TS
+    AN --> GA
+    TS --> BR & CR_R & RR & REM
+    AN --> CTX
+    CLI --> CH & CMR & DS & PR
+    CLI --> FunTools
+    CH & CMR & DS & PR --> TERM & JSON
+    RD & BADGE --> SVG
 ```
 
 ```mermaid
@@ -179,6 +140,153 @@ graph LR
 - **Bilingual**: English and Chinese roasts
 - **LLM powered**: Optional Ollama integration for creative roasts
 - **VSCode extension**: Real-time analysis in your editor
+- **11 languages**: Rust, C, C++, Python, JavaScript, TypeScript, Go, Java, Ruby, Swift, Zig
+
+## How to Play
+
+### Level 1: Quick Roast (30 seconds)
+```bash
+# Install
+cargo install garbage-code-hunter
+
+# Analyze current project — get roasted immediately
+garbage-code-hunter
+
+# Chinese mode
+garbage-code-hunter --lang zh-CN
+```
+
+### Level 2: Full Scan (2 minutes)
+```bash
+# Run ALL 18 tools — get a combined garbage score
+garbage-code-hunter scan
+
+# Save to history for trend tracking
+garbage-code-hunter scan --save
+
+# Check your score trend
+garbage-code-hunter trend
+```
+
+### Level 3: Deep Dive (5 minutes)
+```bash
+# Roast your commit history
+garbage-code-hunter cr --limit 100
+
+# Shame your dependencies
+garbage-code-hunter ds
+
+# Find your worst files
+garbage-code-hunter dz
+
+# Generate a radar chart
+garbage-code-hunter radar --output radar.svg
+```
+
+### Level 4: Team Battle
+```bash
+# Who's the worst committer?
+garbage-code-hunter team-roast
+
+# What's your developer personality?
+garbage-code-hunter personality
+
+# Generate a technical debt invoice
+garbage-code-hunter debt-invoice
+```
+
+### Level 5: CI Integration
+```bash
+# Generate PR review comments
+garbage-code-hunter ci-bot -f json
+
+# Generate a score badge for your README
+garbage-code-hunter badge -o badge.svg
+```
+
+## Real Project Reports
+
+### Self-Analysis: garbage-code-hunter (this project)
+
+```
+📊 Garbage Scan Report
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  code-hunter       0/100   (44,836 issues in 93 files)
+  commit-roaster   57/100   (50 commits analyzed)
+  deps-shamer     100/100   (29 dependencies — clean!)
+  pr-title-hunter 100/100   (0 PRs checked)
+  last-words       64/100   (7,085 TODO/FIXME found)
+  debt-invoice      0/100   ($89,069 estimated debt)
+  personality       0/100   (The Copy-Paste Artist)
+  decay            50/100   (Declining)
+  autopsy          97/100   (1 root cause found)
+  radar            58/100   (6 dimensions scored)
+  danger-zone      52/100   (10 dangerous files)
+  team-roast       98/100   (2 team members)
+
+  Overall Score: 39/100 (Grade: B)
+```
+
+**Developer Personality**: The Copy-Paste Artist
+> "Ctrl+C, Ctrl+V is your IDE's most used shortcut. Why abstract when you can duplicate?"
+
+**Code Smell Radar**:
+```
+  Complexity         100 ████████████████████
+  Duplication        100 ████████████████████
+  Naming              30 ██████
+  Panic Risk          20 ████
+  Dep Hell             0
+  Legacy Smell       100 ████████████████████
+```
+
+**Team Stats**:
+```
+  #1 Timwood0x10    53 commits | 36% fix rate | worst: "fix ci"
+  #2 Marky-Shi       5 commits | 60% fix rate | worst: "fix: Add debugging..."
+```
+
+**Top 5 Most Dangerous Files**:
+```
+  1. mod.rs           (6,352 issues — i18n roast messages)
+  2. rust_rules.rs    (2,260 issues — tree-sitter rules)
+  3. complex_rules.rs (2,050 issues — complex patterns)
+  4. display.rs       (1,997 issues — report formatting)
+  5. duplication.rs   (1,804 issues — dup detection)
+```
+
+### Example: Rust Project Analysis
+
+```bash
+$ garbage-code-hunter --lang zh-CN src/
+
+🗑️  垃圾代码猎人 🗑️
+正在准备吐槽你的代码...
+
+📊 垃圾代码检测报告
+──────────────────────────────────────────────────
+📈 问题统计:
+   12 🔥 核弹级问题 (需要立即修复)
+  228 🌶️  辣眼睛问题 (建议修复)
+  44596 😐 轻微问题 (可以忽略)
+
+🏆 代码质量评分: 30.0/100 👍 (良好)
+📏 代码行数: 22,946 | 📁 文件: 93 | 🔍 密度: 19 问题/千行
+```
+
+### JSON Output (for CI/CD integration)
+
+```bash
+$ garbage-code-hunter scan -f json | jq '.overall_score'
+39.18
+
+$ garbage-code-hunter cr -f json | jq '.score'
+57.0
+
+$ garbage-code-hunter ds -f json | jq '.issues | length'
+0
+```
 
 ## Quick Start
 

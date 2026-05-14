@@ -260,11 +260,7 @@ pub fn format_json(report: &Report) -> Result<String, serde_json::Error> {
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max - 3])
-    }
+    crate::utils::truncate(s, max)
 }
 
 #[cfg(test)]
