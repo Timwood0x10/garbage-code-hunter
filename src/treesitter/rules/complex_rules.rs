@@ -443,8 +443,76 @@ fn single_letter_query(lang: Language) -> &'static str {
         Language::JavaScript => {
             r#"(variable_declarator name: (identifier) @var (#match? @var "^[a-z]$"))"#
         }
+        Language::Go => {
+            r#"(short_variable_declaration left: (identifier) @var (#match? @var "^[a-z]$"))"#
+        }
+        Language::Java => {
+            r#"(variable_declarator name: (identifier) @var (#match? @var "^[a-z]$"))"#
+        }
+        Language::Ruby => r#"(assignment left: (identifier) @var (#match? @var "^[a-z]$"))"#,
+        Language::C | Language::Cpp => {
+            r#"(init_declarator declarator: (identifier) @var (#match? @var "^[a-z]$"))"#
+        }
         _ => r#"(identifier) @var"#,
     }
+}
+
+/// Check if a node is a loop counter variable (not a body variable).
+/// For for-loops: the loop variable is the first named child.
+/// For while/loop/do-while: no loop variable exists.
+fn is_loop_counter(node: tree_sitter::Node) -> bool {
+    let mut current = node;
+    loop {
+        let kind = current.kind();
+        if matches!(kind, "for_expression" | "for_statement") {
+            // The loop variable is the first named child of the for node
+            // (Rust: pattern, C: declaration, JS/Go: initializer, Python: left)
+            if let Some(first) = current.named_child(0) {
+                let ns = node.start_byte();
+                let ne = node.end_byte();
+                let vs = first.start_byte();
+                let ve = first.end_byte();
+                if ns >= vs && ne <= ve {
+                    return true; // node IS the loop variable
+                }
+            }
+            return false; // not a loop variable (might be in body)
+        }
+        if matches!(
+            kind,
+            "while_statement" | "while_expression" | "loop_expression" | "do_statement"
+        ) {
+            return false; // these loops have no explicit counter variable
+        }
+        match current.parent() {
+            Some(p) => current = p,
+            None => return false,
+        }
+    }
+}
+
+/// Check if an identifier is a C++ template parameter.
+fn is_template_param(node: tree_sitter::Node) -> bool {
+    let mut parent = node.parent();
+    // Walk up to find template_parameter_declaration
+    while let Some(p) = parent {
+        if p.kind() == "template_parameter_declaration" || p.kind() == "type_parameter" {
+            return true;
+        }
+        // If we hit a function/class/struct boundary, stop
+        if matches!(
+            p.kind(),
+            "function_definition"
+                | "function_declaration"
+                | "class_specifier"
+                | "struct_specifier"
+                | "translation_unit"
+        ) {
+            break;
+        }
+        parent = p.parent();
+    }
+    false
 }
 
 pub(crate) struct SingleLetterTsRule;
@@ -465,34 +533,57 @@ impl TreeSitterRule for SingleLetterTsRule {
             Err(_) => return vec![],
         };
 
-        let allowed: &[&str] = &[
-            "i", "j", "k", "x", "y", "z", "e", "a", "b", "c", "d", "f", "n", "r", "s", "t", "v",
-            "w", "p", "l",
-        ];
+        // Loop counters are handled by inside_loop() check per-capture
 
         let mut issues = Vec::new();
 
         for group in &captures {
             if let Some(cap) = group.first() {
                 let name = cap.text;
-                if !allowed.contains(&name) {
-                    let msgs = [
-                        format!("Single-letter variable '{}'? Writing math formulas or torturing readers?", name),
-                        format!("Variable '{}'? Is this a name or did your keyboard break?", name),
-                        format!("Using '{}' as a variable name? You need a book on naming", name),
-                        format!("Single-letter variable '{}': harder to read than hieroglyphics", name),
-                        format!("Variable '{}' has about as much info as a period", name),
-                    ];
-                    let pos = cap.node.start_position();
-                    issues.push(CodeIssue {
-                        file_path: file.path.clone(),
-                        line: pos.row + 1,
-                        column: pos.column + 1,
-                        rule_name: "single-letter-variable".to_string(),
-                        message: msgs[issues.len() % msgs.len()].clone(),
-                        severity: Severity::Mild,
-                    });
+                // Only flag single-character identifiers
+                if name.len() != 1 {
+                    continue;
                 }
+
+                // Skip identifiers that are loop counters (not body variables)
+                // Tree-based detection — no whitelist needed
+                if is_loop_counter(cap.node) {
+                    continue;
+                }
+
+                // Skip C++ template parameters
+                if file.language == Language::Cpp && is_template_param(cap.node) {
+                    continue;
+                }
+
+                let msgs = [
+                    format!(
+                        "Single-letter variable '{}'? Writing math formulas or torturing readers?",
+                        name
+                    ),
+                    format!(
+                        "Variable '{}'? Is this a name or did your keyboard break?",
+                        name
+                    ),
+                    format!(
+                        "Using '{}' as a variable name? You need a book on naming",
+                        name
+                    ),
+                    format!(
+                        "Single-letter variable '{}': harder to read than hieroglyphics",
+                        name
+                    ),
+                    format!("Variable '{}' has about as much info as a period", name),
+                ];
+                let pos = cap.node.start_position();
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: pos.row + 1,
+                    column: pos.column + 1,
+                    rule_name: "single-letter-variable".to_string(),
+                    message: msgs[issues.len() % msgs.len()].clone(),
+                    severity: Severity::Mild,
+                });
             }
         }
 
@@ -742,6 +833,8 @@ impl TreeSitterRule for MagicNumberRule {
             "assignment",
             "variable_declarator",
         ];
+        // Switch case labels: skip literals that are case values
+        let case_label_kinds: &[&str] = &["case", "switch_case", "case_statement"];
         let common: &[&str] = &["0", "1", "-1", "2", "100", "0.0", "1.0", "10", "60", "24"];
         let mut issues = Vec::new();
         for group in &captures {
@@ -750,6 +843,10 @@ impl TreeSitterRule for MagicNumberRule {
                 // Skip literals assigned to named constants
                 let parent = cap.node.parent();
                 if parent.is_some_and(|p| named_parents.contains(&p.kind())) {
+                    continue;
+                }
+                // Skip literals that are switch case labels (not magic numbers)
+                if parent.is_some_and(|p| case_label_kinds.contains(&p.kind())) {
                     continue;
                 }
                 if !common.contains(&text) && text.parse::<f64>().is_ok() {

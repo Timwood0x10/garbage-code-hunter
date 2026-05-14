@@ -53,6 +53,7 @@ pub(crate) struct CountRule {
     pub(crate) threshold: usize,
     pub(crate) severity: Severity,
     pub(crate) message_fn: fn(usize) -> String,
+    pub(crate) languages: &'static [Language],
 }
 
 impl TreeSitterRule for CountRule {
@@ -61,7 +62,7 @@ impl TreeSitterRule for CountRule {
     }
 
     fn supported_languages(&self) -> &'static [Language] {
-        &[Language::Rust]
+        self.languages
     }
 
     fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {

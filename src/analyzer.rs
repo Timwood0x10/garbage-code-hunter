@@ -142,6 +142,7 @@ impl CodeAnalyzer {
             }
         }
         issues.extend(cross_detector.find_duplicates());
+        issues.extend(cross_detector.find_near_duplicates());
 
         // Phase 3: Intra-file code duplication
         for file_path in &files {

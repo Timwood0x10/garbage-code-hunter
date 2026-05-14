@@ -9,6 +9,7 @@ use super::remaining_rules::{
     TodoCommentRule,
 };
 use crate::analyzer::Severity;
+use crate::language::Language;
 
 /// Register all tree-sitter based Rust rules.
 pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
@@ -54,6 +55,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(async_block) @block",
         threshold: 10,
         severity: Severity::Spicy,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} async blocks — consider consolidating async operations",
@@ -68,6 +70,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(macro_invocation) @m",
         threshold: 20,
         severity: Severity::Mild,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} macro invocations — consider reducing macro usage",
@@ -82,6 +85,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(lifetime) @life",
         threshold: 20,
         severity: Severity::Spicy,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} lifetime annotations — consider simplifying lifetime management",
@@ -96,6 +100,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(trait_item body: (declaration_list (function_item) @method))",
         threshold: 10,
         severity: Severity::Spicy,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Trait has {} methods — consider splitting into smaller traits",
@@ -110,6 +115,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(type_parameters (type_parameter) @param)",
         threshold: 5,
         severity: Severity::Spicy,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} generic parameters — consider simplifying the type signature",
@@ -124,6 +130,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(tuple_pattern) @tp",
         threshold: 15,
         severity: Severity::Mild,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} complex tuple patterns — consider using named structs",
@@ -138,6 +145,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(call_expression function: (scoped_identifier) @si)",
         threshold: 8,
         severity: Severity::Spicy,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} Box::new() calls — consider using stack allocation",
@@ -152,6 +160,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(reference_type) @rt",
         threshold: 50,
         severity: Severity::Mild,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} reference types — consider simplifying ownership",
@@ -166,6 +175,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(slice_type) @st",
         threshold: 29,
         severity: Severity::Mild,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} slice types — consider using concrete collection types",
@@ -180,6 +190,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(mod_item body: (declaration_list (mod_item) @nested))",
         threshold: 0,
         severity: Severity::Spicy,
+        languages: &[Language::Rust],
         message_fn: |count| {
             format!(
                 "Found {} nested modules — consider flattening the module structure",
@@ -263,7 +274,54 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         pattern: "(macro_invocation macro: (identifier) @m (#eq? @m \"vec\"))",
         threshold: 15,
         severity: Severity::Mild,
+        languages: &[Language::Rust],
         message_fn: |count| format!("Found {} vec![] calls — consider using arrays", count),
+    }));
+
+    // Goto abuse (C/C++)
+    engine.add(Box::new(CountRule {
+        name: "goto-abuse",
+        pattern: "(goto_statement) @goto",
+        threshold: 0,
+        severity: Severity::Spicy,
+        languages: &[Language::C, Language::Cpp],
+        message_fn: |count| {
+            format!(
+                "Found {} goto statements — Dijkstra is turning in his grave",
+                count
+            )
+        },
+    }));
+
+    // C++ new expression detection
+    engine.add(Box::new(CountRule {
+        name: "new-expression",
+        pattern: "(new_expression) @new",
+        threshold: 0,
+        severity: Severity::Spicy,
+        languages: &[Language::Cpp],
+        message_fn: |count| {
+            format!(
+                "Found {} new expressions — did you delete() everything?",
+                count
+            )
+        },
+    }));
+
+    // Malloc leak detection (C/C++): count heap allocation calls
+    // Matches both raw malloc and framework-specific allocators (curlx_malloc, zmalloc, ngx_alloc, etc.)
+    engine.add(Box::new(CountRule {
+        name: "malloc-leak",
+        pattern: "(call_expression function: (identifier) @func (#match? @func \"^(malloc|curlx_malloc|Curl_cmalloc|zmalloc|zcalloc|zrealloc|ngx_alloc|ngx_palloc|ngx_pcalloc)$\"))",
+        threshold: 0,
+        severity: Severity::Spicy,
+        languages: &[Language::C, Language::Cpp],
+        message_fn: |count| {
+            format!(
+                "Found {} heap allocation calls — did you free() everything?",
+                count
+            )
+        },
     }));
 }
 
@@ -658,24 +716,38 @@ fn main() {
             .any(|i| i.rule_name == "single-letter-variable"));
     }
 
-    /// Objective: Verify single-letter-variable allows common names
-    /// Invariants: 'i', 'x', 'y' should be allowed
+    /// Objective: Verify single-letter-variable allows loop counters by context
+    /// Invariants: 'i', 'j' in for loops should be allowed; 'q' standalone should not
     #[test]
-    fn test_single_letter_variable_allows_common() {
+    fn test_single_letter_allows_loop_counters() {
         let file = parse_rust(
             r#"
 fn main() {
-    let i = 0;
-    let x = 1;
-    let y = 2;
+    for i in 0..10 {
+        for j in 0..5 {
+            let q = 42;
+        }
+    }
 }
 "#,
         );
         let rule = SingleLetterTsRule;
         let issues = rule.check(&file);
+        let names: Vec<&str> = issues
+            .iter()
+            .map(|i| i.message.split('\'').nth(1).unwrap_or(""))
+            .collect();
         assert!(
-            issues.is_empty(),
-            "Common single-letter variables should be allowed"
+            !names.contains(&"i"),
+            "Loop variable 'i' should be allowed (not in issues)"
+        );
+        assert!(
+            !names.contains(&"j"),
+            "Loop variable 'j' should be allowed (not in issues)"
+        );
+        assert!(
+            names.contains(&"q"),
+            "Standalone single-letter 'q' should still be flagged"
         );
     }
 

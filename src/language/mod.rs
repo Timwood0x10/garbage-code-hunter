@@ -12,6 +12,8 @@ pub enum Language {
     Go,
     Java,
     Ruby,
+    Swift,
+    Zig,
     Unknown,
 }
 
@@ -49,6 +51,8 @@ impl Language {
             Language::Go => &["go"],
             Language::Java => &["java"],
             Language::Ruby => &["rb"],
+            Language::Swift => &["swift"],
+            Language::Zig => &["zig"],
             Language::Unknown => &[],
         }
     }
@@ -64,6 +68,8 @@ impl Language {
             Language::Go => "Go",
             Language::Java => "Java",
             Language::Ruby => "Ruby",
+            Language::Swift => "Swift",
+            Language::Zig => "Zig",
             Language::Unknown => "Unknown",
         }
     }
@@ -77,7 +83,9 @@ impl Language {
             | Language::Java
             | Language::JavaScript
             | Language::TypeScript
-            | Language::Ruby => "//",
+            | Language::Ruby
+            | Language::Swift
+            | Language::Zig => "//",
             Language::Python => "#",
             Language::Unknown => "//",
         }
@@ -95,6 +103,8 @@ impl Language {
                 | Language::Go
                 | Language::Java
                 | Language::Ruby
+                | Language::Swift
+                | Language::Zig
         )
     }
 }
@@ -108,6 +118,8 @@ pub const LANGUAGES_WITH_GRAMMAR: &[Language] = &[
     Language::Go,
     Language::Java,
     Language::Ruby,
+    Language::Swift,
+    Language::Zig,
     Language::C,
     Language::Cpp,
 ];
@@ -115,7 +127,7 @@ pub const LANGUAGES_WITH_GRAMMAR: &[Language] = &[
 /// All supported source file extensions for discovery.
 pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     "rs", "c", "h", "cpp", "cxx", "cc", "hpp", "hh", "hxx", "C", "CPP", "py", "js", "mjs", "cjs",
-    "ts", "tsx", "mts", "cts", "go", "java", "rb",
+    "ts", "tsx", "mts", "cts", "go", "java", "rb", "swift", "zig",
 ];
 
 #[cfg(test)]
