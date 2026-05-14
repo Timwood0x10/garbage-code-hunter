@@ -104,6 +104,10 @@ pub const LANGUAGES_WITH_GRAMMAR: &[Language] = &[
     Language::Rust,
     Language::Python,
     Language::JavaScript,
+    Language::TypeScript,
+    Language::Go,
+    Language::Java,
+    Language::Ruby,
     Language::C,
     Language::Cpp,
 ];

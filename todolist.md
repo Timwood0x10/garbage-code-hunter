@@ -32,7 +32,15 @@
 - [x] `src/rules/student_code.rs` — `println-debugging` 读取 `config.rules.println.threshold` / `allow_in_main_files`
 - [x] `src/rules/naming.rs` — `terrible-naming` 读取 `config.rules.naming.allowed_names` + `config.whitelists.variable_names`
 
-### #29 — 多语言支持（JS/TS、Python、Go、Java）★★★★★
+### #29 — 多语言支持 ★★★★★
+
+#### C/C++ 支持 ✅
+- [x] `src/rules/generic.rs` — 通用文本规则 trait（`GenericRule`）和引擎（`GenericRuleEngine`）
+- [x] `src/rules/c_rules.rs` — 10 条 C/C++ 规则：命名、魔法数字、嵌套深度、长函数、goto、内存泄漏、include 混乱、注释代码、死代码、上帝函数
+- [x] `src/analyzer.rs` — `SourceLanguage` 枚举 + `detect_language()` + 语言分发（Rust→syn AST，C/C++→文本分析）
+- [x] `src/scoring.rs` — 添加 `c-safety` 评分类别（goto、malloc 泄漏）
+
+#### JS/TS、Python、Go、Java 支持（待做）
 
 **目标**: 从 Rust-only 扩展到多语言分析
 

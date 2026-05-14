@@ -3,30 +3,8 @@ use std::path::Path;
 use tempfile::TempDir;
 
 // ============================================================
-// Edge Case Tests for Regex Compilation (duplication.rs)
+// Edge Case Tests
 // ============================================================
-
-#[test]
-fn test_valid_regex_patterns_compile_successfully() {
-    use garbage_code_hunter::rules::duplication::get_rust_patterns_for_testing;
-    use regex::Regex;
-
-    let mut success_count = 0;
-    let patterns = get_rust_patterns_for_testing();
-
-    for pattern in patterns.iter() {
-        if Regex::new(pattern).is_ok() {
-            success_count += 1;
-        }
-    }
-
-    // Should have at least 20 patterns compiled successfully
-    assert!(
-        success_count >= 20,
-        "Expected at least 20 patterns to compile, got {}",
-        success_count
-    );
-}
 
 #[test]
 fn test_regex_pattern_word_boundary_precision() {
@@ -463,11 +441,13 @@ fn test_cross_file_duplication_thresholds() {
 
     let similar_code = r#"
 fn helper_function(data: &str) -> String {
-    data.to_uppercase()
+    let xxx = data.to_uppercase();
+    xxx
 }
 
 fn process_item(item: i32) -> i32 {
-    item * 2 + 1
+    let foo = item * 2 + 1;
+    foo
 }
 "#;
 

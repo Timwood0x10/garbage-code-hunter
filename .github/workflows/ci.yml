@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ master, feature/vscode-extension ]
+    branches: [ master, dev ]
   pull_request:
     branches: [ master ]
   workflow_call:  # Allow reuse by other workflows (e.g., release.yml)

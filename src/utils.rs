@@ -1,19 +1,4 @@
-use syn::spanned::Spanned;
-
-/// Get line number from syn AST node using proc_macro2 span-locations
-pub fn get_line_number<T: Spanned>(node: &T) -> usize {
-    node.span().start().line
-}
-
-/// Get column number from syn AST node using proc_macro2 span-locations
-pub fn get_column_number<T: Spanned>(node: &T) -> usize {
-    node.span().start().column + 1 // Convert 0-based to 1-based
-}
-
-/// Get position info (line, column) from syn AST node
-pub fn get_position<T: Spanned>(node: &T) -> (usize, usize) {
-    (get_line_number(node), get_column_number(node))
-}
+//! Utility functions for text-based analysis.
 
 /// Check if a line is a comment
 fn is_comment_line(trimmed: &str) -> bool {
@@ -63,6 +48,24 @@ pub fn count_non_comment_matches(content: &str, target: &str) -> usize {
         count += line.matches(target).count();
     }
     count
+}
+
+/// Get (line, column) from a byte offset in source content.
+pub fn get_position_from_content(content: &str, byte_offset: usize) -> (usize, usize) {
+    let mut line = 1;
+    let mut col = 1;
+    for (i, ch) in content.char_indices() {
+        if i >= byte_offset {
+            break;
+        }
+        if ch == '\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+    (line, col)
 }
 
 /// Count non-comment, non-import occurrences of a pattern in source content

@@ -195,8 +195,12 @@ fn test_analyzer_with_non_rust_files() {
     let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_path(temp_dir.path());
 
-    // Should not analyze non-Rust files
-    assert!(issues.is_empty(), "Should not analyze non-Rust files");
+    // Now analyzes JS and Python files (tree-sitter multi-language support)
+    // .txt files should still be ignored
+    assert!(
+        !issues.is_empty(),
+        "Should analyze JS and Python files with tree-sitter"
+    );
 }
 
 #[test]

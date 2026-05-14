@@ -2,12 +2,13 @@ use rayon::prelude::*;
 use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
-use syn::parse_file;
 use walkdir::WalkDir;
 
-use crate::context::ProjectConfig;
-use crate::cross_file::{CrossFileAnalyzer, CrossFileConfig};
-use crate::rules::RuleEngine;
+use crate::context::{FileContext, ProjectConfig};
+use crate::language::{Language, SUPPORTED_EXTENSIONS};
+use crate::rules::generic::GenericRuleEngine;
+use crate::treesitter::duplication::{CrossFileDupDetector, IntraFileDupDetector};
+use crate::treesitter::{TreeSitterEngine, TreeSitterRuleEngine};
 
 #[derive(Debug, Clone)]
 pub struct CodeIssue {
@@ -27,14 +28,16 @@ pub enum Severity {
 }
 
 pub struct CodeAnalyzer {
-    rule_engine: RuleEngine,
+    generic_engine: GenericRuleEngine,
+    ts_engine: TreeSitterEngine,
+    ts_rule_engine: TreeSitterRuleEngine,
     exclude_patterns: Vec<Regex>,
     lang: String,
 }
 
 impl CodeAnalyzer {
     pub fn rule_names(&self) -> Vec<&'static str> {
-        self.rule_engine.rule_names()
+        self.ts_rule_engine.rule_names()
     }
 
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
@@ -75,8 +78,13 @@ impl CodeAnalyzer {
             })
             .collect();
 
+        let mut ts_rule_engine = TreeSitterRuleEngine::new();
+        crate::treesitter::rules::rust_rules::register_rust_rules(&mut ts_rule_engine);
+
         Self {
-            rule_engine: RuleEngine::with_config(config),
+            generic_engine: GenericRuleEngine::new(),
+            ts_engine: TreeSitterEngine::new(),
+            ts_rule_engine,
             exclude_patterns: patterns,
             lang: lang.to_string(),
         }
@@ -92,10 +100,9 @@ impl CodeAnalyzer {
     pub fn analyze_path(&self, path: &Path) -> Vec<CodeIssue> {
         if path.is_file() {
             if !self.should_exclude(path) {
-                if let Some(ext) = path.extension() {
-                    if ext == "rs" {
-                        return self.analyze_file(path);
-                    }
+                let lang = Language::from_path(path);
+                if lang != Language::Unknown {
+                    return self.analyze_file(path);
                 }
             }
             return Vec::new();
@@ -105,44 +112,43 @@ impl CodeAnalyzer {
             return Vec::new();
         }
 
-        // Collect all matching file paths
+        // Collect all supported source files
         let files: Vec<PathBuf> = WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| !self.should_exclude(e.path()))
-            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext))
+            })
             .map(|e| e.path().to_path_buf())
             .collect();
 
-        // Phase 1: Parallel single-file analysis
+        // Phase 1: Parallel single-file analysis for all languages
         let mut issues: Vec<CodeIssue> = files
             .par_iter()
             .flat_map(|file_path| self.analyze_file(file_path))
             .collect();
 
-        // Phase 2: Cross-file duplication detection (sequential — accumulates state)
-        let mut cross_file = CrossFileAnalyzer::with_config(CrossFileConfig::default());
+        // Phase 2: Cross-file duplication detection (tree-sitter based)
+        let mut cross_detector = CrossFileDupDetector::new();
         for file_path in &files {
             if let Ok(content) = fs::read_to_string(file_path) {
-                let _ = cross_file.process_file(file_path, &content);
+                if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
+                    cross_detector.process_file(&parsed);
+                }
             }
         }
+        issues.extend(cross_detector.find_duplicates());
 
-        let duplicates = cross_file.find_all_duplicates();
-        for dup in duplicates {
-            let severity = dup.severity.clone();
-            for location in &dup.fingerprint.locations {
-                issues.push(CodeIssue {
-                    file_path: location.file_path.clone(),
-                    line: location.line_start,
-                    column: 0,
-                    rule_name: "cross-file-duplication".to_string(),
-                    message: format!(
-                        "Duplicated function '{}' found in {} files ({} occurrences)",
-                        dup.fingerprint.function_name, dup.file_count, dup.total_occurrences
-                    ),
-                    severity: severity.clone(),
-                });
+        // Phase 3: Intra-file code duplication
+        for file_path in &files {
+            if let Ok(content) = fs::read_to_string(file_path) {
+                if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
+                    issues.extend(IntraFileDupDetector::check(&parsed));
+                }
             }
         }
 
@@ -155,15 +161,25 @@ impl CodeAnalyzer {
             Err(_) => return vec![],
         };
 
-        let syntax_tree = match parse_file(&content) {
-            Ok(tree) => tree,
-            Err(_) => return vec![],
-        };
-
+        let lang = Language::from_path(file_path);
         let is_test_file = Self::is_test_file(file_path, &content);
 
-        self.rule_engine
-            .check_file(file_path, &syntax_tree, &content, &self.lang, is_test_file)
+        // Use tree-sitter for all languages with grammar support
+        if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
+            let context = FileContext::from_path(file_path);
+            self.ts_rule_engine.check_file_with_context(
+                &parsed,
+                is_test_file,
+                &context,
+                &ProjectConfig::default(),
+            )
+        } else if lang == Language::C || lang == Language::Cpp {
+            // Fallback to generic text-based rules for C/C++
+            self.generic_engine
+                .check_file(file_path, &content, &self.lang)
+        } else {
+            vec![]
+        }
     }
 
     fn is_test_file(path: &Path, content: &str) -> bool {
@@ -171,13 +187,19 @@ impl CodeAnalyzer {
         // Normalize: strip leading "./" for consistent matching
         let normalized = path_str.strip_prefix("./").unwrap_or(&path_str);
 
-        // Check file path patterns
+        // Check file path patterns (Rust + C/C++)
         if normalized.contains("/tests/")
             || normalized.contains("\\tests\\")
             || normalized.starts_with("tests/")
             || normalized.starts_with("tests\\")
+            || normalized.contains("/test/")
+            || normalized.contains("\\test\\")
             || normalized.ends_with("_test.rs")
             || normalized.ends_with("_tests.rs")
+            || normalized.ends_with("_test.c")
+            || normalized.ends_with("_test.cpp")
+            || normalized.ends_with("_test.cc")
+            || normalized.starts_with("test_")
         {
             return true;
         }
@@ -223,7 +245,7 @@ impl CodeAnalyzer {
         {
             return true;
         }
-        // Check for #[cfg(test)] module in content
+        // Check for #[cfg(test)] module in content (Rust)
         content.contains("#[cfg(test)]")
     }
 }

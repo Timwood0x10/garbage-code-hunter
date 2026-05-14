@@ -16,7 +16,7 @@ name = "Unicode-3.0"
 expression = "Unicode-3.0"
 license-files = [{ path = "LICENSE", hash = 0x0 }]
 
-# Allow复合许可证
+
 [[licenses.clarify]]
 name = "ring"
 expression = "Apache-2.0 AND ISC"

@@ -1,46 +1,28 @@
 # 🧪 Garbage Code Hunter v0.2.0 - Bootstrap 自举测试报告（中文版）
 
-> **最终测试日期**: 2026-05-13 (第六轮 - 娱乐工具)
+> **最终测试日期**: 2026-05-10 (第五轮 - 最终版)
 > **初始测试日期**: 2026-05-09
 > **版本**: v0.2.0 (release mode)
 > **测试环境**: macOS, Rust stable
-> **测试范围**: 11 个 Rust 项目（含标准库）+ 11 个新娱乐工具
+> **测试范围**: 11 个 Rust 项目（含标准库）
 
 ---
 
 ## 📋 执行摘要
 
-### ✅ 测试结果总览（第六轮：2026-05-13）
+### ✅ 测试结果总览（第五轮：2026-05-10 最终版）
 
 | 指标 | 目标值 | 实际值 | 状态 |
 |------|--------|--------|------|
 | **测试项目数** | 5+ | **11** ✅ | 含 Rust 标准库 |
 | **总 Rust 文件数** | - | **~700+** | 覆盖全面 |
 | **编译警告** | 0 | **0** ✅ | 完美 |
-| **单元测试通过率** | 100% | **221/221 (100%)** ✅ | 全部通过 |
+| **单元测试通过率** | 100% | **57/57 (100%)** ✅ | 全部通过 |
 | **零崩溃率** | 100% | **11/11 (100%)** ✅ | 稳定可靠 |
 | **跨文件检测工作** | 是 | **✅ 已验证** | 新能力正常 |
 | **最大项目分析时间** | <5s | **9.34s** ⚠️ | rust/std (300+文件) |
 | **零退化率** | 100% | **11/11 (100%)** ✅ | **完美稳定** |
 | **整体准确率** | >90% | **~94%** ✅✅ | 超额达成 |
-| **娱乐工具** | 11 | **11** ✅ | 全部正常工作 |
-
-### 🆕 第六轮：新增 11 个娱乐工具
-
-所有 11 个新娱乐工具已实现并测试通过：
-
-| 工具 | 命令 | 状态 | 自测结果 |
-|------|------|------|---------|
-| **代码遗言** | `last-words` | ✅ | 发现 6,262 个遗留注释 |
-| **技术债账单** | `debt-invoice` | ✅ | 估算成本 $23,940 |
-| **开发者人格** | `personality` | ✅ | 检测到 "The Sorcerer" |
-| **衰减曲线** | `decay` | ✅ | 健康状态: Thriving |
-| **尸检报告** | `autopsy` | ✅ | 主因: Magic Number Syndrome |
-| **气味雷达** | `radar` | ✅ | SVG 图表生成正常 |
-| **CI 评论机器人** | `ci-bot` | ✅ | PR 审查评论正常 |
-| **人格模式** | `persona` | ✅ | 4 种人格可选 |
-| **危险区域** | `danger-zone` | ✅ | 风险排名文件展示 |
-| **团队吐槽** | `team-roast` | ✅ | 按开发者分析正常 |
 
 ### 🎯 第五轮核心成就
 
@@ -217,11 +199,11 @@ time ./target/release/garbage-code-hunter ../Finance --lang en-US
 
 ---
 
-*报告生成时间: 2026-05-13 (第六轮)*
-*测试工具: Garbage Code Hunter v0.2.0*
-*报告版本: 5.0 (娱乐工具)*
+*报告生成时间: 2026-05-10 (第四轮)*  
+*测试工具: Garbage Code Hunter v0.2.0*  
+*报告版本: 4.0 (Final Chinese)*
 
-**状态**: ✅ Bootstrap 测试完成，12 个项目全部验证通过，退化问题已修复，11 个娱乐工具已添加
+**状态**: ✅ Bootstrap 测试完成，12 个项目全部验证通过，退化问题已修复
 
 ---
 
@@ -242,16 +224,4 @@ cargo build --release
 
 # 计时检测
 time ./target/release/garbage-code-hunter <project-path>
-
-# 娱乐工具
-./target/release/garbage-code-hunter last-words <path>
-./target/release/garbage-code-hunter debt-invoice <path>
-./target/release/garbage-code-hunter personality <path>
-./target/release/garbage-code-hunter decay <path>
-./target/release/garbage-code-hunter autopsy <path>
-./target/release/garbage-code-hunter radar --output radar.svg <path>
-./target/release/garbage-code-hunter ci-bot <path>
-./target/release/garbage-code-hunter persona --persona linux-kernel <path>
-./target/release/garbage-code-hunter danger-zone <path>
-./target/release/garbage-code-hunter team-roast <path>
 ```

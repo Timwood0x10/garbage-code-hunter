@@ -170,11 +170,18 @@ impl CodeScorer {
                     "meaningless-naming",
                     "hungarian-notation",
                     "abbreviation-abuse",
+                    "c-naming",
                 ],
             ),
             (
                 "complexity",
-                vec!["deep-nesting", "long-function", "cyclomatic-complexity"],
+                vec![
+                    "deep-nesting",
+                    "long-function",
+                    "cyclomatic-complexity",
+                    "c-nesting",
+                    "c-long-function",
+                ],
             ),
             ("duplication", vec!["code-duplication"]),
             (
@@ -217,6 +224,7 @@ impl CodeScorer {
                     "file-too-long",
                     "duplicate-imports",
                     "deep-module-nesting",
+                    "c-include-chaos",
                 ],
             ),
             (
@@ -226,12 +234,17 @@ impl CodeScorer {
                     "god-function",
                     "commented-code",
                     "dead-code",
+                    "c-magic-number",
+                    "c-god-function",
+                    "c-commented-code",
+                    "c-dead-code",
                 ],
             ),
             (
                 "student-code",
                 vec!["println-debugging", "panic-abuse", "todo-comment"],
             ),
+            ("c-safety", vec!["c-goto-abuse", "c-malloc-leak"]),
         ];
 
         // Severity weights: Nuclear issues count 6x as much as Mild
@@ -291,6 +304,7 @@ impl CodeScorer {
                 "structure" => (0.0, 1.0, 3.0, 6.0),     // Structure issues
                 "code-smells" => (0.0, 1.5, 4.0, 8.0),   // Code smells are common
                 "student-code" => (0.0, 1.0, 3.0, 6.0),  // Student patterns
+                "c-safety" => (0.0, 0.5, 2.0, 4.0),      // C safety issues are serious
                 _ => (0.0, 1.0, 3.0, 6.0),               // Default thresholds
             };
 
@@ -318,15 +332,16 @@ impl CodeScorer {
     fn calculate_weighted_final_score(&self, category_scores: &HashMap<String, f64>) -> f64 {
         // Category weights (sum to ~0.95, normalized by total_weight)
         let weights = [
-            ("naming", 0.20),        // 20% - Very important (includes garbage-naming)
+            ("naming", 0.15),        // 15% - Very important (includes garbage-naming + c-naming)
             ("complexity", 0.15),    // 15% - Very important
             ("duplication", 0.10),   // 10% - Important
-            ("rust-basics", 0.15),   // 15% - Important (includes string/vec abuse)
-            ("advanced-rust", 0.10), // 10% - Moderate
+            ("rust-basics", 0.10),   // 10% - Important (includes string/vec abuse)
+            ("advanced-rust", 0.08), // 8% - Moderate
             ("rust-features", 0.05), // 5% - Moderate
-            ("structure", 0.05),     // 5% - Less critical (includes file-structure)
-            ("code-smells", 0.10),   // 10% - Common issues
+            ("structure", 0.07),     // 7% - Structure issues (includes include-chaos)
+            ("code-smells", 0.15),   // 15% - Common issues (shared by Rust + C/C++)
             ("student-code", 0.05),  // 5% - Beginner patterns
+            ("c-safety", 0.10),      // 10% - C/C++ safety (goto, malloc leaks)
         ];
 
         let mut weighted_sum = 0.0;
