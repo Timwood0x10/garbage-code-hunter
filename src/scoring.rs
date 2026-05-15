@@ -160,7 +160,10 @@ impl CodeScorer {
         let mut category_scores = HashMap::new();
         let mut category_weighted_counts: HashMap<String, f64> = HashMap::new();
 
-        // Define categories with their rule mappings
+        // Universal categories — all rules apply to all languages.
+        // Language-specific rules (e.g. unwrap-abuse, box-abuse) are
+        // grouped into code-smells: they naturally yield 0 issues in
+        // languages where they don't apply, correctly lowering the score.
         let categories = [
             (
                 "naming",
@@ -178,73 +181,66 @@ impl CodeScorer {
                 vec![
                     "deep-nesting",
                     "long-function",
+                    "god-function",
                     "cyclomatic-complexity",
                     "c-nesting",
                     "c-long-function",
+                    "complex-closure",
                 ],
             ),
             ("duplication", vec!["code-duplication"]),
             (
-                "rust-basics",
+                "code-smells",
                 vec![
+                    "magic-number",
+                    "commented-code",
+                    "dead-code",
+                    "file-too-long",
                     "unwrap-abuse",
                     "unnecessary-clone",
                     "string-abuse",
                     "vec-abuse",
-                ],
-            ),
-            (
-                "advanced-rust",
-                vec![
-                    "complex-closure",
-                    "lifetime-abuse",
-                    "trait-complexity",
-                    "generic-abuse",
-                ],
-            ),
-            (
-                "rust-features",
-                vec![
+                    "macro-abuse",
                     "channel-abuse",
                     "async-abuse",
                     "dyn-trait-abuse",
                     "unsafe-abuse",
                     "ffi-abuse",
-                    "macro-abuse",
-                ],
-            ),
-            (
-                "structure",
-                vec![
-                    "module-complexity",
-                    "pattern-matching-abuse",
-                    "reference-abuse",
                     "box-abuse",
                     "slice-abuse",
-                    "file-too-long",
+                    "reference-abuse",
+                    "module-complexity",
+                    "pattern-matching-abuse",
                     "duplicate-imports",
                     "deep-module-nesting",
+                    "lifetime-abuse",
+                    "trait-complexity",
+                    "generic-abuse",
                     "c-include-chaos",
-                ],
-            ),
-            (
-                "code-smells",
-                vec![
-                    "magic-number",
-                    "god-function",
-                    "commented-code",
-                    "dead-code",
                     "c-magic-number",
                     "c-god-function",
                     "c-commented-code",
                     "c-dead-code",
+                    "c-goto-abuse",
+                    "c-malloc-leak",
+                    "defer-in-loop",
+                    "goroutine-abuse",
+                    // ruby
+                    "global-variable",
+                    "bare-rescue",
+                    // python
+                    "wildcard-import",
+                    "bare-except",
+                    // java
+                    "empty-catch",
+                    // typescript
+                    "any-type",
                 ],
             ),
             (
                 "student-code",
                 vec!["println-debugging", "panic-abuse", "todo-comment"],
             ),
-            ("c-safety", vec!["c-goto-abuse", "c-malloc-leak"]),
         ];
 
         // Severity weights: Nuclear issues count 6x as much as Mild
@@ -295,17 +291,12 @@ impl CodeScorer {
         // Different thresholds for different categories
         let (excellent_threshold, good_threshold, average_threshold, poor_threshold) =
             match category {
-                "naming" => (0.0, 2.0, 5.0, 10.0), // Naming should be very clean
-                "complexity" => (0.0, 1.0, 3.0, 6.0), // Complexity should be low
-                "duplication" => (0.0, 0.5, 2.0, 4.0), // Duplication should be minimal
-                "rust-basics" => (0.0, 1.0, 3.0, 6.0), // Basic Rust issues
-                "advanced-rust" => (0.0, 0.5, 2.0, 4.0), // Advanced features should be used carefully
-                "rust-features" => (0.0, 0.5, 1.5, 3.0), // Special features should be rare
-                "structure" => (0.0, 1.0, 3.0, 6.0),     // Structure issues
-                "code-smells" => (0.0, 1.5, 4.0, 8.0),   // Code smells are common
-                "student-code" => (0.0, 1.0, 3.0, 6.0),  // Student patterns
-                "c-safety" => (0.0, 0.5, 2.0, 4.0),      // C safety issues are serious
-                _ => (0.0, 1.0, 3.0, 6.0),               // Default thresholds
+                "naming" => (0.0, 2.0, 5.0, 10.0),
+                "complexity" => (0.0, 1.0, 3.0, 6.0),
+                "duplication" => (0.0, 0.5, 2.0, 4.0),
+                "code-smells" => (0.0, 1.5, 4.0, 8.0),
+                "student-code" => (0.0, 1.0, 3.0, 6.0),
+                _ => (0.0, 1.0, 3.0, 6.0),
             };
 
         // Calculate score based on thresholds (0 = excellent, 100 = terrible)
@@ -328,55 +319,21 @@ impl CodeScorer {
         }
     }
 
-    /// Language-specific categories that only apply when rules in them fire.
-    const LANG_SPECIFIC: &'static [&'static str] =
-        &["rust-basics", "advanced-rust", "rust-features", "c-safety"];
-
     /// Calculate weighted final score from category scores.
-    /// Redistributes weights from language-specific categories
-    /// that have no issues to universal categories.
+    /// All categories are universal — no language-specific exclusion needed.
     fn calculate_weighted_final_score(&self, category_scores: &HashMap<String, f64>) -> f64 {
-        // Category weights (sum to ~0.95, normalized by total_weight)
         let weights: Vec<(&str, f64)> = vec![
-            ("naming", 0.15),
-            ("complexity", 0.15),
-            ("duplication", 0.10),
-            ("rust-basics", 0.10),
-            ("advanced-rust", 0.08),
-            ("rust-features", 0.05),
-            ("structure", 0.07),
-            ("code-smells", 0.15),
-            ("student-code", 0.05),
-            ("c-safety", 0.10),
+            ("naming", 0.20),
+            ("complexity", 0.20),
+            ("duplication", 0.15),
+            ("code-smells", 0.30),
+            ("student-code", 0.15),
         ];
-
-        // Separate active (has any issues) and inactive (zero-score) categories
-        let mut active_weights: Vec<(&str, f64)> = Vec::new();
-        let mut inactive_weight: f64 = 0.0;
-
-        for &(cat, w) in &weights {
-            let score = category_scores.get(cat).copied().unwrap_or(0.0);
-            let is_lang_specific = Self::LANG_SPECIFIC.contains(&cat);
-            if score == 0.0 && is_lang_specific {
-                inactive_weight += w;
-            } else {
-                active_weights.push((cat, w));
-            }
-        }
-
-        // Redistribute inactive weight to active categories proportionally
-        if !active_weights.is_empty() && inactive_weight > 0.0 {
-            let active_total: f64 = active_weights.iter().map(|&(_, w)| w).sum();
-            let boost = inactive_weight / active_total;
-            for (_, w) in &mut active_weights {
-                *w += *w * boost;
-            }
-        }
 
         let mut weighted_sum = 0.0;
         let mut total_weight = 0.0;
 
-        for (category, weight) in &active_weights {
+        for (category, weight) in &weights {
             if let Some(score) = category_scores.get(*category) {
                 weighted_sum += score * weight;
                 total_weight += weight;
