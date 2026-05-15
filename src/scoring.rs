@@ -328,26 +328,55 @@ impl CodeScorer {
         }
     }
 
-    /// Calculate weighted final score from category scores
+    /// Language-specific categories that only apply when rules in them fire.
+    const LANG_SPECIFIC: &'static [&'static str] =
+        &["rust-basics", "advanced-rust", "rust-features", "c-safety"];
+
+    /// Calculate weighted final score from category scores.
+    /// Redistributes weights from language-specific categories
+    /// that have no issues to universal categories.
     fn calculate_weighted_final_score(&self, category_scores: &HashMap<String, f64>) -> f64 {
         // Category weights (sum to ~0.95, normalized by total_weight)
-        let weights = [
-            ("naming", 0.15),        // 15% - Very important (includes garbage-naming + c-naming)
-            ("complexity", 0.15),    // 15% - Very important
-            ("duplication", 0.10),   // 10% - Important
-            ("rust-basics", 0.10),   // 10% - Important (includes string/vec abuse)
-            ("advanced-rust", 0.08), // 8% - Moderate
-            ("rust-features", 0.05), // 5% - Moderate
-            ("structure", 0.07),     // 7% - Structure issues (includes include-chaos)
-            ("code-smells", 0.15),   // 15% - Common issues (shared by Rust + C/C++)
-            ("student-code", 0.05),  // 5% - Beginner patterns
-            ("c-safety", 0.10),      // 10% - C/C++ safety (goto, malloc leaks)
+        let weights: Vec<(&str, f64)> = vec![
+            ("naming", 0.15),
+            ("complexity", 0.15),
+            ("duplication", 0.10),
+            ("rust-basics", 0.10),
+            ("advanced-rust", 0.08),
+            ("rust-features", 0.05),
+            ("structure", 0.07),
+            ("code-smells", 0.15),
+            ("student-code", 0.05),
+            ("c-safety", 0.10),
         ];
+
+        // Separate active (has any issues) and inactive (zero-score) categories
+        let mut active_weights: Vec<(&str, f64)> = Vec::new();
+        let mut inactive_weight: f64 = 0.0;
+
+        for &(cat, w) in &weights {
+            let score = category_scores.get(cat).copied().unwrap_or(0.0);
+            let is_lang_specific = Self::LANG_SPECIFIC.contains(&cat);
+            if score == 0.0 && is_lang_specific {
+                inactive_weight += w;
+            } else {
+                active_weights.push((cat, w));
+            }
+        }
+
+        // Redistribute inactive weight to active categories proportionally
+        if !active_weights.is_empty() && inactive_weight > 0.0 {
+            let active_total: f64 = active_weights.iter().map(|&(_, w)| w).sum();
+            let boost = inactive_weight / active_total;
+            for (_, w) in &mut active_weights {
+                *w += *w * boost;
+            }
+        }
 
         let mut weighted_sum = 0.0;
         let mut total_weight = 0.0;
 
-        for (category, weight) in &weights {
+        for (category, weight) in &active_weights {
             if let Some(score) = category_scores.get(*category) {
                 weighted_sum += score * weight;
                 total_weight += weight;
@@ -357,7 +386,7 @@ impl CodeScorer {
         if total_weight > 0.0 {
             weighted_sum / total_weight
         } else {
-            100.0 // Default to perfect score if no categories found
+            100.0
         }
     }
 }

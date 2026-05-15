@@ -79,6 +79,7 @@ impl CodeAnalyzer {
 
         let mut ts_rule_engine = TreeSitterRuleEngine::new();
         crate::treesitter::rules::rust_rules::register_rust_rules(&mut ts_rule_engine);
+        crate::treesitter::rules::go_rules::register_go_rules(&mut ts_rule_engine);
 
         Self {
             generic_engine: GenericRuleEngine::new(),
@@ -131,9 +132,15 @@ impl CodeAnalyzer {
             .flat_map(|file_path| self.analyze_file(file_path))
             .collect();
 
+        // Phase 1.5: Filter out generated files from further phases
+        let real_files: Vec<&PathBuf> = files
+            .iter()
+            .filter(|p| !Self::is_generated_file(p))
+            .collect();
+
         // Phase 2: Cross-file duplication detection (tree-sitter based)
         let mut cross_detector = CrossFileDupDetector::new();
-        for file_path in &files {
+        for file_path in &real_files {
             if let Ok(content) = fs::read_to_string(file_path) {
                 if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
                     cross_detector.process_file(&parsed);
@@ -144,7 +151,7 @@ impl CodeAnalyzer {
         issues.extend(cross_detector.find_near_duplicates());
 
         // Phase 3: Intra-file code duplication
-        for file_path in &files {
+        for file_path in &real_files {
             if let Ok(content) = fs::read_to_string(file_path) {
                 if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
                     issues.extend(IntraFileDupDetector::check(&parsed));
@@ -155,7 +162,29 @@ impl CodeAnalyzer {
         issues
     }
 
+    fn is_generated_file(path: &Path) -> bool {
+        let name = path.to_string_lossy();
+        // Protobuf generated files
+        name.ends_with(".pb.go")
+            || name.contains("_grpc.pb.go")
+            || name.ends_with(".pb.gw.go")
+            || name.ends_with(".pulsar.go")
+            || name.ends_with(".pb.cc")
+            || name.ends_with(".pb.h")
+        // Dependencies
+            || name.contains("/node_modules/")
+            || name.contains("\\node_modules\\")
+            || name.contains("/vendor/")
+            || name.contains("\\vendor\\")
+        // Minified bundles
+            || name.contains("/swagger-ui/")
+    }
+
     pub fn analyze_file(&self, file_path: &Path) -> Vec<CodeIssue> {
+        if Self::is_generated_file(file_path) {
+            return vec![];
+        }
+
         let content = match fs::read_to_string(file_path) {
             Ok(content) => content,
             Err(_) => return vec![],

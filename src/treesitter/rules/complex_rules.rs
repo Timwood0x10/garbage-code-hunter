@@ -96,9 +96,13 @@ fn function_query(lang: Language) -> &'static str {
     match lang {
         Language::Rust => "(function_item) @fn",
         Language::Python => "(function_definition) @fn",
-        Language::JavaScript => "(function_declaration) @fn",
+        Language::JavaScript | Language::TypeScript => "(function_declaration) @fn",
         Language::C | Language::Cpp => "(function_definition) @fn",
-        _ => "(function_item) @fn",
+        Language::Go => "(function_declaration) @fn",
+        Language::Java => "(method_declaration) @fn",
+        Language::Ruby => "(method) @fn",
+        Language::Swift | Language::Zig => "(function_declaration) @fn",
+        Language::Unknown => "",
     }
 }
 
@@ -198,11 +202,23 @@ impl TreeSitterRule for GodFunctionRule {
         };
 
         let control_flow_types = [
+            // Rust
             "if_expression",
             "for_expression",
             "while_expression",
             "match_expression",
             "loop_expression",
+            // Go / Python / JS / C / C++
+            "if_statement",
+            "for_statement",
+            "while_statement",
+            "do_statement",
+            "switch_statement",
+            // Go
+            "expression_switch_statement",
+            "select_statement",
+            // Zig
+            "switch_expression",
         ];
 
         let content_bytes = file.content.as_bytes();
@@ -355,8 +371,14 @@ pub(crate) fn variable_name_query(lang: Language) -> &'static str {
     match lang {
         Language::Rust => "(let_declaration pattern: (identifier) @name)",
         Language::Python => "(assignment left: (identifier) @name)",
-        Language::JavaScript => "(variable_declarator name: (identifier) @name)",
-        _ => "(identifier) @name",
+        Language::JavaScript | Language::TypeScript => "(variable_declarator name: (identifier) @name)",
+        Language::Go => "[(short_var_declaration left: (expression_list (identifier) @name)) (var_spec name: (identifier) @name)]",
+        Language::Java => "(variable_declarator name: (identifier) @name)",
+        Language::Ruby => "(assignment left: (identifier) @name)",
+        Language::C | Language::Cpp => "(init_declarator declarator: (identifier) @name)",
+        Language::Swift => "(assignment left: (identifier) @name)",
+        Language::Zig => "(variable_declaration (identifier) @name)",
+        Language::Unknown => "(identifier) @name",
     }
 }
 
@@ -440,11 +462,11 @@ fn single_letter_query(lang: Language) -> &'static str {
             r#"(let_declaration pattern: (identifier) @var (#match? @var "^[a-z]$"))"#
         }
         Language::Python => r#"(assignment left: (identifier) @var (#match? @var "^[a-z]$"))"#,
-        Language::JavaScript => {
+        Language::JavaScript | Language::TypeScript => {
             r#"(variable_declarator name: (identifier) @var (#match? @var "^[a-z]$"))"#
         }
         Language::Go => {
-            r#"(short_variable_declaration left: (identifier) @var (#match? @var "^[a-z]$"))"#
+            r#"(short_var_declaration left: (expression_list (identifier) @var (#match? @var "^[a-z]$")))"#
         }
         Language::Java => {
             r#"(variable_declarator name: (identifier) @var (#match? @var "^[a-z]$"))"#
@@ -453,7 +475,9 @@ fn single_letter_query(lang: Language) -> &'static str {
         Language::C | Language::Cpp => {
             r#"(init_declarator declarator: (identifier) @var (#match? @var "^[a-z]$"))"#
         }
-        _ => r#"(identifier) @var"#,
+        Language::Swift => r#"(assignment left: (identifier) @var (#match? @var "^[a-z]$"))"#,
+        Language::Zig => r#"(variable_declaration (identifier) @var (#match? @var "^[a-z]$"))"#,
+        Language::Unknown => r#"(identifier) @var"#,
     }
 }
 
@@ -751,8 +775,21 @@ fn print_debug_query(lang: Language) -> &'static str {
     match lang {
         Language::Rust => r#"(macro_invocation macro: (identifier) @m (#eq? @m "println"))"#,
         Language::Python => r#"(call function: (identifier) @f (#eq? @f "print"))"#,
-        Language::JavaScript => {
+        Language::JavaScript | Language::TypeScript => {
             r#"(call_expression function: (member_expression object: (identifier) @o property: (property_identifier) @p) (#eq? @o "console") (#eq? @p "log"))"#
+        }
+        Language::Go => {
+            r#"(call_expression function: (selector_expression operand: (identifier) @pkg field: (field_identifier) @method) (#eq? @pkg "fmt") (#match? @method "^(Print|Println|Printf|Fprint|Fprintln|Fprintf|Sprint|Sprintln|Sprintf)$"))"#
+        }
+        Language::Java => {
+            r#"(method_invocation name: (identifier) @method (#match? @method "^(print|println)$"))"#
+        }
+        Language::Ruby => {
+            r#"(call method: (identifier) @method (#match? @method "^(puts|p|pp|print)$"))"#
+        }
+        Language::Swift => r#"(call_expression function: (identifier) @f (#eq? @f "print"))"#,
+        Language::Zig => {
+            r#"(call_expression function: (field_expression member: (identifier) @method (#eq? @method "print")))"#
         }
         _ => "",
     }
@@ -802,7 +839,12 @@ fn number_literal_query(lang: Language) -> &'static str {
         Language::Python => "(integer) @num",
         Language::JavaScript | Language::TypeScript => "(number) @num",
         Language::C | Language::Cpp => "(number_literal) @num",
-        _ => "",
+        Language::Go => "[(int_literal) @num (float_literal) @num]",
+        Language::Java => "[(decimal_integer_literal) @num (hex_integer_literal) @num (octal_integer_literal) @num (binary_integer_literal) @num (decimal_floating_point_literal) @num (hex_floating_point_literal) @num]",
+        Language::Ruby => "[(integer) @num (float) @num]",
+        Language::Swift => "[(integer_literal) @num (real_literal) @num]",
+        Language::Zig => "[(integer) @num (float) @num]",
+        Language::Unknown => "",
     }
 }
 

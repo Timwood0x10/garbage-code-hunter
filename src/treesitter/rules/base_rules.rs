@@ -36,6 +36,16 @@ pub(crate) const BLOCK_PARENT_TYPES: &[&str] = &[
     "do_statement",
     "switch_statement",
     "case_statement",
+    // Go
+    "expression_switch_statement",
+    "type_switch_statement",
+    "select_statement",
+    // Ruby
+    "begin_block",
+    // Swift
+    "switch_statement",
+    // Zig
+    "switch_expression",
 ];
 
 /// Block-like node kinds across languages (where nesting depth increments).
