@@ -14,6 +14,7 @@ use garbage_code_hunter::{
     danger_zone, debt_invoice, decay, deps_shamer,
     educational::EducationalAdvisor,
     hall_of_shame::HallOfShame,
+    language::SUPPORTED_EXTENSIONS,
     last_words,
     llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
     personality, personas, pr_title_hunter, radar,
@@ -1429,7 +1430,7 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
     if path.is_file() {
         if !should_exclude(path) {
             if let Some(ext) = path.extension() {
-                if ext == "rs" {
+                if SUPPORTED_EXTENSIONS.contains(&ext.to_str().unwrap_or("")) {
                     file_count = 1;
                     if let Ok(content) = fs::read_to_string(path) {
                         total_lines = content.lines().count();
@@ -1442,7 +1443,12 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| !should_exclude(e.path()))
-            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext))
+            })
         {
             file_count += 1;
             if let Ok(content) = fs::read_to_string(entry.path()) {

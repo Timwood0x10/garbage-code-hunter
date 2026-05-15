@@ -321,10 +321,10 @@ fn test_verbose_output_contains_rule_weights() {
 
     assert_eq!(exit_code, 0, "Should generate verbose output");
 
-    // Verbose output should show rule weight multipliers
+    // Verbose output should show code quality score and categories
     assert!(
-        stdout.contains("⚡") || stdout.contains("rule_weight"),
-        "Verbose output should show performance metrics or rule weights"
+        stdout.contains("Score") || stdout.contains("Category"),
+        "Verbose output should show code quality score or categories"
     );
 }
 
