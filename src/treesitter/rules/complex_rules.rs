@@ -246,7 +246,7 @@ impl TreeSitterRule for GodFunctionRule {
                 // Control flow nodes
                 score += count_descendants_of_types(node, &control_flow_types);
 
-                if score > 15 {
+                if score > 10 {
                     let func_name = find_function_name(node, content_bytes);
                     let messages = [
                         "Function '{}' does more things than I do in a day",

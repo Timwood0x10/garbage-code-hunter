@@ -232,7 +232,22 @@ impl CrossFileDupDetector {
 pub struct IntraFileDupDetector;
 
 impl IntraFileDupDetector {
+    /// Returns true if the file path looks like a test/example/bench fixture.
+    fn is_skippable(path: &std::path::Path) -> bool {
+        let name = path.to_string_lossy();
+        name.contains("_test.")
+            || name.contains("/tests/")
+            || name.contains("/test/")
+            || name.contains("/examples/")
+            || name.contains("/fixtures/")
+            || name.contains("/mocks/")
+            || name.contains("/benches/")
+    }
+
     pub fn check(file: &ParsedFile) -> Vec<CodeIssue> {
+        if Self::is_skippable(&file.path) {
+            return vec![];
+        }
         let lines: Vec<&str> = file.content.lines().collect();
         if lines.len() < 10 {
             return vec![];
