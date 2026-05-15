@@ -57,6 +57,13 @@ impl TreeSitterRule for GlobalVariableRule {
             "$>",
             "$!",
             "$?",
+            "$0",
+            "$*",
+            "$_",
+            "$-d",
+            "$-v",
+            "$-w",
+            "$-W",
         ];
         for group in &captures {
             if let Some(cap) = group.first() {

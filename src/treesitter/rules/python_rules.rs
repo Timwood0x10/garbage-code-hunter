@@ -78,9 +78,32 @@ impl TreeSitterRule for WildcardImportRule {
             Ok(c) => c,
             Err(_) => return vec![],
         };
+        // Libraries where `import *` is idiomatic
+        let acceptable_modules = [
+            "manim",
+            "numpy",
+            "matplotlib",
+            "pytest",
+            "tensorflow",
+            "torch",
+            "tkinter",
+            "PyQt5",
+            "PySide6",
+            "gi.repository",
+        ];
         let mut issues = Vec::new();
         for group in &captures {
             if let Some(cap) = group.first() {
+                let line = cap.node.start_position().row;
+                // Check the source line for acceptable module imports
+                if let Some(source_line) = file.content.lines().nth(line) {
+                    let is_acceptable = acceptable_modules
+                        .iter()
+                        .any(|m| source_line.contains(&format!("from {} import *", m)));
+                    if is_acceptable {
+                        continue;
+                    }
+                }
                 let pos = cap.node.start_position();
                 let msgs = [
                     "`import *` — namespace pollution speedrun any%",

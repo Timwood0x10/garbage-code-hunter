@@ -100,6 +100,10 @@ impl TreeSitterRule for CommentedCodeRule {
 
         for (line_num, line) in file.content.lines().enumerate() {
             let trimmed = line.trim();
+            // Skip doc comments (///) and tool directives, only flag actual commented-out code
+            if trimmed.starts_with("///") || trimmed.starts_with("/**") {
+                continue;
+            }
             if trimmed.starts_with(line_comment) {
                 let comment_text = trimmed.strip_prefix(line_comment).unwrap_or("").trim();
                 if is_likely_code(comment_text) {

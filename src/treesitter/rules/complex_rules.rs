@@ -642,11 +642,20 @@ impl TreeSitterRule for HungarianNotationTsRule {
         ];
         let scope_prefixes = ["g_", "m_", "s_", "p_"];
 
+        // Framework/library conventions that look like Hungarian but aren't
+        let exempt_names: &[&str] = &["c", "t", "ctx", "req", "res", "err", "db", "kv", "fs", "io"];
+
         let mut issues = Vec::new();
 
         for group in &captures {
             if let Some(cap) = group.first() {
                 let name = cap.text;
+
+                // Skip framework convention abbreviations
+                if exempt_names.contains(&name) {
+                    continue;
+                }
+
                 let is_hungarian = scope_prefixes.iter().any(|p| name.starts_with(p))
                     || prefixes.iter().any(|&prefix| {
                         name.starts_with(prefix)
