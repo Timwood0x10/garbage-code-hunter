@@ -1,4 +1,3 @@
-use rayon::prelude::*;
 use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -128,7 +127,7 @@ impl CodeAnalyzer {
 
         // Phase 1: Parallel single-file analysis for all languages
         let mut issues: Vec<CodeIssue> = files
-            .par_iter()
+            .iter()
             .flat_map(|file_path| self.analyze_file(file_path))
             .collect();
 

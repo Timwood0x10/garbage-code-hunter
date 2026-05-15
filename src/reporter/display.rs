@@ -642,11 +642,16 @@ impl Reporter {
                 let (status_icon, status_text) = self.get_score_status(*score);
 
                 // basic display
+                let score_unit = if self.i18n.lang == "zh-CN" {
+                    format!("{score:.0}分")
+                } else {
+                    format!("{score:.0}")
+                };
                 println!(
-                    "  {} {} {}分     {}",
+                    "  {} {} {:>5}     {}",
                     status_icon,
                     format!("{icon} {display_name}").bright_white(),
-                    format!("{score:.0}").bright_cyan(),
+                    score_unit.bright_cyan(),
                     status_text.bright_black()
                 );
 

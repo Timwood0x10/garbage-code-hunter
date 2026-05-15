@@ -1,4 +1,15 @@
 use crate::language::Language;
+use tree_sitter_c;
+use tree_sitter_cpp;
+use tree_sitter_go;
+use tree_sitter_java;
+use tree_sitter_javascript;
+use tree_sitter_python;
+use tree_sitter_ruby;
+use tree_sitter_rust;
+use tree_sitter_swift;
+use tree_sitter_typescript;
+use tree_sitter_zig;
 
 /// Get the tree-sitter grammar for a given language.
 /// Returns None if the language has no compiled grammar available.

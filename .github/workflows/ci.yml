@@ -142,9 +142,9 @@ jobs:
       - name: Run self-test on project itself
         run: |
           echo "🎯 Running Bootstrap self-test..."
-          ./target/release/garbage-code-hunter . --lang en-US --markdown > bootstrap_report.md
+          ./target/release/garbage-code-hunter analyze . --lang en-US --markdown > bootstrap_report.md
           echo "✅ Self-test completed successfully"
-          
+
           # Verify no crashes and output generated
           if [ -f bootstrap_report.md ] && [ -s bootstrap_report.md ]; then
             echo "📄 Report generated"

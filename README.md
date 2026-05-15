@@ -65,11 +65,16 @@ graph TB
     end
 
     subgraph FunTools["Fun Tools"]
-        LW["Last Words"] DI["Debt Invoice"]
-        PE["Personality"] DC["Decay"]
-        AU["Autopsy"] RD["Radar SVG"]
-        CB["CI Bot"] PA["Persona"]
-        DZ["Danger Zone"] TR["Team Roast"]
+        LW["Last Words"]
+        DI["Debt Invoice"]
+        PE["Personality"]
+        DC["Decay"]
+        AU["Autopsy"]
+        RD["Radar SVG"]
+        CB["CI Bot"]
+        PA["Persona"]
+        DZ["Danger Zone"]
+        TR["Team Roast"]
     end
 
     subgraph Output["Output"]
