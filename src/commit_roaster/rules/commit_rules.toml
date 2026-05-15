@@ -1,0 +1,119 @@
+[[rules]]
+id = "empty-message"
+name = "Empty Message"
+description = "Commit message is completely empty"
+severity = "Critical"
+pattern = { type = "Regex", value = "^$" }
+message = "The commit message is empty. Were you sleepwalking?"
+
+[[rules]]
+id = "too-short"
+name = "Too Short"
+description = "Commit message is too short to be meaningful"
+severity = "High"
+pattern = { type = "Length", value = { min = 0, max = 10 } }
+message = "This message is shorter than a text from your ex. Try harder."
+
+[[rules]]
+id = "single-word"
+name = "Single Word"
+description = "Commit message is just one word"
+severity = "High"
+pattern = { type = "Regex", value = "^[a-zA-Z]+$" }
+message = "One word? Is this a commit message or a password?"
+
+[[rules]]
+id = "wip-commit"
+name = "WIP Commit"
+description = "Work-in-progress commit pushed to shared branch"
+severity = "Medium"
+pattern = { type = "Regex", value = "(?i)^(WIP|wip)[: ]" }
+message = "WIP commit? Why is this on a shared branch?"
+
+[[rules]]
+id = "fix-only"
+name = "Fix Only"
+description = "Commit message is just 'fix' with no context"
+severity = "High"
+pattern = { type = "Regex", value = "^fix$" }
+message = "Fix WHAT? 'fix' is not a description, it's a cry for help."
+
+[[rules]]
+id = "update-only"
+name = "Update Only"
+description = "Commit message is just 'update' with no context"
+severity = "High"
+pattern = { type = "Regex", value = "^update$" }
+message = "Update WHAT? Did you update your lunch order?"
+
+[[rules]]
+id = "change-only"
+name = "Change Only"
+description = "Commit message is just 'change' with no context"
+severity = "High"
+pattern = { type = "Regex", value = "^change$" }
+message = "Change WHAT? The laws of physics?"
+
+[[rules]]
+id = "typo-commit"
+name = "Typo Commit"
+description = "Commit message is just about fixing typos"
+severity = "Low"
+pattern = { type = "Regex", value = "(?i)^fix(es|ed)?\\s+typo(s)?$" }
+message = "Another typo fix? Maybe enable a spell checker?"
+
+[[rules]]
+id = "asdf-commit"
+name = "Keyboard Mashing"
+description = "Commit message looks like keyboard mashing"
+severity = "Critical"
+pattern = { type = "Regex", value = "^(asdf|qwer|zxcv|jkl|hjkl|aaa|bbb|ccc|xxx|test123)" }
+message = "Keyboard mashing is not a commit strategy."
+
+[[rules]]
+id = "too-many-exclamation"
+name = "Excessive Exclamation"
+description = "Too many exclamation marks in commit message"
+severity = "Low"
+pattern = { type = "Regex", value = "!{3,}" }
+message = "Calm down with the exclamation marks. This is git, not a horror movie."
+
+[[rules]]
+id = "all-caps"
+name = "All Caps"
+description = "Entire commit message is in ALL CAPS"
+severity = "Medium"
+pattern = { type = "Regex", value = "^[A-Z][A-Z\\s!?._-]{10,}$" }
+message = "STOP YELLING. We can hear you fine in lowercase."
+
+[[rules]]
+id = "no-verb"
+name = "No Verb"
+description = "Commit message has no action verb"
+severity = "Low"
+pattern = { type = "Regex", value = "^[a-z]+\\s+[a-z]+" }
+message = "No verb detected. What did you DO? (e.g., 'fix', 'add', 'remove')"
+
+[[rules]]
+id = "version-bump-only"
+name = "Version Bump Only"
+description = "Commit is just a version bump"
+severity = "Info"
+pattern = { type = "Regex", value = "(?i)^(bump|update)\\s+(version|v)" }
+message = "Version bump commit. At least it's honest."
+
+[[rules]]
+id = "merge-commit"
+name = "Merge Commit"
+description = "Default merge commit message"
+severity = "Low"
+pattern = { type = "StartsWith", value = "Merge branch" }
+message = "Merge commit with default message? At least tell us WHY."
+
+[[rules]]
+id = "revert-commit"
+name = "Revert Commit"
+description = "Revert commit with default message"
+severity = "Info"
+pattern = { type = "StartsWith", value = "Revert" }
+message = "Reverting something? What went wrong? Tell the story."

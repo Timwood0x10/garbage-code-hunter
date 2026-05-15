@@ -1,0 +1,236 @@
+//! CI Comment Bot — generate PR review comments with roast flavor.
+
+use crate::analyzer::{CodeAnalyzer, CodeIssue};
+use crate::common::i18n_ext::t;
+use crate::common::OutputFormat;
+use anyhow::Result;
+use colored::Colorize;
+use std::collections::HashMap;
+use std::path::Path;
+
+/// Generate a CI review comment for a PR.
+pub fn run(path: &Path, format: &OutputFormat, lang: &str) -> Result<String> {
+    let analyzer = CodeAnalyzer::new(&[], lang);
+    let issues = analyzer.analyze_path(path);
+
+    let output = match format {
+        OutputFormat::Terminal => format_terminal(&issues, lang),
+        OutputFormat::Json => format_json(&issues),
+    };
+
+    Ok(output)
+}
+
+fn format_terminal(issues: &[CodeIssue], lang: &str) -> String {
+    let mut out = String::new();
+
+    out.push_str(&format!(
+        "\n{}\n",
+        t(
+            lang,
+            "\u{26a0}\u{fe0f} 垃圾代码猎人审查",
+            "\u{26a0}\u{fe0f} Garbage Code Hunter Review"
+        )
+        .bold()
+    ));
+    out.push_str(&format!("{}\n\n", "\u{2501}".repeat(40)));
+
+    // Count by category
+    let mut categories: HashMap<&str, usize> = HashMap::new();
+    for issue in issues {
+        let cat = categorize(&issue.rule_name);
+        *categories.entry(cat).or_insert(0) += 1;
+    }
+
+    // Summary stats
+    out.push_str(&format!("  {}\n", t(lang, "这个 PR：", "This PR:")));
+    for (cat, count) in &categories {
+        let emoji = category_emoji(cat);
+        out.push_str(&format!("  {} +{} {}\n", emoji, count, cat));
+    }
+
+    // Emotion index
+    let emotion_level = (issues.len() / 5).min(5);
+    let emotions: Vec<&str> = (0..emotion_level + 1).map(|_| "\u{1f621}").collect();
+    out.push_str(&format!(
+        "\n  {}: {}\n",
+        t(lang, "审查者情绪指数", "Reviewer Emotion Index"),
+        emotions.join("")
+    ));
+
+    // Verdict
+    out.push_str(&format!("\n  {}\n", t(lang, "结论：", "Verdict:").bold()));
+    if issues.is_empty() {
+        out.push_str(&format!(
+            "  {}\n",
+            t(
+                lang,
+                "LGTM！（开个玩笑，我们都知道总会有问题的。）",
+                "LGTM! (Just kidding, we both know there's always something)."
+            )
+            .green()
+        ));
+    } else if issues.len() < 5 {
+        out.push_str(&format!(
+            "  {}\n",
+            t(
+                lang,
+                "小问题。你的代码审查者今天可能会微笑。",
+                "Minor issues. Your code reviewer might actually smile today."
+            )
+            .yellow()
+        ));
+    } else if issues.len() < 15 {
+        out.push_str(&format!(
+            "  {}\n",
+            t(
+                lang,
+                "发现多个问题。审查者建议先喝杯咖啡。",
+                "Several issues found. The reviewer suggests a coffee break first."
+            )
+            .red()
+        ));
+    } else {
+        out.push_str(&format!(
+            "  {}\n",
+            t(
+                lang,
+                "这个 PR 是对整洁代码的犯罪。作者，请坐下。",
+                "This PR is a war crime against clean code. Author, please sit down."
+            )
+            .red()
+            .bold()
+        ));
+    }
+
+    out.push_str(&format!(
+        "\n  {}\n",
+        t(
+            lang,
+            "提示：推送前在本地运行 `garbage-code-hunter`。",
+            "Tip: Run `garbage-code-hunter` locally before pushing."
+        )
+    ));
+
+    out
+}
+
+fn format_json(issues: &[CodeIssue]) -> String {
+    let mut categories: HashMap<&str, usize> = HashMap::new();
+    for issue in issues {
+        let cat = categorize(&issue.rule_name);
+        *categories.entry(cat).or_insert(0) += 1;
+    }
+
+    serde_json::json!({
+        "total_issues": issues.len(),
+        "categories": categories,
+        "verdict": if issues.is_empty() { "LGTM" }
+                   else if issues.len() < 5 { "Minor issues" }
+                   else if issues.len() < 15 { "Needs work" }
+                   else { "Major concerns" },
+        "comment": generate_markdown_comment(issues, &categories),
+    })
+    .to_string()
+}
+
+/// Generate a Markdown-formatted PR comment.
+fn generate_markdown_comment(issues: &[CodeIssue], categories: &HashMap<&str, usize>) -> String {
+    let mut md = String::new();
+    md.push_str("## \u{26a0}\u{fe0f} Garbage Code Hunter Review\n\n");
+
+    md.push_str("| Category | Count |\n|---|---|\n");
+    for (cat, count) in categories {
+        md.push_str(&format!(
+            "| {} {} | {} |\n",
+            category_emoji(cat),
+            cat,
+            count
+        ));
+    }
+
+    md.push_str(&format!("\n**Total issues:** {}\n\n", issues.len()));
+
+    let emotion_level = (issues.len() / 5).min(5);
+    let emotions: Vec<&str> = (0..emotion_level + 1).map(|_| "\u{1f621}").collect();
+    md.push_str(&format!("**Reviewer mood:** {}\n\n", emotions.join("")));
+
+    if issues.len() >= 15 {
+        md.push_str(
+            "> This PR's biggest problem isn't the bugs — \
+             it's what it reveals about the author's mental state.\n",
+        );
+    }
+
+    md.push_str(
+        "\n---\n*Generated by [Garbage Code Hunter](https://github.com/yourusername/garbage-code-hunter)*\n",
+    );
+
+    md
+}
+
+fn categorize(rule_name: &str) -> &'static str {
+    let lower = rule_name.to_lowercase();
+    if lower.contains("unwrap") {
+        "unwrap() abuse"
+    } else if lower.contains("nest") || lower.contains("complex") {
+        "complexity"
+    } else if lower.contains("name")
+        || lower.contains("single_letter")
+        || lower.contains("meaningless")
+    {
+        "naming"
+    } else if lower.contains("magic") {
+        "magic numbers"
+    } else if lower.contains("duplicat") {
+        "duplication"
+    } else if lower.contains("long") {
+        "long functions"
+    } else {
+        "other"
+    }
+}
+
+fn category_emoji(cat: &str) -> &'static str {
+    match cat {
+        "unwrap() abuse" => "\u{1f4a5}",
+        "complexity" => "\u{1f522}",
+        "naming" => "\u{1f4dd}",
+        "magic numbers" => "\u{1f52e}",
+        "duplication" => "\u{1f4cb}",
+        "long functions" => "\u{1f4dc}",
+        _ => "\u{1f4a9}",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_categorize() {
+        assert_eq!(categorize("unwrap_abuse"), "unwrap() abuse");
+        assert_eq!(categorize("deep_nesting"), "complexity");
+    }
+
+    #[test]
+    fn test_run_on_current_dir() {
+        let result = run(std::path::Path::new("."), &OutputFormat::Terminal, "en-US");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_on_current_dir_chinese() {
+        let result = run(std::path::Path::new("."), &OutputFormat::Terminal, "zh-CN");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_json_format() {
+        let result = run(std::path::Path::new("."), &OutputFormat::Json, "en-US");
+        assert!(result.is_ok());
+        let json = result.unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(parsed["total_issues"].is_number());
+    }
+}

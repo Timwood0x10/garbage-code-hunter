@@ -1,0 +1,70 @@
+name: "Garbage Code Hunter — PR Review"
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Analyze changed files
+        id: analyze
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '\.(rs|py|js|ts|go|java|c|cpp|rb)$' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "result=clean" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          for f in $CHANGED; do
+            if [ -f "$f" ]; then
+              ./target/release/garbage-code-hunter analyze --format json "$f" \
+                > /tmp/gch_result.json 2>/dev/null || true
+              python3 -c "
+import json
+with open('/tmp/gch_result.json') as fp:
+    data = json.load(fp)
+if data:
+    print('## 🔥 Garbage Code Hunter Report')
+    for i in data:
+        emoji = {'Nuclear':'🔥','Spicy':'🌶️','Mild':'😐'}
+        sev = emoji.get(i['severity'], '❓')
+        print(f\"{sev} **{i['rule_name']}** — {i['file_path']}:{i['line']}\")
+        print(f\"> {i['message']}\")
+        print()
+" >> /tmp/gch_comment.md
+            fi
+          done
+          if [ -f /tmp/gch_comment.md ]; then
+            echo "result=issues" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=clean" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment PR
+        if: steps.analyze.outputs.result == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/gch_comment.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

@@ -1,220 +1,241 @@
 # Garbage Code Hunter - Makefile
-# A humorous Rust code quality detector
+# A humorous multi-language code quality detector
 
-.PHONY: help build test clean install run fmt clippy check doc release ci
+CARGO := cargo
+PROJECT := garbage-code-hunter
+VERSION := $(shell grep '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
 
-# Default target
+# Colors
+BLUE   := \033[34m
+GREEN  := \033[32m
+YELLOW := \033[33m
+RED    := \033[31m
+NC     := \033[0m
+
+# Directories
+COVERAGE_DIR := target/coverage
+
+.PHONY: help
+
+.DEFAULT_GOAL := help
+
 help:
-	@echo "Garbage Code Hunter - Available commands:"
+	@echo "$(BLUE)$(PROJECT) v$(VERSION)$(NC)"
 	@echo ""
-	@echo "  build      - Build the project in debug mode"
-	@echo "  release    - Build the project in release mode"
-	@echo "  test       - Run all tests"
-	@echo "  check      - Run cargo check"
-	@echo "  fmt        - Format code with rustfmt"
-	@echo "  clippy     - Run clippy linter"
-	@echo "  clean      - Clean build artifacts"
-	@echo "  install    - Install the binary to cargo bin"
-	@echo "  run        - Run with default arguments (analyze current directory)"
-	@echo "  doc        - Generate documentation"
-	@echo "  demo       - Run demo with sample garbage code"
-	@echo "  ci         - Run CI checks (format, clippy, warnings, tests)"
+	@echo "  $(GREEN)Build & Check$(NC)"
+	@echo "    make build          - Debug build"
+	@echo "    make release        - Release build"
+	@echo "    make check          - Full check (format + clippy + compile)"
+	@echo "    make fmt            - Format code"
+	@echo "    make fmt-check      - Check formatting"
+	@echo "    make clippy         - Run clippy linter"
+	@echo "    make clean          - Clean artifacts"
 	@echo ""
-	@echo "Examples:"
-	@echo "  make run ARGS='--lang en-US --verbose src/'"
-	@echo "  make demo"
-	@echo "  make release"
-	@echo "  make ci"
+	@echo "  $(GREEN)Test$(NC)"
+	@echo "    make test           - Run all tests (serial)"
+	@echo "    make test-unit      - Unit tests only"
+	@echo "    make test-integration - Integration tests only"
+	@echo "    make test-verbose   - Tests with output"
+	@echo ""
+	@echo "  $(GREEN)Analyze$(NC)"
+	@echo "    make run ARGS=...   - Run with arguments"
+	@echo "    make demo           - Demo with sample code"
+	@echo "    make self-check     - Analyze own code"
+	@echo ""
+	@echo "  $(GREEN)Coverage & Docs$(NC)"
+	@echo "    make coverage       - LLVM coverage summary"
+	@echo "    make coverage-html  - LLVM coverage HTML report"
+	@echo "    make doc            - Build docs"
+	@echo ""
+	@echo "  $(GREEN)CI & Package$(NC)"
+	@echo "    make ci             - Full CI pipeline"
+	@echo "    make install        - Install binary"
+	@echo "    make package        - Create distribution tarball"
 
-# Build targets
+# ─── Build & Check ────────────────────────────────────────────────────────────
+
+.PHONY: build
 build:
-	cargo build
+	@echo "$(BLUE)Building debug...$(NC)"
+	$(CARGO) build
+	@echo "$(GREEN)Done$(NC)"
 
+.PHONY: release
 release:
-	cargo build --release
+	@echo "$(BLUE)Building release...$(NC)"
+	$(CARGO) build --release
+	@echo "$(GREEN)Done$(NC)"
 
-# Testing and validation
-test:
-	cargo test
-
-test-signal:
-	cargo test -- --test-threads=1
-
-test-verbose:
-	cargo test -- --nocapture
-
-test-coverage:
-	@echo "Running code coverage analysis..."
-	cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Html --output-dir coverage/
-
-test-coverage-ci:
-	@echo "Running code coverage for CI..."
-	cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
-
-bench:
-	cargo bench
-
+.PHONY: check
 check:
-	cargo check
+	@echo "$(BLUE)Checking formatting...$(NC)"
+	$(CARGO) fmt --all -- --check
+	@echo "$(BLUE)Checking compilation...$(NC)"
+	$(CARGO) check --workspace
+	@echo "$(GREEN)All checks passed$(NC)"
 
-clippy:
-	cargo clippy -- -D warnings
-
+.PHONY: fmt
 fmt:
-	cargo fmt --all
+	@echo "$(BLUE)Formatting...$(NC)"
+	$(CARGO) fmt --all
+	@echo "$(GREEN)Formatted$(NC)"
 
-# Documentation
-doc:
-	cargo doc --open
+.PHONY: fmt-check
+fmt-check:
+	@echo "$(BLUE)Checking formatting...$(NC)"
+	$(CARGO) fmt --all -- --check
+	@echo "$(GREEN)Formatting OK$(NC)"
 
-# Installation
-install:
-	cargo install --path .
+.PHONY: clippy
+clippy:
+	@echo "$(BLUE)Running clippy...$(NC)"
+	$(CARGO) clippy --workspace --all-targets --all-features -- \
+		-D warnings \
+		-W clippy::all \
+		-A clippy::too_many_arguments \
+		-A clippy::type_complexity
+	@echo "$(GREEN)Clippy OK$(NC)"
 
-# Cleaning
+.PHONY: clean
 clean:
-	cargo clean
+	@echo "$(YELLOW)Cleaning...$(NC)"
+	$(CARGO) clean
+	rm -rf $(COVERAGE_DIR) target/tarpaulin
 	rm -f tmp_demo_*.rs
+	@echo "$(GREEN)Cleaned$(NC)"
 
-# Running
+# ─── Test ──────────────────────────────────────────────────────────────────────
+
+.PHONY: test
+test:
+	@echo "$(BLUE)Running all tests (serial)...$(NC)"
+	$(CARGO) test --workspace -- --test-threads=1
+	@echo "$(GREEN)All tests passed$(NC)"
+
+.PHONY: test-unit
+test-unit:
+	@echo "$(BLUE)Running unit tests...$(NC)"
+	$(CARGO) test --lib --workspace -- --test-threads=1
+	@echo "$(GREEN)Unit tests passed$(NC)"
+
+.PHONY: test-integration
+test-integration:
+	@echo "$(BLUE)Running integration tests...$(NC)"
+	$(CARGO) test --test '*' --workspace -- --test-threads=1
+	@echo "$(GREEN)Integration tests passed$(NC)"
+
+.PHONY: test-verbose
+test-verbose:
+	@echo "$(BLUE)Running tests (verbose)...$(NC)"
+	$(CARGO) test --tests -- --test-threads=1 --nocapture
+
+# ─── Analyze ───────────────────────────────────────────────────────────────────
+
+.PHONY: run
 run:
-	cargo run -- $(ARGS)
+	@echo "$(BLUE)Running $(PROJECT)...$(NC)"
+	$(CARGO) run -- $(ARGS)
 
-# Demo target - creates sample garbage code and analyzes it
+.PHONY: demo
 demo:
-	@echo "Creating demo garbage code..."
-	@echo '// Demo file with intentionally bad code patterns' > tmp_demo_garbage.rs
-	@echo 'fn main() {' >> tmp_demo_garbage.rs
+	@echo "$(BLUE)Creating demo garbage code...$(NC)"
+	@echo 'fn main() {' > tmp_demo_garbage.rs
 	@echo '    let data = "hello";' >> tmp_demo_garbage.rs
 	@echo '    let temp = 42;' >> tmp_demo_garbage.rs
-	@echo '    let info = vec![1, 2, 3];' >> tmp_demo_garbage.rs
-	@echo '    let obj = String::new();' >> tmp_demo_garbage.rs
-	@echo '    ' >> tmp_demo_garbage.rs
-	@echo '    // Single letter variables' >> tmp_demo_garbage.rs
-	@echo '    let a = 10;' >> tmp_demo_garbage.rs
-	@echo '    let b = 20;' >> tmp_demo_garbage.rs
-	@echo '    let c = a + b;' >> tmp_demo_garbage.rs
-	@echo '    ' >> tmp_demo_garbage.rs
-	@echo '    // unwrap() abuse' >> tmp_demo_garbage.rs
-	@echo '    let result = Some(42);' >> tmp_demo_garbage.rs
-	@echo '    let value = result.unwrap();' >> tmp_demo_garbage.rs
-	@echo '    let another = Some("test").unwrap();' >> tmp_demo_garbage.rs
-	@echo '    let third = Some(vec![1, 2, 3]).unwrap();' >> tmp_demo_garbage.rs
-	@echo '    ' >> tmp_demo_garbage.rs
-	@echo '    // Excessive cloning' >> tmp_demo_garbage.rs
-	@echo '    let s1 = String::from("hello");' >> tmp_demo_garbage.rs
-	@echo '    let s2 = s1.clone();' >> tmp_demo_garbage.rs
-	@echo '    let s3 = s2.clone();' >> tmp_demo_garbage.rs
-	@echo '    let s4 = s3.clone();' >> tmp_demo_garbage.rs
-	@echo '    let s5 = s4.clone();' >> tmp_demo_garbage.rs
-	@echo '    ' >> tmp_demo_garbage.rs
-	@echo '    println!("{} {} {} {}", value, another.len(), third.len(), s5);' >> tmp_demo_garbage.rs
+	@echo '    let a = 10; let b = 20; let c = a + b;' >> tmp_demo_garbage.rs
+	@echo '    let _ = Some(42).unwrap();' >> tmp_demo_garbage.rs
+	@echo '    let _ = Some("test").unwrap();' >> tmp_demo_garbage.rs
+	@echo '    let _ = Some(vec![1,2,3]).unwrap();' >> tmp_demo_garbage.rs
+	@echo '    println!("{}", c);' >> tmp_demo_garbage.rs
 	@echo '}' >> tmp_demo_garbage.rs
-	@echo '' >> tmp_demo_garbage.rs
-	@echo '// Deeply nested function' >> tmp_demo_garbage.rs
 	@echo 'fn deeply_nested() {' >> tmp_demo_garbage.rs
 	@echo '    if true { if true { if true { if true {' >> tmp_demo_garbage.rs
 	@echo '        if true { if true { if true { if true {' >> tmp_demo_garbage.rs
-	@echo '            println!("Too deep!");' >> tmp_demo_garbage.rs
+	@echo '            println!("deep");' >> tmp_demo_garbage.rs
 	@echo '        }}}}}}}}' >> tmp_demo_garbage.rs
 	@echo '}' >> tmp_demo_garbage.rs
-	@echo "Running analysis on demo file..."
-	cargo run -- --verbose tmp_demo_garbage.rs
-	@echo ""
-	@echo "Demo with English output:"
-	cargo run -- --lang en-US --verbose tmp_demo_garbage.rs
-	@echo ""
-	@echo "Cleaning up demo file..."
+	$(CARGO) run -- analyze --verbose tmp_demo_garbage.rs
+	@echo "$(GREEN)Demo complete$(NC)"
 	rm -f tmp_demo_garbage.rs
 
-# Development workflow
-dev: fmt clippy test
-
-# CI/CD targets
-ci:
-	@echo "========================================="
-	@echo "🔍 Running CI checks..."
-	@echo "========================================="
-	@echo ""
-	@echo "📋 Step 1: Checking code formatting..."
-	@echo "========================================="
-	@cargo fmt --all -- --check
-	@echo ""
-	@echo "========================================="
-	@echo "🔍 Step 2: Running clippy linting (all targets)..."
-	@echo "========================================="
-	@cargo clippy --all-targets --all-features -- -D warnings
-	@echo ""
-	@echo "========================================="
-	@echo "🔍 Step 3: Checking for warnings..."
-	@echo "========================================="
-	@WARNINGS=$$(cargo check --message-format=json 2>/dev/null | grep -c '"severity":"warning"'); \
-	if [ -n "$$WARNINGS" ] && [ "$$WARNINGS" -gt 0 ]; then \
-		echo "❌ Found $$WARNINGS warnings! Project requires 0 warnings."; \
-		cargo check 2>&1 | grep "warning:"; \
-		exit 1; \
-	else \
-		echo "✅ Zero warnings - perfect!"; \
-	fi
-	@echo ""
-	@echo "========================================="
-	@echo "📦 Step 4: Validating TOML files..."
-	@echo "========================================="
-	@for toml_file in Cargo.toml **/Cargo.toml; do \
-		if [ -f "$$toml_file" ]; then \
-			echo "Checking $$toml_file..."; \
-			rusty_toml "$$toml_file" > /dev/null 2>&1 || \
-			(cargo metadata --format-version 1 --manifest-path "$$toml_file" > /dev/null 2>&1) || \
-			(echo "❌ Invalid TOML in $$toml_file" && exit 1); \
-		fi; \
-	done
-	@echo "✅ All TOML files are valid"
-	@echo ""
-	@echo "========================================="
-	@echo "🔒 Step 5: Running security audit..."
-	@echo "========================================="
-	@cargo audit || true
-	@echo ""
-	@echo "========================================="
-	@echo "📚 Step 6: Checking for outdated dependencies..."
-	@echo "========================================="
-	@cargo outdated --workspace
-	@echo ""
-	@echo "========================================="
-	@echo "🔍 Step 7: Checking licenses and dependencies..."
-	@echo "========================================="
-	@cargo deny check licenses
-	@echo ""
-	@echo "========================================="
-	@echo "🔗 Step 8: Checking for dead code links..."
-	@echo "========================================="
-	@cargo machete
-	@echo ""
-	@echo "========================================="
-	@echo "🧪 Step 9: Running unit tests..."
-	@echo "========================================="
-	@cargo test --lib --verbose
-	@echo ""
-	@echo "========================================="
-	@echo "🧪 Step 10: Running integration tests..."
-	@echo "========================================="
-	@cargo test --test '*' --verbose || true
-	@echo ""
-	@echo "========================================="
-	@echo "✅ All CI checks passed!"
-	@echo "========================================="
-
-# Package for distribution
-package: clean release
-	@echo "Creating distribution package..."
-	mkdir -p dist
-	cp target/release/garbage-code-hunter dist/
-	cp README.md dist/
-	cp LICENSE dist/ 2>/dev/null || echo "No LICENSE file found"
-	tar -czf dist/garbage-code-hunter.tar.gz -C dist .
-	@echo "Package created: dist/garbage-code-hunter.tar.gz"
-
-# Quick analysis of current project
+.PHONY: self-check
 self-check:
-	@echo "Analyzing our own code quality..."
-	cargo run -- --lang en-US --verbose --exclude "target/*" --exclude "tmp_*" src/
+	@echo "$(BLUE)Analyzing our own code...$(NC)"
+	$(CARGO) run -- analyze --lang en-US --verbose \
+		--exclude "target/*" --exclude "tmp_*" src/
+	@echo "$(GREEN)Self-check complete$(NC)"
+
+# ─── Coverage & Docs ───────────────────────────────────────────────────────────
+
+.PHONY: coverage
+coverage:
+	@echo "$(BLUE)Generating coverage summary...$(NC)"
+	@if command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		mkdir -p $(COVERAGE_DIR); \
+		$(CARGO) llvm-cov --workspace \
+			--ignore-filename-regex="(tests/|_test\\.rs$$)" \
+			--summary-only; \
+	else \
+		echo "$(YELLOW)Install: cargo install cargo-llvm-cov$(NC)"; \
+	fi
+
+.PHONY: coverage-html
+coverage-html:
+	@echo "$(BLUE)Generating coverage HTML...$(NC)"
+	@if command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		mkdir -p $(COVERAGE_DIR); \
+		$(CARGO) llvm-cov --workspace \
+			--ignore-filename-regex="(tests/|_test\\.rs$$)" \
+			--html --output-dir $(COVERAGE_DIR); \
+		echo "$(GREEN)Report: $(COVERAGE_DIR)/index.html$(NC)"; \
+	else \
+		echo "$(YELLOW)Install: cargo install cargo-llvm-cov$(NC)"; \
+	fi
+
+.PHONY: doc
+doc:
+	$(CARGO) doc --open
+
+# ─── CI & Package ──────────────────────────────────────────────────────────────
+
+.PHONY: ci
+ci:
+	@echo "$(BLUE)=== CI Pipeline ===$(NC)"
+	@echo ""
+	@echo "$(BLUE)[1/5] Formatting...$(NC)"
+	$(CARGO) fmt --all -- --check
+	@echo "$(GREEN)OK$(NC)"
+	@echo ""
+	@echo "$(BLUE)[2/5] Compilation...$(NC)"
+	$(CARGO) check --workspace
+	@echo "$(GREEN)OK$(NC)"
+	@echo ""
+	@echo "$(BLUE)[3/5] Clippy...$(NC)"
+	$(CARGO) clippy --workspace --all-targets --all-features -- -D warnings
+	@echo "$(GREEN)OK$(NC)"
+	@echo ""
+	@echo "$(BLUE)[4/5] Unit tests...$(NC)"
+	$(CARGO) test --lib --workspace -- --test-threads=1
+	@echo "$(GREEN)OK$(NC)"
+	@echo ""
+	@echo "$(BLUE)[5/5] Integration tests...$(NC)"
+	$(CARGO) test --test '*' --workspace -- --test-threads=1
+	@echo ""
+	@echo "$(GREEN)✅ CI passed$(NC)"
+
+.PHONY: install
+install:
+	@echo "$(BLUE)Installing...$(NC)"
+	$(CARGO) install --path .
+	@echo "$(GREEN)Installed$(NC)"
+
+.PHONY: package
+package: release
+	@echo "$(BLUE)Packaging...$(NC)"
+	mkdir -p dist
+	cp target/release/$(PROJECT) dist/
+	cp README.md dist/
+	cp LICENSE dist/ 2>/dev/null || true
+	cp -r example dist/ 2>/dev/null || true
+	tar -czf dist/$(PROJECT)-$(VERSION).tar.gz -C dist .
+	@echo "$(GREEN)Package: dist/$(PROJECT)-$(VERSION).tar.gz$(NC)"

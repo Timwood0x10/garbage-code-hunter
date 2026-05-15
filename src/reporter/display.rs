@@ -642,11 +642,16 @@ impl Reporter {
                 let (status_icon, status_text) = self.get_score_status(*score);
 
                 // basic display
+                let score_unit = if self.i18n.lang == "zh-CN" {
+                    format!("{score:.0}分")
+                } else {
+                    format!("{score:.0}")
+                };
                 println!(
-                    "  {} {} {}分     {}",
+                    "  {} {} {:>5}     {}",
                     status_icon,
                     format!("{icon} {display_name}").bright_white(),
-                    format!("{score:.0}").bright_cyan(),
+                    score_unit.bright_cyan(),
                     status_text.bright_black()
                 );
 
@@ -712,12 +717,16 @@ impl Reporter {
         }
 
         // Use the new random roast system
-        let category_name = match category {
-            "naming" => "命名规范",
-            "complexity" => "复杂度",
-            "duplication" => "代码重复",
-            "rust-features" => "Rust功能",
-            _ => category,
+        let category_name = match (self.i18n.lang.as_str(), category) {
+            ("zh-CN", "naming") => "命名规范",
+            ("zh-CN", "complexity") => "复杂度",
+            ("zh-CN", "duplication") => "代码重复",
+            ("zh-CN", "rust-features") => "Rust功能",
+            ("en-US", "naming") => "Naming",
+            ("en-US", "complexity") => "Complexity",
+            ("en-US", "duplication") => "Duplication",
+            ("en-US", "rust-features") => "Rust Features",
+            (_, other) => other,
         };
 
         // Use timestamp as seed to ensure different roasts each run
