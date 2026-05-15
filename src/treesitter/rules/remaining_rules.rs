@@ -186,34 +186,45 @@ impl TreeSitterRule for DeadCodeRule {
     }
 
     fn supported_languages(&self) -> &'static [Language] {
-        &[Language::Rust]
+        &[Language::Rust, Language::Go]
     }
 
     fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
         let mut dead_start: Option<usize> = None;
         let mut reported = false;
+        let is_go = file.language == Language::Go;
 
         for (line_num, line) in file.content.lines().enumerate() {
             let trimmed = line.trim();
+            let terminator = if is_go {
+                is_go_terminator(trimmed)
+            } else {
+                is_rust_terminator(trimmed)
+            };
 
-            if is_terminator(trimmed) {
+            if terminator {
                 dead_start = Some(line_num + 2);
                 reported = false;
                 continue;
             }
 
             if let Some(start) = dead_start {
-                if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") {
+                let comment_start = "//";
+                if trimmed.is_empty()
+                    || trimmed.starts_with(comment_start)
+                    || trimmed.starts_with("/*")
+                {
                     continue;
                 }
-                if trimmed == "}" || trimmed.starts_with("} else") {
+                if trimmed == "}" || trimmed.starts_with("} else") || trimmed.starts_with("} else")
+                {
                     dead_start = None;
                     continue;
                 }
                 if !reported && line_num + 1 >= start {
                     let msgs = [
-                        "Dead code detected — this code never executes, like my健身计划",
+                        "Dead code detected — this code never executes",
                         "Unreachable code! Return already happened, this is just decoration",
                         "Dead code walking... nothing after 'return' ever runs",
                     ];
@@ -233,7 +244,7 @@ impl TreeSitterRule for DeadCodeRule {
     }
 }
 
-fn is_terminator(line: &str) -> bool {
+fn is_rust_terminator(line: &str) -> bool {
     let trimmed = line.trim();
     matches!(
         trimmed,
@@ -241,6 +252,20 @@ fn is_terminator(line: &str) -> bool {
     ) || (trimmed.starts_with("return ") && trimmed.ends_with(';'))
         || (trimmed.starts_with("panic!(") && trimmed.ends_with(';'))
         || (trimmed.starts_with("unreachable!(") && trimmed.ends_with(')'))
+}
+
+fn is_go_terminator(line: &str) -> bool {
+    let trimmed = line.trim();
+    // Go: return, return x, break, continue, panic(...), or with optional semicolon
+    trimmed == "return"
+        || trimmed == "return;"
+        || trimmed == "break"
+        || trimmed == "break;"
+        || trimmed == "continue"
+        || trimmed == "continue;"
+        || (trimmed.starts_with("return ") && (trimmed.ends_with(';') || !trimmed.ends_with('}')))
+        || trimmed.starts_with("panic(")
+        || trimmed.starts_with("goto ")
 }
 
 /// TODO/FIXME comment detection.

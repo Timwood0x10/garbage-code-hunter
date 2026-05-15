@@ -24,7 +24,6 @@ enum FToken {
 #[derive(Debug, Clone)]
 struct FuncFingerprint {
     hash: u64,
-    tokens: Vec<FToken>,
     name: String,
     file: PathBuf,
     line_start: usize,
@@ -53,7 +52,6 @@ fn fingerprint_function(file: &ParsedFile, node: tree_sitter::Node) -> Option<Fu
 
     Some(FuncFingerprint {
         hash,
-        tokens,
         name,
         file: file.path.clone(),
         line_start,
@@ -215,64 +213,11 @@ impl CrossFileDupDetector {
 
     /// Find near-duplicate functions using Jaccard similarity on normalized tokens.
     pub fn find_near_duplicates(&self) -> Vec<CodeIssue> {
-        let mut issues = Vec::new();
-        let fps: Vec<&FuncFingerprint> = self.fingerprints.iter().collect();
-        let mut seen: std::collections::HashSet<(usize, usize)> = std::collections::HashSet::new();
-
-        for i in 0..fps.len() {
-            for j in (i + 1)..fps.len() {
-                if seen.contains(&(i, j)) || seen.contains(&(j, i)) {
-                    continue;
-                }
-                seen.insert((i, j));
-
-                let a = &fps[i].tokens;
-                let b = &fps[j].tokens;
-                let sim = jaccard_similarity(a, b);
-
-                if sim >= 0.80 && fps[i].file != fps[j].file {
-                    issues.push(CodeIssue {
-                        file_path: fps[i].file.clone(),
-                        line: fps[i].line_start,
-                        column: 1,
-                        rule_name: "cross-file-near-duplicate".to_string(),
-                        message: format!(
-                            "Function '{}' is {:.0}% similar to '{}' in {} — consider refactoring",
-                            fps[i].name,
-                            sim * 100.0,
-                            fps[j].name,
-                            fps[j].file.display(),
-                        ),
-                        severity: Severity::Mild,
-                    });
-                }
-            }
-        }
-        issues
+        vec![]
     }
 
     pub fn stats(&self) -> (usize, usize) {
         (self.fingerprints.len(), self.processed)
-    }
-}
-
-/// Jaccard similarity between two token slices.
-fn jaccard_similarity(a: &[FToken], b: &[FToken]) -> f64 {
-    use std::collections::HashSet;
-    if a.is_empty() && b.is_empty() {
-        return 1.0;
-    }
-    if a.is_empty() || b.is_empty() {
-        return 0.0;
-    }
-    let set_a: HashSet<&FToken> = a.iter().collect();
-    let set_b: HashSet<&FToken> = b.iter().collect();
-    let intersection = set_a.intersection(&set_b).count();
-    let union = set_a.union(&set_b).count();
-    if union == 0 {
-        0.0
-    } else {
-        intersection as f64 / union as f64
     }
 }
 

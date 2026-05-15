@@ -489,24 +489,25 @@ fn is_loop_counter(node: tree_sitter::Node) -> bool {
     loop {
         let kind = current.kind();
         if matches!(kind, "for_expression" | "for_statement") {
-            // The loop variable is the first named child of the for node
-            // (Rust: pattern, C: declaration, JS/Go: initializer, Python: left)
+            // Check if node is before the loop body → it's in the loop header
+            let ns = node.start_byte();
+            if let Some(body) = current.child_by_field_name("body") {
+                return ns < body.start_byte();
+            }
+            // No body field: check first named child (Rust for_expression)
             if let Some(first) = current.named_child(0) {
-                let ns = node.start_byte();
                 let ne = node.end_byte();
                 let vs = first.start_byte();
                 let ve = first.end_byte();
-                if ns >= vs && ne <= ve {
-                    return true; // node IS the loop variable
-                }
+                return ns >= vs && ne <= ve;
             }
-            return false; // not a loop variable (might be in body)
+            return false;
         }
         if matches!(
             kind,
             "while_statement" | "while_expression" | "loop_expression" | "do_statement"
         ) {
-            return false; // these loops have no explicit counter variable
+            return false;
         }
         match current.parent() {
             Some(p) => current = p,
@@ -779,7 +780,7 @@ fn print_debug_query(lang: Language) -> &'static str {
             r#"(call_expression function: (member_expression object: (identifier) @o property: (property_identifier) @p) (#eq? @o "console") (#eq? @p "log"))"#
         }
         Language::Go => {
-            r#"(call_expression function: (selector_expression operand: (identifier) @pkg field: (field_identifier) @method) (#eq? @pkg "fmt") (#match? @method "^(Print|Println|Printf|Fprint|Fprintln|Fprintf|Sprint|Sprintln|Sprintf)$"))"#
+            r#"(call_expression function: (selector_expression operand: (identifier) @pkg field: (field_identifier) @method) (#match? @pkg "^(fmt|log)$") (#match? @method "^(Print|Println|Printf|Fprint|Fprintln|Fprintf|Sprint|Sprintln|Sprintf)$"))"#
         }
         Language::Java => {
             r#"(method_invocation name: (identifier) @method (#match? @method "^(print|println)$"))"#

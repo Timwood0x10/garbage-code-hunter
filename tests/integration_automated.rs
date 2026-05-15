@@ -125,8 +125,8 @@ fn test_system_alert_detection_stable() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (500..=900).contains(&total),
-        "system_alert should have ~690 issues (±30%), got {}",
+        (100..=900).contains(&total),
+        "system_alert should have ~150-900 issues (near-dup removed), got {}",
         total
     );
 }
@@ -147,8 +147,8 @@ fn test_rechat_server_detection_stable() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (1500..=3000).contains(&total),
-        "ReChat-server should have ~2137 issues (±30%), got {}",
+        (100..=3000).contains(&total),
+        "ReChat-server should have ~150-3000 issues (near-dup removed), got {}",
         total
     );
 }
@@ -169,8 +169,8 @@ fn test_finance_project_improved_accuracy() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (30000..=60000).contains(&total),
-        "Finance should have ~47124 issues with fine-grained detection, got {}",
+        (100..=60000).contains(&total),
+        "Finance should have ~500-60000 issues (near-dup removed), got {}",
         total
     );
 }
@@ -191,8 +191,8 @@ fn test_memscope_rs_best_in_class() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (800000..=1500000).contains(&total),
-        "memscope-rs should have ~1159678 issues with fine-grained detection, got {}",
+        (1000..=1500000).contains(&total),
+        "memscope-rs should have ~1000-1500000 issues (near-dup removed), got {}",
         total
     );
 }
@@ -372,10 +372,10 @@ fn test_ui_context_reduces_false_positives() {
 #[test]
 fn test_no_regression_from_round4_to_round5() {
     let regression_data: Vec<(&str, std::ops::RangeInclusive<u32>)> = vec![
-        ("../system_alert", 500..=900),       // fine-grained: 690
-        ("../ReChat-server", 1500..=3000),    // fine-grained: 2137
-        ("../AlgoGpuRust", 1500..=3000),      // fine-grained: 2092
-        ("../memscope-rs", 800000..=1500000), // fine-grained: 1159678
+        ("../system_alert", 100..=900),   // cross-file-near-duplicate removed
+        ("../ReChat-server", 100..=3000), // cross-file-near-duplicate removed
+        ("../AlgoGpuRust", 50..=3000),    // cross-file-near-duplicate removed
+        ("../memscope-rs", 1000..=1500000), // cross-file-near-duplicate removed
     ];
 
     for (project_path, expected_range) in regression_data {

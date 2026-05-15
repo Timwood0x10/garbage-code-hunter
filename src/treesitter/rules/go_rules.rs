@@ -158,7 +158,7 @@ fn check_defer_in_for(
         let mut child_cursor = node.walk();
         if child_cursor.goto_first_child() {
             loop {
-                if has_defer_descendant(&file, child_cursor.node()) {
+                if has_defer_descendant(file, child_cursor.node()) {
                     let pos = child_cursor.node().start_position();
                     issues.push(CodeIssue {
                         file_path: file.path.clone(),
@@ -189,6 +189,7 @@ fn check_defer_in_for(
     }
 }
 
+#[expect(clippy::only_used_in_recursion)]
 fn has_defer_descendant(file: &ParsedFile, node: tree_sitter::Node) -> bool {
     if node.kind() == "defer_statement" {
         return true;

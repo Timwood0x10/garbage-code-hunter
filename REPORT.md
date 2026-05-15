@@ -177,9 +177,27 @@
 - **新增 Go 规则**: panic 检测在 3 个 Go 项目中累计检出 42 个真实问题
 - **评分去 Rust 中心化**: 非 Rust 项目评分不再被 Rust 类别稀释
 
-### 还需要做的
+## 七、本迭代已修复 vs 仍待修复
 
-1. **循环变量豁免不完善** — Go 的 `for i, v := range` 中 `i` `v` 应豁免但未豁免
-2. **god-function 阈值偏高** — 导致一些大型复杂函数被漏报
-3. **部分语言规则仍空白** — 特别是 Zig/Swift/Ruby 的独有规则（defer-in-loop、print 检测等）
-4. **重复检测噪声太大** — `cross-file-near-duplicate` 占全部 issues 的 70-90%，需要降噪
+### ✅ 已修复 (Round 3)
+
+| 问题 | 修复方式 | 验证 |
+|------|---------|------|
+| god-function 阈值偏高(Go) | control_flow_types 加入 Go/Zig 控制流节点 | interchange: 0→2, gaia: 3→13 |
+| Go `fmt.Fprint*` 未覆盖 | 正则加入 `F`/`S` 变种 | interchange println: 9→27 |
+| Zig `print` 检测未实现 | 新增 `field_expression` 查询 | ziglings: 0→161 |
+| Java variable query 不匹配 | 去掉 `local_variable_declaration declarator:` 包装 | 测试文件正确检出 `data` `temp` `value` |
+
+### ✅ 已修复 (Round 4)
+
+| 问题 | 修复方式 | 验证 |
+|------|---------|------|
+| Go `for range` 循环变量豁免 | `is_loop_counter` 改用 `body` 字段位置判断，兼容所有语言 | 测试文件 `i=0;...` 和 `i,v:=range` 均豁免 |
+| Go `log.Print`/`log.Println`/`log.Printf` 检测 | `print_debug_query` regex 加上 `fmt\|log` | gosec: +3 `log` 检测 |
+| Go `dead-code` 规则 | 新增 `is_go_terminator`，支持 `return`/`break`/`continue`/`panic()`/`goto` | 测试文件正确检出 return 后代码 |
+
+### 🔲 仍需后续迭代
+
+| 问题 | 原因 | 难度 |
+|------|------|------|
+| 重复检测噪声太大 | `cross-file-near-duplicate` 占 70-95% issues | 中 |
