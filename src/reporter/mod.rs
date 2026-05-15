@@ -3,6 +3,8 @@ mod display;
 use colored::*;
 use std::collections::{BTreeMap, HashMap};
 
+use std::path::Path;
+
 use crate::analyzer::{CodeIssue, Severity};
 use crate::i18n::I18n;
 use crate::llm::{RoastMap, RoastProvider};
@@ -46,22 +48,53 @@ impl Reporter {
         }
     }
 
+    fn is_test_path(path: &Path) -> bool {
+        let name = path.to_string_lossy();
+        name.contains("/tests/")
+            || name.contains("/test/")
+            || name.ends_with("_test.rs")
+            || name.ends_with("_tests.rs")
+            || name.ends_with("_test.go")
+            || name.ends_with("_test.py")
+            || name.ends_with("_test.js")
+            || name.ends_with("_test.ts")
+            || name.ends_with("_test.java")
+            || name.starts_with("test_")
+            || name.contains("/test-files/")
+            || name.contains("/fixtures/")
+            || name.contains("/mocks/")
+            || name.contains("/examples/")
+            || name.contains("/benches/")
+    }
+
     pub fn report_with_metrics(
         &self,
         mut issues: Vec<CodeIssue>,
         file_count: usize,
         total_lines: usize,
     ) {
-        // calculate quality score
+        // Split into production and test code issues
+        let prod_issues: Vec<CodeIssue> = issues
+            .iter()
+            .filter(|i| !Self::is_test_path(&i.file_path))
+            .cloned()
+            .collect();
+        let test_issues: Vec<CodeIssue> = issues
+            .iter()
+            .filter(|i| Self::is_test_path(&i.file_path))
+            .cloned()
+            .collect();
+
+        // Calculate separate scores
         let scorer = CodeScorer::new();
-        let quality_score = scorer.calculate_score(&issues, file_count, total_lines);
+        let combined_score = scorer.calculate_score(&issues, file_count, total_lines);
 
         if issues.is_empty() {
-            self.print_clean_code_message_with_score(&quality_score);
+            self.print_clean_code_message_with_score(&combined_score);
             return;
         }
 
-        //sort by severity
+        // Sort by severity
         issues.sort_by(|a, b| {
             let severity_order = |s: &Severity| match s {
                 Severity::Nuclear => 3,
@@ -71,12 +104,12 @@ impl Reporter {
             severity_order(&b.severity).cmp(&severity_order(&a.severity))
         });
 
-        // if harsh mode  only show the most severe issue
+        // Harsh mode: only show the most severe issues
         if self.harsh_mode {
             issues.retain(|issue| matches!(issue.severity, Severity::Nuclear | Severity::Spicy));
         }
 
-        // Generate roasts via provider (one call for all issues)
+        // Generate roasts
         let roasts = self
             .roast_provider
             .generate_roasts(&issues, &self.i18n.lang);
@@ -86,14 +119,29 @@ impl Reporter {
         } else {
             if !self.summary_only {
                 self.print_header(&issues);
-                self.print_quality_score(&quality_score);
+                self.print_quality_score(&combined_score);
+
+                // Show production vs test breakdown
+                println!();
+                println!(
+                    "{}  Production code: {} issues",
+                    "📦".bright_blue(),
+                    prod_issues.len().to_string().bright_yellow(),
+                );
+                println!(
+                    "{}  Test code:      {} issues",
+                    "🧪".bright_cyan(),
+                    test_issues.len().to_string().bright_yellow(),
+                );
+                println!();
+
                 if self.verbose {
                     self.print_detailed_analysis(&issues);
                 }
                 self.print_top_files(&issues);
                 self.print_issues(&issues);
             }
-            self.print_summary_with_score(&issues, &quality_score);
+            self.print_summary_with_score(&issues, &combined_score);
             if !self.summary_only {
                 self.print_footer(&issues);
             }
