@@ -15,6 +15,8 @@ A humorous code quality detector that roasts your garbage code with style!
 
 Garbage Code Hunter is a CLI toolkit for code quality analysis. Unlike traditional linters that give you dry warnings, we tell you how bad your code is in a **sarcastic witty and brutally honest** way.
 
+> **Disclaimer**: This is an **entertainment tool**, not a static analyzer or bug detector. It checks **code style and readability** — naming conventions, nesting depth, duplication, etc. It does **NOT** find bugs, security vulnerabilities, logic errors, or performance issues. A "Terrible" score doesn't mean your code is broken; a "Clean" score doesn't mean your code is correct. For real code quality assurance, use proper static analysis tools (clippy, ESLint, Pylint, etc.).
+
 ## Tool Collection
 
 | Tool | Command | Alias | What it does |
@@ -149,48 +151,43 @@ graph LR
 
 ## Scoring System
 
-The code quality score uses an **accumulation model** — starts at 0 (best), each issue adds points. Higher score = worse code quality.
+Score starts at 0 (best). Higher score = worse code quality. Range: 0-100.
 
-### Severity Multipliers
+### Why Two Tiers?
 
-| Severity | Multiplier | Description |
-|----------|:----------:|-------------|
-| 🔥 Nuclear | 3.0x | Critical issues, fix immediately |
-| 🌶️ Spicy | 1.5x | Should fix |
-| 😐 Mild | 0.5x | Can ignore |
+Issues have different **confidence levels**. A deep-nested function is almost always a real problem; a "single-letter variable" might be fine in a loop. Mixing them together would overweight noisy issues.
 
-### Per-Rule Base Penalties
+| Tier | What | Confidence | Examples |
+|------|------|:----------:|----------|
+| **Tier 1: Nuclear** | Structural problems | High | deep-nesting, god-function, bare-except |
+| **Tier 2: Noisy** | Style / pattern issues | Low | magic-number, naming, println-debugging |
 
-Each rule has a base penalty tuned by verified TP (True Positive) rate:
-
-| Rule | Base Penalty | TP Rate | Category |
-|------|:------------:|:-------:|----------|
-| deep-nesting | 2.0 | ~95% | complexity |
-| god-function | 2.0 | ~85% | complexity |
-| bare-except | 2.0 | ~100% | code-smells |
-| long-function | 1.5 | ~85% | complexity |
-| any-type | 1.5 | ~95% | code-smells |
-| defer-in-loop | 0.8 | ~80% | code-smells |
-| complex-closure | 0.8 | ~70% | complexity |
-| file-too-long | 0.5 | ~70% | code-smells |
-| unwrap-abuse | 0.5 | ~70% | code-smells |
-| code-duplication | 0.4 | ~50% | duplication |
-| magic-number | 0.3 | ~40% | code-smells |
-| wildcard-import | 0.3 | ~60% | code-smells |
-| single-letter-variable | 0.1 | ~10% | naming |
-| dead-code | 0.1 | ~0% | code-smells |
-| commented-code | 0.1 | ~5% | code-smells |
-
-### Calculation Formula
+### How It Works
 
 ```
-Category score = min(100, Σ(rule_weighted_count × rule_base_penalty) / total_lines × 1000)
-Total score = Σ category scores
-
-Where rule_weighted_count = Σ severity_multiplier per issue
+Tier 1 (Nuclear):  log2(1 + count) × 8,       cap 40
+Tier 2 (Noisy):    log2(1 + density) × 6,      cap 60
+                   density = (spicy×1.5 + mild) / thousands_of_lines
+Total = Tier1 + Tier2
 ```
 
-Each category is normalized to "per 1000 lines of code" and capped at 100. The total score is the sum of all category scores.
+**Why log?** Prevents count explosion. Linear: 100 issues is 10× worse than 10. Log: only 2× worse. More fair — 100 magic numbers shouldn't be 10× worse than 10.
+
+**Why density for Tier 2?** 50 naming issues in a 100K-line project vs 50 in a 100-line project — the latter is clearly worse. Density (per 1K lines) removes project size bias.
+
+### Worked Example
+
+```
+Input: 28 nuclear, 58 spicy, 622 mild, 24458 lines
+
+Tier 1: log2(1+28) × 8 = log2(29) × 8 = 4.86 × 8 = 38.9
+        → 28 nuclear issues, nearly maxed out at 40
+
+Tier 2: density = (58×1.5 + 622) / 24.458 = 709 / 24.458 = 29.0
+        log2(1+29) × 6 = log2(30) × 6 = 4.91 × 6 = 29.4
+
+Total: 38.9 + 29.4 = 68.3 → "Poor"
+```
 
 ### Quality Levels
 
@@ -202,14 +199,16 @@ Each category is normalized to "per 1000 lines of code" and capped at 100. The t
 | 61 - 80 | Poor | 😞 |
 | 81+ | Terrible | 💀 |
 
-### Categories
+### Categories (informational)
+
+Category scores use `log2(1 + density_per_1k_lines) × 6`, capped at 20 each. They are **informational only** — independent from the total score.
 
 | Category | Rules |
 |----------|-------|
 | **naming** | terrible-naming, single-letter-variable, meaningless-naming, hungarian-notation, abbreviation-abuse |
-| **complexity** | deep-nesting, long-function, god-function, complex-closure |
+| **complexity** | deep-nesting, long-function, god-function, cyclomatic-complexity, complex-closure |
 | **duplication** | code-duplication, cross-file-duplication |
-| **code-smells** | magic-number, commented-code, dead-code, file-too-long, unwrap-abuse, any-type, bare-except, bare-rescue, empty-catch, global-variable, wildcard-import |
+| **code-smells** | magic-number, commented-code, dead-code, file-too-long, unwrap-abuse, unnecessary-clone, string-abuse, vec-abuse, macro-abuse, and more |
 | **student-code** | println-debugging, panic-abuse, todo-comment, todo-fixme, todo-bug, todo-hack |
 
 ## How to Play

@@ -10,6 +10,8 @@
 
 Garbage Code Hunter 是一个 CLI 工具集，用于代码质量分析。不同于传统 linter 给你干巴巴的警告，我们用**毒舌、机智、毫不留情**的方式告诉你代码有多烂。
 
+> **声明**：这是一个**娱乐工具**，不是静态分析器，也不是 bug 检测器。它检测的是**代码风格和可读性** — 命名规范、嵌套深度、代码重复等。它**不会**发现 bug、安全漏洞、逻辑错误或性能问题。"糟糕"的评分不代表你的代码有 bug，"优秀"的评分也不代表你的代码是正确的。真正的代码质量保障请使用专业的静态分析工具（clippy、ESLint、Pylint 等）。
+
 ## 工具全家桶
 
 | 工具 | 命令 | 别名 | 功能 |
@@ -144,48 +146,43 @@ graph LR
 
 ## 评分系统
 
-代码质量评分采用**累加模型** — 从 0 分开始（最佳），每个问题累加分值。分越高 = 代码风格越差。
+分数从 0 开始（最佳），分越高 = 代码越烂。范围：0-100。
 
-### 严重性权重
+### 为什么要分两级？
 
-| 严重性 | 权重倍数 | 说明 |
-|--------|:--------:|------|
-| 🔥 核弹级 (Nuclear) | 3.0x | 严重问题，需立即修复 |
-| 🌶️ 辣眼睛 (Spicy) | 1.5x | 建议修复 |
-| 😐 轻微 (Mild) | 0.5x | 可以忽略 |
+因为 issue 的**可信度**不一样。深层嵌套的函数几乎一定是真问题，而"单字母变量"在循环里可能完全没问题。混在一起算会过度放大噪音。
 
-### 各规则基础分值
+| 级别 | 含义 | 可信度 | 举例 |
+|------|------|:------:|------|
+| **Tier 1: Nuclear** | 结构性问题 | 高 | 深嵌套、上帝函数、裸异常捕获 |
+| **Tier 2: Noisy** | 风格/模式问题 | 低 | 魔法数字、命名风格、println调试 |
 
-每条规则有基于真实 TP（命中率）调校的基础分值：
-
-| 规则 | 基础分 | TP 命中率 | 分类 |
-|------|:------:|:---------:|------|
-| deep-nesting（深嵌套） | 2.0 | ~95% | complexity |
-| god-function（上帝函数） | 2.0 | ~85% | complexity |
-| bare-except（裸异常捕获） | 2.0 | ~100% | code-smells |
-| long-function（超长函数） | 1.5 | ~85% | complexity |
-| any-type（any 类型） | 1.5 | ~95% | code-smells |
-| defer-in-loop（循环中 defer） | 0.8 | ~80% | code-smells |
-| complex-closure（复杂闭包） | 0.8 | ~70% | complexity |
-| file-too-long（文件过长） | 0.5 | ~70% | code-smells |
-| unwrap-abuse（unwrap 滥用） | 0.5 | ~70% | code-smells |
-| code-duplication（代码重复） | 0.4 | ~50% | duplication |
-| magic-number（魔法数字） | 0.3 | ~40% | code-smells |
-| wildcard-import（通配符导入） | 0.3 | ~60% | code-smells |
-| single-letter-variable（单字母变量） | 0.1 | ~10% | naming |
-| dead-code（死代码） | 0.1 | ~0% | code-smells |
-| commented-code（注释代码） | 0.1 | ~5% | code-smells |
-
-### 计算公式
+### 计算方式
 
 ```
-分类得分 = min(100, Σ(规则加权次数 × 规则基础分) / 总代码行数 × 1000)
-总分 = Σ 各分类得分
-
-其中：规则加权次数 = Σ 每个问题的严重性权重
+Tier 1 (Nuclear):  log2(1 + 数量) × 8,       上限 40
+Tier 2 (Noisy):    log2(1 + 密度) × 6,       上限 60
+                   密度 = (spicy×1.5 + mild) / 千行代码
+总分 = Tier1 + Tier2
 ```
 
-每个分类按"每 1000 行代码"归一化，上限 100 分。总分为各分类得分之和。
+**为什么用 log？** 防止数量爆炸。线性的话，100 个 issue 是 10 个的 10 倍；log 下只是 2 倍。更合理 — 100 个魔法数字不应该比 10 个差 10 倍。
+
+**为什么 Tier 2 用密度？** 10 万行项目有 50 个命名问题 vs 100 行项目有 50 个命名问题 — 后者显然更糟。密度（每千行）消除了项目大小的影响。
+
+### 实际计算示例
+
+```
+输入: 28 nuclear, 58 spicy, 622 mild, 24458 行
+
+Tier 1: log2(1+28) × 8 = log2(29) × 8 = 4.86 × 8 = 38.9
+        → 28个核弹级问题，接近满分40
+
+Tier 2: 密度 = (58×1.5 + 622) / 24.458 = 709 / 24.458 = 29.0
+        log2(1+29) × 6 = log2(30) × 6 = 4.91 × 6 = 29.4
+
+总分: 38.9 + 29.4 = 68.3 → "较差"
+```
 
 ### 质量等级
 
@@ -197,14 +194,16 @@ graph LR
 | 61 - 80 | 较差 (Poor) | 😞 |
 | 81+ | 糟糕 (Terrible) | 💀 |
 
-### 分类详情
+### 分类详情（仅供参考）
+
+分类评分使用 `log2(1 + 每千行密度) × 6`，每项上限 20。分类分数是**独立的信息参考**，不参与总分计算。
 
 | 分类 | 包含规则 |
 |------|----------|
 | **命名 (naming)** | terrible-naming, single-letter-variable, meaningless-naming, hungarian-notation, abbreviation-abuse |
-| **复杂度 (complexity)** | deep-nesting, long-function, god-function, complex-closure |
+| **复杂度 (complexity)** | deep-nesting, long-function, god-function, cyclomatic-complexity, complex-closure |
 | **重复 (duplication)** | code-duplication, cross-file-duplication |
-| **代码气味 (code-smells)** | magic-number, commented-code, dead-code, file-too-long, unwrap-abuse, any-type, bare-except, bare-rescue, empty-catch, global-variable, wildcard-import |
+| **代码气味 (code-smells)** | magic-number, commented-code, dead-code, file-too-long, unwrap-abuse, unnecessary-clone, string-abuse, vec-abuse, macro-abuse 等 |
 | **学生代码 (student-code)** | println-debugging, panic-abuse, todo-comment, todo-fixme, todo-bug, todo-hack |
 
 ## 怎么玩

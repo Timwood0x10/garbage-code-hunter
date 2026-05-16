@@ -35,7 +35,7 @@ impl Reporter {
         if self.i18n.lang == "zh-CN" {
             match category {
                 "命名规范" => {
-                    if score >= 80.0 {
+                    if score >= 16.0 {
                         vec![
                             "恭喜！你成功让变量名比注释还难懂 🏆",
                             "这些变量名是用随机字符生成器起的吗？ 🎲",
@@ -45,7 +45,7 @@ impl Reporter {
                             "这命名风格很有'艺术感' 🎨",
                             "变量名的创意程度超越了我的理解 🚀",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
                             "变量命名还有改进空间 📝",
                             "建议给变量起个有意义的名字 💭",
@@ -57,7 +57,7 @@ impl Reporter {
                     }
                 }
                 "复杂度" => {
-                    if score >= 80.0 {
+                    if score >= 16.0 {
                         vec![
                             "复杂度爆表！连AI都看不懂了 🤖",
                             "这代码比迷宫还复杂 🌀",
@@ -75,7 +75,7 @@ impl Reporter {
                             "复杂度比我的作息时间还乱 ⏰",
                             "建议给这个函数买个保险 🛡️",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
                             "代码有点复杂，建议简化 🔧",
                             "函数可以拆分得更小一些 ✂️",
@@ -91,7 +91,7 @@ impl Reporter {
                     }
                 }
                 "代码重复" => {
-                    if score >= 80.0 {
+                    if score >= 16.0 {
                         vec![
                             "建议改名为copy-paste.rs 📋",
                             "重复代码比我重复的梦还多 💤",
@@ -109,7 +109,7 @@ impl Reporter {
                             "建议给复制粘贴键盘买个保险 ⌨️",
                             "代码重复度比镜子还厉害 🪞",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
                             "有一些重复代码需要处理 🔧",
                             "建议提取公共函数 📦",
@@ -124,38 +124,45 @@ impl Reporter {
                         vec!["代码重复控制得不错 👍", "重复度在可接受范围 ✅"]
                     }
                 }
-                "Rust功能" => {
-                    if score >= 80.0 {
+                "代码异味" => {
+                    if score >= 16.0 {
                         vec![
-                            "宏定义比我的借口还多 🎭",
-                            "unwrap() 用得比我说'没问题'还频繁 😅",
-                            "String 分配比我花钱还随意 💸",
-                            "这代码让 Rust 编译器都想罢工 🚫",
-                            "panic! 用得这么随意，用户体验堪忧 😱",
-                            "迭代器哭了：为什么不用我？ 😢",
-                            "match 表示：我可以更简洁的 💪",
-                            "Vec::new() 比我换衣服还频繁 👕",
-                            "to_string() 调用比我眨眼还多 👁️",
-                            "这代码让 Rust 的零成本抽象哭了 😭",
-                            "错误处理？什么是错误处理？ 🤷‍♂️",
-                            "生命周期标注比我的简历还复杂 📄",
-                            "这代码违反了 Rust 的哲学原则 📚",
-                            "建议重新学习 Rust 最佳实践 🎓",
-                            "Rust 社区看到这代码会流泪 🦀",
+                            "magic number 比星座还多 ✨",
+                            "println! 调试大法好啊 🖨️",
+                            "注释掉的代码比活的还多 🧟",
+                            "unwrap() 用得比呼吸还自然 😅",
+                            "这代码的味道隔着屏幕都能闻到 👃",
+                            "dead code 比墓地还安静 🪦",
+                            "代码异味已经变成了代码毒气 ☣️",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
-                            "Rust 特性使用需要改进 🦀",
-                            "建议更好地利用 Rust 的特性 ⚡",
-                            "代码可以更 Rust 化 🔧",
-                            "某些模式可以优化 ✨",
-                            "错误处理可以更优雅 🎭",
-                            "内存管理还有优化空间 💾",
-                            "迭代器使用可以加强 🔄",
-                            "类型系统利用不够充分 📊",
+                            "代码有些异味，建议清理 🧹",
+                            "magic number 需要提取为常量 🔢",
+                            "有些代码可以精简一下 ✂️",
+                            "代码整洁度需要提升 🧼",
                         ]
                     } else {
-                        vec!["Rust 特性使用得不错 🦀", "代码很 Rust 化 ⚡"]
+                        vec!["代码异味不多 👍", "代码还算干净 ✅"]
+                    }
+                }
+                "学生代码" => {
+                    if score >= 16.0 {
+                        vec![
+                            "println! 调试大法重出江湖 🖨️",
+                            "TODO 注释比代码还多 📝",
+                            "panic! 用得这么随意，像极了期末赶作业 😱",
+                            "这代码散发着浓浓的作业气息 📚",
+                            "调试完记得删 println 啊亲 😅",
+                        ]
+                    } else if score >= 12.0 {
+                        vec![
+                            "有些 TODO 需要处理 📝",
+                            "调试代码可以清理一下 🧹",
+                            "代码可以更专业一些 💼",
+                        ]
+                    } else {
+                        vec!["代码挺专业的 👍", "没有学生代码的味道 ✅"]
                     }
                 }
                 _ => vec!["代码需要改进 🔧"],
@@ -164,7 +171,7 @@ impl Reporter {
             // English version roasts
             match category {
                 "Naming" => {
-                    if score >= 80.0 {
+                    if score >= 16.0 {
                         vec![
                             "Congrats! Your variable names are more confusing than comments 🏆",
                             "Did you use a random character generator for these names? 🎲",
@@ -182,7 +189,7 @@ impl Reporter {
                             "I've seen more meaningful names in spam emails 📧",
                             "These names make dictionary words jealous 📚",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
                             "Variable naming has room for improvement 📝",
                             "Consider giving variables meaningful names 💭",
@@ -201,7 +208,7 @@ impl Reporter {
                     }
                 }
                 "Complexity" => {
-                    if score >= 80.0 {
+                    if score >= 16.0 {
                         vec![
                             "Complexity off the charts! Even AI can't understand 🤖",
                             "This code is more complex than a maze 🌀",
@@ -219,7 +226,7 @@ impl Reporter {
                             "Complexity more chaotic than my sleep schedule ⏰",
                             "Consider getting insurance for this function 🛡️",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
                             "Code is a bit complex, consider simplifying 🔧",
                             "Functions could be split smaller ✂️",
@@ -238,7 +245,7 @@ impl Reporter {
                     }
                 }
                 "Duplication" => {
-                    if score >= 80.0 {
+                    if score >= 16.0 {
                         vec![
                             "Consider renaming to copy-paste.rs 📋",
                             "More duplicate code than my recurring dreams 💤",
@@ -256,7 +263,7 @@ impl Reporter {
                             "Consider buying insurance for your copy-paste keys ⌨️",
                             "Duplication level surpasses hall of mirrors 🪞",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
                             "Some duplicate code needs handling 🔧",
                             "Consider extracting common functions 📦",
@@ -274,41 +281,45 @@ impl Reporter {
                         ]
                     }
                 }
-                "Rust Features" => {
-                    if score >= 80.0 {
+                "Code Smells" => {
+                    if score >= 16.0 {
                         vec![
-                            "More macro definitions than my excuses 🎭",
-                            "unwrap() used more frequently than I say 'no problem' 😅",
-                            "String allocation more casual than my spending 💸",
-                            "This code makes Rust compiler want to quit 🚫",
-                            "panic! used so casually, user experience is questionable 😱",
-                            "Iterators are crying: why don't you use me? 😢",
-                            "match says: I can be more concise 💪",
-                            "Vec::new() calls more frequent than my outfit changes 👕",
-                            "to_string() calls exceed my blink count 👁️",
-                            "This code made Rust's zero-cost abstractions weep 😭",
-                            "Error handling? What's error handling? 🤷‍♂️",
-                            "Lifetime annotations more complex than my resume 📄",
-                            "This code violates Rust's philosophical principles 📚",
-                            "Consider retaking Rust best practices course 🎓",
-                            "Rust community would shed tears seeing this code 🦀",
+                            "More magic numbers than a wizard's spellbook ✨",
+                            "println! debugging is not a lifestyle 🖨️",
+                            "Commented-out code outnumbers living code 🧟",
+                            "unwrap() used more naturally than breathing 😅",
+                            "This code smells through the screen 👃",
+                            "Dead code quieter than a graveyard 🪦",
+                            "Code smell has become code toxic gas ☣️",
                         ]
-                    } else if score >= 60.0 {
+                    } else if score >= 12.0 {
                         vec![
-                            "Rust feature usage needs improvement 🦀",
-                            "Consider better utilization of Rust features ⚡",
-                            "Code could be more Rust-idiomatic 🔧",
-                            "Some patterns can be optimized ✨",
-                            "Error handling could be more elegant 🎭",
-                            "Memory management has room for optimization 💾",
-                            "Iterator usage could be strengthened 🔄",
-                            "Type system utilization is insufficient 📊",
+                            "Some code smells, consider cleaning 🧹",
+                            "Magic numbers should be constants 🔢",
+                            "Some code could be trimmed ✂️",
+                            "Code cleanliness needs improvement 🧼",
                         ]
                     } else {
+                        vec!["Not many code smells 👍", "Code is fairly clean ✅"]
+                    }
+                }
+                "Student Code" => {
+                    if score >= 16.0 {
                         vec![
-                            "Rust features used well 🦀",
-                            "Code is very Rust-idiomatic ⚡",
+                            "println! debugging makes a comeback 🖨️",
+                            "More TODO comments than actual code 📝",
+                            "panic! used casually like a deadline rush 😱",
+                            "This code radiates homework energy 📚",
+                            "Remember to remove println after debugging 😅",
                         ]
+                    } else if score >= 12.0 {
+                        vec![
+                            "Some TODOs need attention 📝",
+                            "Debug code could use cleanup 🧹",
+                            "Code could be more professional 💼",
+                        ]
+                    } else {
+                        vec!["Code looks professional 👍", "No student code vibes ✅"]
                     }
                 }
                 _ => vec!["Code needs improvement 🔧"],
@@ -589,11 +600,11 @@ impl Reporter {
         println!("\n{}", title.bright_cyan().bold());
         println!("{}", "─".repeat(50).bright_black());
 
-        // Show category scores
-        self.print_category_scores(&quality_score.category_scores);
+        // Show category breakdown by severity count
+        self.print_category_scores(&quality_score.category_scores, _issues);
 
         // Show weighted calculation
-        self.print_weighted_calculation(&quality_score.category_scores, quality_score.total_score);
+        self.print_weighted_calculation(quality_score);
 
         // Show scoring scale
         let scale_title = if self.i18n.lang == "zh-CN" {
@@ -612,105 +623,168 @@ impl Reporter {
         }
     }
 
-    fn print_category_scores(&self, category_scores: &std::collections::HashMap<String, f64>) {
+    fn print_category_scores(
+        &self,
+        _category_scores: &std::collections::HashMap<String, f64>,
+        issues: &[CodeIssue],
+    ) {
         let title = if self.i18n.lang == "zh-CN" {
-            "📋 分类评分详情:"
+            "📋 分类问题统计:"
         } else {
-            "📋 Category Scores:"
+            "📋 Issues by Category:"
         };
 
         println!("{}", title.bright_yellow());
 
-        // Define category display order and info
-        let categories = [
-            ("naming", "命名规范", "Naming", "🏷️"),
-            ("complexity", "复杂度", "Complexity", "🧩"),
-            ("duplication", "代码重复", "Duplication", "🔄"),
-            ("code-smells", "代码异味", "Code Smells", "⚠️"),
-            ("student-code", "学生代码", "Student Code", "📚"),
+        // Category→rule mapping (same as scoring.rs build_categories)
+        let categories: [(&str, &str, &str, &str, Vec<&str>); 5] = [
+            (
+                "naming",
+                "命名规范",
+                "Naming",
+                "🏷️",
+                vec![
+                    "terrible-naming",
+                    "single-letter-variable",
+                    "meaningless-naming",
+                    "hungarian-notation",
+                    "abbreviation-abuse",
+                    "c-naming",
+                ],
+            ),
+            (
+                "complexity",
+                "复杂度",
+                "Complexity",
+                "🧩",
+                vec![
+                    "deep-nesting",
+                    "long-function",
+                    "god-function",
+                    "cyclomatic-complexity",
+                    "c-nesting",
+                    "c-long-function",
+                    "complex-closure",
+                ],
+            ),
+            (
+                "duplication",
+                "代码重复",
+                "Duplication",
+                "🔄",
+                vec!["code-duplication", "cross-file-duplication"],
+            ),
+            (
+                "code-smells",
+                "代码异味",
+                "Code Smells",
+                "⚠️",
+                vec![
+                    "commented-code",
+                    "dead-code",
+                    "file-too-long",
+                    "unwrap-abuse",
+                    "unnecessary-clone",
+                    "string-abuse",
+                    "vec-abuse",
+                    "macro-abuse",
+                    "box-abuse",
+                    "slice-abuse",
+                    "reference-abuse",
+                    "module-complexity",
+                    "pattern-matching-abuse",
+                    "duplicate-imports",
+                    "lifetime-abuse",
+                    "trait-complexity",
+                    "generic-abuse",
+                    "defer-in-loop",
+                    "goroutine-abuse",
+                    "global-variable",
+                    "bare-rescue",
+                    "wildcard-import",
+                    "bare-except",
+                    "empty-catch",
+                    "any-type",
+                    "c-include-chaos",
+                    "c-magic-number",
+                    "c-god-function",
+                    "c-commented-code",
+                    "c-dead-code",
+                    "c-goto-abuse",
+                    "c-malloc-leak",
+                    "channel-abuse",
+                    "async-abuse",
+                    "dyn-trait-abuse",
+                    "unsafe-abuse",
+                    "ffi-abuse",
+                    "deep-module-nesting",
+                ],
+            ),
+            (
+                "student-code",
+                "学生代码",
+                "Student Code",
+                "📚",
+                vec![
+                    "println-debugging",
+                    "panic-abuse",
+                    "todo-comment",
+                    "todo-fixme",
+                    "todo-bug",
+                    "todo-hack",
+                ],
+            ),
         ];
 
-        for (category_key, zh_name, en_name, icon) in &categories {
-            if let Some(score) = category_scores.get(*category_key) {
-                let display_name = if self.i18n.lang == "zh-CN" {
-                    zh_name
-                } else {
-                    en_name
-                };
-                let (status_icon, status_text) = self.get_score_status(*score);
+        for (key, zh_name, en_name, icon, rules) in &categories {
+            let cat_issues: Vec<&CodeIssue> = issues
+                .iter()
+                .filter(|i| rules.contains(&i.rule_name.as_str()))
+                .collect();
+            if cat_issues.is_empty() {
+                continue;
+            }
+            let n = cat_issues
+                .iter()
+                .filter(|i| matches!(i.severity, Severity::Nuclear))
+                .count();
+            let s = cat_issues
+                .iter()
+                .filter(|i| matches!(i.severity, Severity::Spicy))
+                .count();
+            let m = cat_issues.len() - n - s;
 
-                // basic display
-                let score_unit = if self.i18n.lang == "zh-CN" {
-                    format!("{score:.0}分")
-                } else {
-                    format!("{score:.0}")
-                };
-                println!(
-                    "  {} {} {:>5}     {}",
-                    status_icon,
-                    format!("{icon} {display_name}").bright_white(),
-                    score_unit.bright_cyan(),
-                    status_text.bright_black()
-                );
+            let display_name = if self.i18n.lang == "zh-CN" {
+                zh_name
+            } else {
+                en_name
+            };
 
-                // if score is high (code is bad), add a roast
-                if let Some(roast) = self.get_category_roast(category_key, *score) {
+            println!(
+                "  {} {}  💥{} 🌶️{} 😐{}",
+                icon,
+                display_name.bright_white(),
+                n,
+                s,
+                m,
+            );
+
+            // Add roast for categories with many issues
+            let total_score = (n * 3 + s) as f64;
+            if total_score > 5.0 {
+                if let Some(roast) = self.get_category_roast(key, total_score) {
                     println!("    💬 {}", roast.bright_yellow().italic());
                 }
             }
         }
-        println!();
-    }
-
-    fn get_score_status(&self, score: f64) -> (&str, &str) {
-        // Note: higher score means worse code
-        match score as u32 {
-            81..=100 => (
-                "⚠",
-                if self.i18n.lang == "zh-CN" {
-                    "糟糕，急需修复"
-                } else {
-                    "Terrible, urgent fixes needed"
-                },
-            ),
-            61..=80 => (
-                "•",
-                if self.i18n.lang == "zh-CN" {
-                    "较差，建议重构"
-                } else {
-                    "Poor, refactoring recommended"
-                },
-            ),
-            41..=60 => (
-                "○",
-                if self.i18n.lang == "zh-CN" {
-                    "一般，需要改进"
-                } else {
-                    "Average, needs improvement"
-                },
-            ),
-            21..=40 => (
-                "✓",
-                if self.i18n.lang == "zh-CN" {
-                    "良好，还有提升空间"
-                } else {
-                    "Good, room for improvement"
-                },
-            ),
-            _ => (
-                "✓✓",
-                if self.i18n.lang == "zh-CN" {
-                    "优秀，继续保持"
-                } else {
-                    "Excellent, keep it up"
-                },
-            ),
+        if !issues.is_empty() {
+            println!();
         }
     }
 
     fn get_category_roast(&self, category: &str, score: f64) -> Option<String> {
-        // only roast if score is high (code is bad)
-        if score < 60.0 {
+        // Category scores are 0-20; roast when score indicates real problems
+        if score < 12.0 {
             return None;
         }
 
@@ -719,11 +793,13 @@ impl Reporter {
             ("zh-CN", "naming") => "命名规范",
             ("zh-CN", "complexity") => "复杂度",
             ("zh-CN", "duplication") => "代码重复",
-            ("zh-CN", "rust-features") => "Rust功能",
+            ("zh-CN", "code-smells") => "代码异味",
+            ("zh-CN", "student-code") => "学生代码",
             ("en-US", "naming") => "Naming",
             ("en-US", "complexity") => "Complexity",
             ("en-US", "duplication") => "Duplication",
-            ("en-US", "rust-features") => "Rust Features",
+            ("en-US", "code-smells") => "Code Smells",
+            ("en-US", "student-code") => "Student Code",
             (_, other) => other,
         };
 
@@ -736,51 +812,61 @@ impl Reporter {
         Some(self.get_random_roast(category_name, score, seed))
     }
 
-    fn print_weighted_calculation(
-        &self,
-        category_scores: &std::collections::HashMap<String, f64>,
-        total_score: f64,
-    ) {
-        let calc_title = if self.i18n.lang == "zh-CN" {
+    fn print_weighted_calculation(&self, quality_score: &CodeQualityScore) {
+        let title = if self.i18n.lang == "zh-CN" {
             "🧮 评分明细:"
         } else {
             "🧮 Score Breakdown:"
         };
+        println!("{}", title.bright_yellow());
 
-        println!("{}", calc_title.bright_yellow());
-
-        let order = [
-            "naming",
-            "complexity",
-            "duplication",
-            "code-smells",
-            "student-code",
-        ];
-        let mut parts = Vec::new();
-
-        for key in &order {
-            if let Some(score) = category_scores.get(*key) {
-                if *score > 0.0 {
-                    parts.push(format!("{score:.1}"));
-                }
-            }
-        }
-
-        if parts.is_empty() {
-            parts.push("0.0".to_string());
-        }
+        let n = quality_score.severity_distribution.nuclear;
+        let s = quality_score.severity_distribution.spicy;
+        let m = quality_score.severity_distribution.mild;
 
         if self.i18n.lang == "zh-CN" {
             println!(
-                "  各类别累加: {} = {}",
-                parts.join(" + ").bright_white(),
-                format!("{total_score:.1}").bright_green().bold()
+                "  {} Tier1 Nuclear ({}个): log2({})×8 = {:.1}/40",
+                "💥".bright_red(),
+                n,
+                n + 1,
+                quality_score.n_score
+            );
+            println!(
+                "  {} Tier2 Noisy ({}×1.5+{}): {:.1}/60",
+                "🌶️".bright_yellow(),
+                s,
+                m,
+                quality_score.d_score
+            );
+            println!(
+                "  {} 总分: {:.1} + {:.1} = {:.1}/100",
+                "📊".bright_blue(),
+                quality_score.n_score,
+                quality_score.d_score,
+                quality_score.total_score
             );
         } else {
             println!(
-                "  Categories: {} = {}",
-                parts.join(" + ").bright_white(),
-                format!("{total_score:.1}").bright_green().bold()
+                "  {} Tier1 Nuclear ({}): log2({})×8 = {:.1}/40",
+                "💥".bright_red(),
+                n,
+                n + 1,
+                quality_score.n_score
+            );
+            println!(
+                "  {} Tier2 Noisy ({}×1.5+{}): {:.1}/60",
+                "🌶️".bright_yellow(),
+                s,
+                m,
+                quality_score.d_score
+            );
+            println!(
+                "  {} Total: {:.1} + {:.1} = {:.1}/100",
+                "📊".bright_blue(),
+                quality_score.n_score,
+                quality_score.d_score,
+                quality_score.total_score
             );
         }
     }

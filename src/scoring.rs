@@ -1,13 +1,17 @@
 use crate::analyzer::{CodeIssue, Severity};
 use std::collections::HashMap;
 
-/// Code quality rating system — accumulation model.
-/// Score starts at 0 (best). Each issue adds points.
-/// Higher score = worse code quality.
+/// Code quality rating system — two-tier log model.
+/// Score starts at 0 (best). Higher score = worse code quality.
 /// 0-20: Excellent  |  21-40: Good  |  41-60: Average  |  61-80: Poor  |  81+: Terrible
+///
+/// Tier 1: Nuclear issues (high confidence) → log-scaled absolute count, cap 40
+/// Tier 2: Spicy + Mild issues (noisy) → log-scaled density per 1k lines, cap 60
 #[derive(Debug, Clone)]
 pub struct CodeQualityScore {
     pub total_score: f64,
+    pub n_score: f64,
+    pub d_score: f64,
     pub category_scores: HashMap<String, f64>,
     pub file_count: usize,
     pub total_lines: usize,
@@ -86,6 +90,8 @@ impl CodeScorer {
         if issues.is_empty() {
             return CodeQualityScore {
                 total_score: 0.0,
+                n_score: 0.0,
+                d_score: 0.0,
                 category_scores: HashMap::new(),
                 file_count,
                 total_lines,
@@ -101,39 +107,50 @@ impl CodeScorer {
 
         let severity_distribution = self.calculate_severity_distribution(issues);
 
-        // Group issues by (category, rule_name), severity-weighted
+        // Category breakdown: log-scaled density per category (informational only)
         let categories = self.build_categories();
-        let sev_weight = |s: &Severity| -> f64 {
-            match s {
-                Severity::Nuclear => 3.0,
-                Severity::Spicy => 1.5,
-                Severity::Mild => 0.5,
-            }
-        };
-        let mut cat_rule_weighted: HashMap<String, HashMap<String, f64>> = HashMap::new();
-
-        for issue in issues {
-            let w = sev_weight(&issue.severity);
-            for (cat_name, rules) in &categories {
-                if rules.contains(&issue.rule_name.as_str()) {
-                    *cat_rule_weighted
-                        .entry(cat_name.to_string())
-                        .or_default()
-                        .entry(issue.rule_name.clone())
-                        .or_insert(0.0) += w;
-                }
-            }
-        }
-
-        // Calculate per-category scores
+        let k_lines = total_lines as f64 / 1000.0;
         let mut category_scores = HashMap::new();
-        for (cat_name, _) in &categories {
-            let score =
-                self.category_accumulated_score(cat_rule_weighted.get(*cat_name), total_lines);
-            category_scores.insert(cat_name.to_string(), score);
+        for (cat_name, rules) in &categories {
+            let cat_count = issues
+                .iter()
+                .filter(|i| rules.contains(&i.rule_name.as_str()))
+                .count();
+            let cat_density = if k_lines > 0.0 {
+                cat_count as f64 / k_lines
+            } else {
+                0.0
+            };
+            let cat_score = ((cat_density + 1.0).log2() * 6.0).min(20.0);
+            category_scores.insert(cat_name.to_string(), cat_score);
         }
 
-        let total_score = self.weighted_final_score(&category_scores);
+        // Two-tier log scoring (0-100)
+        //
+        // Tier 1: Nuclear — absolute count, log-scaled.
+        //   Nuclear issues are high-confidence (deep nesting, god function, bare except).
+        //   Even 1 Nuclear is meaningful. Log prevents large counts from dominating.
+        //   log2(1 + n) * 8: 0→0, 1→8, 2→12.7, 5→20.7, 10→27.7, 30→39.6
+        //   Cap at 40.
+        //
+        // Tier 2: Noisy density — Spicy + Mild combined, density-normalized, log-scaled.
+        //   Non-Nuclear issues are noisy (magic-number, naming, println are often FPs).
+        //   Must use density (per 1k lines) to be fair across project sizes.
+        //   Spicy counts 1.5x vs Mild 1x (slightly more reliable, but still noisy).
+        //   log2(1 + d) * 6: d=0→0, d=1→6, d=7→18, d=31→30, d=127→42
+        //   Cap at 60.
+        let n_score = (severity_distribution.nuclear as f64 + 1.0).log2() * 8.0;
+        let n_score = n_score.min(40.0);
+
+        let noisy_density = if k_lines > 0.0 {
+            (severity_distribution.spicy as f64 * 1.5 + severity_distribution.mild as f64) / k_lines
+        } else {
+            0.0
+        };
+        let d_score = (noisy_density + 1.0).log2() * 6.0;
+        let d_score = d_score.min(60.0);
+
+        let total_score = n_score + d_score;
 
         let issue_density = if total_lines > 0 {
             issues.len() as f64 / total_lines as f64 * 1000.0
@@ -143,6 +160,8 @@ impl CodeScorer {
 
         CodeQualityScore {
             total_score,
+            n_score,
+            d_score,
             category_scores,
             file_count,
             total_lines,
@@ -167,121 +186,6 @@ impl CodeScorer {
             nuclear,
             spicy,
             mild,
-        }
-    }
-
-    /// Weighted final score (0-100). Each category is 0-100.
-    /// Weighted by category importance.
-    fn weighted_final_score(&self, category_scores: &HashMap<String, f64>) -> f64 {
-        let weights: [(&str, f64); 5] = [
-            ("naming", 0.20),
-            ("complexity", 0.25),
-            ("duplication", 0.10),
-            ("code-smells", 0.30),
-            ("student-code", 0.15),
-        ];
-        let mut score = 0.0;
-        let mut total_w = 0.0;
-        for (cat, w) in &weights {
-            if let Some(s) = category_scores.get(*cat) {
-                score += s * w;
-                total_w += w;
-            }
-        }
-        if total_w > 0.0 {
-            score / total_w
-        } else {
-            0.0
-        }
-    }
-
-    /// Category score: sum of (weighted_count × base_penalty) per rule, normalized to per-1k-lines.
-    fn category_accumulated_score(
-        &self,
-        rule_weights: Option<&HashMap<String, f64>>,
-        total_lines: usize,
-    ) -> f64 {
-        let Some(rules) = rule_weights else {
-            return 0.0;
-        };
-        if total_lines == 0 {
-            return 0.0;
-        }
-
-        let mut total_penalty = 0.0;
-        for (rule_name, &weighted_count) in rules {
-            let base = self.rule_base_penalty(rule_name);
-            total_penalty += weighted_count * base;
-        }
-        // Normalize to per-1k-lines
-        (total_penalty / total_lines as f64 * 1000.0).min(100.0)
-    }
-
-    /// Base penalty per issue — tuned by rule reliability.
-    /// Rules verified as reliable get higher penalties.
-    /// Rules known to be noisy get lower penalties.
-    fn rule_base_penalty(&self, rule: &str) -> f64 {
-        match rule {
-            // ── Reliable rules (TP ~85-100%) ──────────────────────
-            "deep-nesting" => 2.0,
-            "god-function" => 2.0,
-            "long-function" => 1.5,
-            "any-type" => 1.5,    // TS, ~95% TP
-            "bare-except" => 2.0, // Python, ~100% TP
-            "bare-rescue" => 2.0, // Ruby, ~100% TP
-            "empty-catch" => 2.0, // Java, ~100% TP
-            "panic-abuse" => 1.0, // detection correct, line:1 bug
-
-            // ── Moderate rules (TP ~40-70%) ───────────────────────
-            "magic-number" => 0.3,
-            "code-duplication" => 0.4,
-            "cross-file-duplication" => 0.3,
-            "file-too-long" => 0.5,
-            "complex-closure" => 0.8,
-
-            // ── Noisy rules (TP ~0-20%, need fixing) ──────────────
-            "single-letter-variable" => 0.1,
-            "commented-code" => 0.1,
-            "dead-code" => 0.1,
-            "terrible-naming" => 0.1,
-            "hungarian-notation" => 0.1,
-            "abbreviation-abuse" => 0.1,
-            "global-variable" => 0.1,
-            "println-debugging" => 0.2,
-
-            // ── Rust-specific ─────────────────────────────────────
-            "unwrap-abuse" => 0.5,
-            "box-abuse" => 0.1, // line:1 + fabricated
-            "unnecessary-clone" => 0.5,
-            "macro-abuse" => 0.3,
-            "lifetime-abuse" => 0.2,
-            "generic-abuse" => 0.2,
-            "pattern-matching-abuse" => 0.2,
-            "reference-abuse" => 0.2,
-            "string-abuse" => 0.3,
-            "vec-abuse" => 0.3,
-            "module-complexity" => 0.3,
-            "trait-complexity" => 0.3,
-
-            // ── Go-specific ───────────────────────────────────────
-            "defer-in-loop" => 0.8,
-            "goroutine-abuse" => 0.5,
-
-            // ── Python-specific ───────────────────────────────────
-            "wildcard-import" => 0.3,
-
-            // ── Other ─────────────────────────────────────────────
-            "duplicate-imports" => 0.3,
-            "todo-comment" | "todo-fixme" | "todo-bug" | "todo-hack" => 0.1,
-            "meaningless-naming" => 0.2,
-
-            // ── C/C++ ─────────────────────────────────────────────
-            "c-naming" | "c-nesting" | "c-long-function" => 1.0,
-            "c-magic-number" | "c-god-function" => 0.5,
-            "c-commented-code" | "c-dead-code" => 0.2,
-            "c-include-chaos" | "c-goto-abuse" | "c-malloc-leak" => 1.0,
-
-            _ => 0.3, // unknown rules get a moderate default
         }
     }
 

@@ -125,8 +125,8 @@ fn test_system_alert_detection_stable() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (100..=900).contains(&total),
-        "system_alert should have ~150-900 issues (near-dup removed), got {}",
+        (50..=200).contains(&total),
+        "system_alert should have ~73 issues (near-dup removed), got {}",
         total
     );
 }
@@ -147,8 +147,8 @@ fn test_rechat_server_detection_stable() {
     let total = extract_total_issues(&stdout);
 
     assert!(
-        (100..=3000).contains(&total),
-        "ReChat-server should have ~150-3000 issues (near-dup removed), got {}",
+        (50..=200).contains(&total),
+        "ReChat-server should have ~97 issues (near-dup removed), got {}",
         total
     );
 }
@@ -204,8 +204,8 @@ fn test_memscope_rs_best_in_class() {
 #[test]
 fn test_all_testable_projects_zero_crashes() {
     let projects: Vec<(&str, Option<std::ops::RangeInclusive<u32>>)> = vec![
-        ("../algo", Some(0..=0)),       // Algorithm example: perfect code, 0 issues
-        ("../gpu-code", Some(55..=90)), // GPU code: small number of issues
+        ("../algo", Some(0..=0)),      // Algorithm example: perfect code, 0 issues
+        ("../gpu-code", Some(5..=20)), // GPU code: small number of issues
     ];
 
     for (path, expected_range) in projects {
@@ -372,9 +372,9 @@ fn test_ui_context_reduces_false_positives() {
 #[test]
 fn test_no_regression_from_round4_to_round5() {
     let regression_data: Vec<(&str, std::ops::RangeInclusive<u32>)> = vec![
-        ("../system_alert", 100..=900),   // cross-file-near-duplicate removed
-        ("../ReChat-server", 100..=3000), // cross-file-near-duplicate removed
-        ("../AlgoGpuRust", 50..=3000),    // cross-file-near-duplicate removed
+        ("../system_alert", 50..=200),      // cross-file-near-duplicate removed
+        ("../ReChat-server", 50..=200),     // cross-file-near-duplicate removed
+        ("../AlgoGpuRust", 30..=100),       // cross-file-near-duplicate removed
         ("../memscope-rs", 1000..=1500000), // cross-file-near-duplicate removed
     ];
 
