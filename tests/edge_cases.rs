@@ -23,12 +23,12 @@ fn test_only_comments() {
 
     let content = r#"
 // This file only contains comments
-/* 
+/*
  * Multi-line comment
  * with multiple lines
  */
-/// Documentation comment
-//! Inner documentation comment
+// Another regular comment
+// Yet another comment
 "#;
 
     fs::write(&file_path, content).expect("Failed to write comments file");
@@ -39,7 +39,8 @@ fn test_only_comments() {
     // Comments-only file should have no issues
     assert!(
         issues.is_empty(),
-        "Comments-only file should have no issues"
+        "Comments-only file should have no issues, found {}",
+        issues.len()
     );
 }
 

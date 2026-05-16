@@ -80,6 +80,7 @@ impl TreeSitterRule for MeaninglessRule {
 }
 
 /// Commented code: detects blocks of commented-out code.
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) struct CommentedCodeRule;
 
 impl TreeSitterRule for CommentedCodeRule {
@@ -127,6 +128,7 @@ impl TreeSitterRule for CommentedCodeRule {
     }
 }
 
+#[cfg_attr(not(test), expect(dead_code))]
 fn is_likely_code(text: &str) -> bool {
     let code_patterns = [
         "fn ", "if ", "else", "for ", "while ", "match ", "struct ", "enum ", "impl ", "let ",
@@ -143,6 +145,7 @@ fn is_likely_code(text: &str) -> bool {
     pattern_count >= 2 || keyword_count >= 1
 }
 
+#[cfg_attr(not(test), expect(dead_code))]
 fn emit_comment_block(
     issues: &mut Vec<CodeIssue>,
     file: &ParsedFile,
@@ -182,6 +185,7 @@ fn emit_comment_block(
 }
 
 /// Dead code: detects unreachable code after return/break/continue/panic.
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) struct DeadCodeRule;
 
 impl TreeSitterRule for DeadCodeRule {
@@ -248,6 +252,7 @@ impl TreeSitterRule for DeadCodeRule {
     }
 }
 
+#[cfg_attr(not(test), expect(dead_code))]
 fn is_rust_terminator(line: &str) -> bool {
     let trimmed = line.trim();
     matches!(
@@ -258,6 +263,7 @@ fn is_rust_terminator(line: &str) -> bool {
         || (trimmed.starts_with("unreachable!(") && trimmed.ends_with(')'))
 }
 
+#[cfg_attr(not(test), expect(dead_code))]
 fn is_go_terminator(line: &str) -> bool {
     let trimmed = line.trim();
     // Go: return, return x, break, continue, panic(...), or with optional semicolon

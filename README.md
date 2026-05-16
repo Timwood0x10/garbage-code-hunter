@@ -560,6 +560,39 @@ Garbage Report
   Overall Garbage Score: 86/100
 ```
 
+## Excluding Generated Files
+
+Generated files (protobuf, bundles, vendored code) can produce thousands of false positives. Exclude them via `.garbage-code-hunter.toml` in your project root:
+
+```toml
+[whitelists]
+exclude_patterns = [
+    "*.pb.go",           # Generated protobuf Go
+    "*.pulsar.go",       # Generated pulsar Go
+    "*_grpc.pb.go",      # Generated gRPC Go
+    "*.gen.ts",          # Generated TypeScript
+    "*.generated.*",     # Any generated files
+    "*.min.js",          # Minified JS
+    "*.bundle.js",       # Bundled JS
+    ".venv/",            # Python venv
+    "venv/",
+    "__pycache__/",
+    "vendor/",           # Vendored dependencies
+    "third_party/",
+]
+```
+
+The tool also has **built-in defaults** that are always excluded: `target/`, `node_modules/`, `.git/`, `.svn/`, `build/`, `dist/`, `out/`, `__pycache__/`, `.DS_Store`, `.venv/`, `venv/`, `vendor/`.
+
+### CLI exclusion (per-run)
+
+For one-off runs, use `--exclude`:
+
+```bash
+garbage-code-hunter --exclude "*.pb.go" --exclude "generated/"
+garbage-code-hunter --exclude "vendor/*" --exclude "*.gen.ts"
+```
+
 ## Tool Details
 
 ### Code Hunter Rules (Rust)

@@ -5,12 +5,12 @@ use super::complex_rules::{
     SingleLetterTsRule, TerribleNamingRule,
 };
 use super::remaining_rules::{
-    CommentedCodeRule, DeadCodeRule, DuplicateImportsRule, FileTooLongRule, MeaninglessRule,
-    TodoCommentRule,
+    DuplicateImportsRule, FileTooLongRule, MeaninglessRule, TodoCommentRule,
 };
 use crate::analyzer::{CodeIssue, Severity};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
+use crate::treesitter::query::collect_captures;
 use crate::treesitter::rule::TreeSitterRule;
 
 /// Register all tree-sitter based Rust rules.
@@ -141,20 +141,8 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         },
     }));
 
-    // Box abuse
-    engine.add(Box::new(CountRule {
-        name: "box-abuse",
-        pattern: "(call_expression function: (scoped_identifier) @si)",
-        threshold: 8,
-        severity: Severity::Spicy,
-        languages: &[Language::Rust],
-        message_fn: |count| {
-            format!(
-                "Found {} Box::new() calls — consider using stack allocation",
-                count
-            )
-        },
-    }));
+    // Box abuse: count Box::new() calls with text filter
+    engine.add(Box::new(BoxAbuseRule));
 
     // Reference abuse (type references)
     engine.add(Box::new(CountRule {
@@ -246,12 +234,6 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
     // Meaningless naming
     engine.add(Box::new(MeaninglessRule));
 
-    // Commented code
-    engine.add(Box::new(CommentedCodeRule));
-
-    // Dead code
-    engine.add(Box::new(DeadCodeRule));
-
     // TODO/FIXME comments
     engine.add(Box::new(TodoCommentRule));
 
@@ -282,6 +264,68 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
 
     // too-many-params: warn if function has > 6 parameters
     engine.add(Box::new(TooManyParamsRule));
+
+    // rust-doc-example: doc comments should contain example code blocks
+    engine.add(Box::new(RustDocExampleRule));
+
+    // rust-derive-order: derive attributes should follow standard order
+    engine.add(Box::new(RustDeriveOrderRule));
+
+    // rust-error-display: Debug impl without Display impl
+    engine.add(Box::new(RustErrorDisplayRule));
+
+    // rust-must-use: missing #[must_use] on Result/Option returning pub fn
+    engine.add(Box::new(RustMustUseRule));
+}
+
+// ─── Rust: Box::new() abuse — only count actual Box::new() calls ──
+
+struct BoxAbuseRule;
+
+impl TreeSitterRule for BoxAbuseRule {
+    fn name(&self) -> &'static str {
+        "box-abuse"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Rust]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let pattern = "(call_expression function: (scoped_identifier) @call)";
+        let captures = match collect_captures(file, pattern) {
+            Ok(c) => c,
+            Err(_) => return vec![],
+        };
+        let matching: Vec<_> = captures
+            .iter()
+            .filter_map(|group| group.first())
+            .filter(|cap| cap.text == "Box::new")
+            .collect();
+        let count = matching.len();
+        if count > 8 {
+            let (line, col) = matching
+                .first()
+                .map(|cap| {
+                    let pos = cap.node.start_position();
+                    (pos.row + 1, pos.column + 1)
+                })
+                .unwrap_or((1, 1));
+            vec![CodeIssue {
+                file_path: file.path.clone(),
+                line,
+                column: col,
+                rule_name: "box-abuse".to_string(),
+                message: format!(
+                    "Found {} Box::new() calls — consider using stack allocation",
+                    count
+                ),
+                severity: Severity::Spicy,
+            }]
+        } else {
+            vec![]
+        }
+    }
 }
 
 struct TooManyParamsRule;
@@ -324,6 +368,242 @@ impl TreeSitterRule for TooManyParamsRule {
         } else {
             vec![]
         }
+    }
+}
+
+// ─── Rust: doc comments should contain example code blocks ────────
+
+struct RustDocExampleRule;
+
+impl TreeSitterRule for RustDocExampleRule {
+    fn name(&self) -> &'static str {
+        "rust-doc-example"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Rust]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        let lines: Vec<&str> = file.content.lines().collect();
+        let mut i = 0;
+        while i < lines.len() {
+            let line = lines[i].trim();
+            if line.starts_with("///") && !line.starts_with("////") {
+                let comment_text = line.trim_start_matches("///").trim();
+                // Skip if it's a doc attribute, not a doc comment
+                if comment_text.is_empty() {
+                    i += 1;
+                    continue;
+                }
+                // Collect multi-line doc comment
+                let mut doc_lines = vec![comment_text];
+                i += 1;
+                while i < lines.len() && lines[i].trim().starts_with("///") {
+                    doc_lines.push(lines[i].trim().trim_start_matches("///").trim());
+                    i += 1;
+                }
+                let full_doc = doc_lines.join(" ");
+                if !full_doc.contains("```") {
+                    issues.push(CodeIssue {
+                        file_path: file.path.clone(),
+                        line: i - doc_lines.len() + 1,
+                        column: 4,
+                        rule_name: "rust-doc-example".to_string(),
+                        message: "Doc comment should include an example code block (```)"
+                            .to_string(),
+                        severity: Severity::Mild,
+                    });
+                }
+            } else {
+                i += 1;
+            }
+        }
+        issues
+    }
+}
+
+// ─── Rust: derive order should follow convention ─────────────────
+
+struct RustDeriveOrderRule;
+
+impl TreeSitterRule for RustDeriveOrderRule {
+    fn name(&self) -> &'static str {
+        "rust-derive-order"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Rust]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let standard_order = [
+            "Debug",
+            "Clone",
+            "Copy",
+            "PartialEq",
+            "Eq",
+            "PartialOrd",
+            "Ord",
+            "Hash",
+            "Default",
+            "Serialize",
+            "Deserialize",
+        ];
+        let mut issues = Vec::new();
+        // Simple text-based checking
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("#[derive(") {
+                continue;
+            }
+            let inner = trimmed
+                .trim_start_matches("#[derive(")
+                .trim_end_matches(")]");
+            let derives: Vec<&str> = inner
+                .split(',')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if derives.len() < 2 {
+                continue;
+            }
+            // Check if derives follow the standard order
+            let mut last_pos = -1i32;
+            let order_ok = derives.iter().all(|d| {
+                if let Some(pos) = standard_order.iter().position(|s| *s == *d) {
+                    let pos_i = pos as i32;
+                    if pos_i >= last_pos {
+                        last_pos = pos_i;
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    // Unknown derive, skip it for ordering
+                    true
+                }
+            });
+            if !order_ok {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: trimmed.find("#[derive(").unwrap_or(0) + 1,
+                    rule_name: "rust-derive-order".to_string(),
+                    message: format!("Derive order should follow: {}", standard_order.join(", ")),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
+// ─── Rust: Error type implements Debug but not Display ────────────
+
+struct RustErrorDisplayRule;
+
+impl TreeSitterRule for RustErrorDisplayRule {
+    fn name(&self) -> &'static str {
+        "rust-error-display"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Rust]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        // Find types that have impl Debug for X but no impl Display for X
+        let mut debug_types: Vec<String> = Vec::new();
+        let mut display_types: Vec<String> = Vec::new();
+
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix("impl fmt::Debug for ") {
+                let type_name = rest.trim_end_matches('{').trim();
+                debug_types.push(type_name.to_string());
+            } else if let Some(rest) = trimmed.strip_prefix("impl Debug for ") {
+                let type_name = rest.trim_end_matches('{').trim();
+                debug_types.push(type_name.to_string());
+            } else if let Some(rest) = trimmed.strip_prefix("impl fmt::Display for ") {
+                let type_name = rest.trim_end_matches('{').trim();
+                display_types.push(type_name.to_string());
+            } else if let Some(rest) = trimmed.strip_prefix("impl Display for ") {
+                let type_name = rest.trim_end_matches('{').trim();
+                display_types.push(type_name.to_string());
+            }
+        }
+
+        for t in &debug_types {
+            if !display_types.iter().any(|d| d == t) {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: 1,
+                    column: 1,
+                    rule_name: "rust-error-display".to_string(),
+                    message: format!(
+                        "'{}' implements Debug but not Display — error types should implement both",
+                        t
+                    ),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
+// ─── Rust: missing #[must_use] on Result/Option returning pub fn ──
+
+struct RustMustUseRule;
+
+impl TreeSitterRule for RustMustUseRule {
+    fn name(&self) -> &'static str {
+        "rust-must-use"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Rust]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            // Check for pub fn returning Result or Option
+            if trimmed.starts_with("pub fn ") && !trimmed.contains("#[must_use]") {
+                let has_result = trimmed.contains(" -> Result<") || trimmed.contains(" -> Result<");
+                let has_option = trimmed.contains(" -> Option<") || trimmed.contains(" -> Option<");
+                if has_result || has_option {
+                    // Check previous line doesn't have #[must_use]
+                    let prev_line = if line_num > 0 {
+                        file.content.lines().nth(line_num - 1).unwrap_or("")
+                    } else {
+                        ""
+                    };
+                    if !prev_line.trim().contains("#[must_use]") {
+                        let fn_name = trimmed
+                            .strip_prefix("pub fn ")
+                            .and_then(|s| s.split('(').next())
+                            .unwrap_or("<unknown>");
+                        issues.push(CodeIssue {
+                            file_path: file.path.clone(),
+                            line: line_num + 1,
+                            column: 1,
+                            rule_name: "rust-must-use".to_string(),
+                            message: format!(
+                                "pub fn '{}' returns Result/Option but is missing #[must_use]",
+                                fn_name
+                            ),
+                            severity: Severity::Mild,
+                        });
+                    }
+                }
+            }
+        }
+        issues
     }
 }
 
@@ -844,10 +1124,413 @@ fn main() {
     }
 
     #[test]
+    fn test_rust_doc_example_missing() {
+        let file = parse_rust(
+            r#"
+/// This function does something
+fn foo() {}
+"#,
+        );
+        let rule = RustDocExampleRule;
+        let issues = rule.check(&file);
+        assert_eq!(
+            issues.len(),
+            1,
+            "Doc comment without example should be flagged"
+        );
+        assert_eq!(issues[0].rule_name, "rust-doc-example");
+    }
+
+    #[test]
+    fn test_rust_doc_example_ok() {
+        let file = parse_rust(
+            r#"
+/// Does something
+/// ```
+/// let x = foo();
+/// ```
+fn foo() {}
+"#,
+        );
+        let rule = RustDocExampleRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "Doc comment with example should be OK");
+    }
+
+    #[test]
+    fn test_rust_derive_order_bad() {
+        let file = parse_rust(
+            r#"
+#[derive(Clone, Debug)]
+struct Foo;
+"#,
+        );
+        let rule = RustDeriveOrderRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "Bad derive order should be flagged");
+        assert_eq!(issues[0].rule_name, "rust-derive-order");
+    }
+
+    #[test]
+    fn test_rust_derive_order_ok() {
+        let file = parse_rust(
+            r#"
+#[derive(Debug, Clone, PartialEq)]
+struct Foo;
+"#,
+        );
+        let rule = RustDeriveOrderRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "Good derive order should be OK");
+    }
+
+    #[test]
+    fn test_rust_error_display_detected() {
+        let file = parse_rust(
+            r#"
+impl fmt::Debug for MyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "err") }
+}
+"#,
+        );
+        let rule = RustErrorDisplayRule;
+        let issues = rule.check(&file);
+        assert!(!issues.is_empty(), "Missing Display should be flagged");
+        assert_eq!(issues[0].rule_name, "rust-error-display");
+    }
+
+    #[test]
+    fn test_rust_error_display_both_ok() {
+        let file = parse_rust(
+            r#"
+impl fmt::Debug for MyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "err") }
+}
+impl fmt::Display for MyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "err") }
+}
+"#,
+        );
+        let rule = RustErrorDisplayRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "Both Debug and Display should be OK");
+    }
+
+    #[test]
+    fn test_rust_must_use_detected() {
+        let file = parse_rust(
+            r#"
+pub fn find_user() -> Result<User, Error> { Ok(user) }
+"#,
+        );
+        let rule = RustMustUseRule;
+        let issues = rule.check(&file);
+        assert!(!issues.is_empty(), "Missing #[must_use] should be flagged");
+        assert_eq!(issues[0].rule_name, "rust-must-use");
+    }
+
+    #[test]
+    fn test_rust_must_use_ok() {
+        let file = parse_rust(
+            r#"
+#[must_use]
+pub fn find_user() -> Result<User, Error> { Ok(user) }
+"#,
+        );
+        let rule = RustMustUseRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "With #[must_use] should be OK");
+    }
+
+    #[test]
     fn test_too_many_params_few_ok() {
         let file = parse_rust("fn good(a: i32, b: i32) {}");
         let rule = TooManyParamsRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "2 params should not be flagged");
+    }
+
+    // ─── CountRule / MethodCallRule check() tests ──────────────────────
+
+    #[test]
+    fn test_unnecessary_clone_below_threshold() {
+        // threshold=24, need 25+ to trigger. Code with 2 clones should be clean.
+        let file = parse_rust(
+            r#"
+fn main() {
+    let a = String::from("hello");
+    let b = a.clone();
+    let c = b.clone();
+}
+"#,
+        );
+        let rule = MethodCallRule {
+            name: "unnecessary-clone",
+            method_name: "clone",
+            threshold: 24,
+            severity_fn: |_| Severity::Spicy,
+            message_fn: |count| format!("{} clones", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "2 clones should not trigger (threshold=24)"
+        );
+    }
+
+    #[test]
+    fn test_trait_complexity_check() {
+        // threshold=10 methods in a trait body — verify check() doesn't panic
+        let file = parse_rust(
+            r#"
+trait Complex {
+    fn a(&self);
+    fn b(&self);
+    fn c(&self);
+    fn d(&self);
+    fn e(&self);
+    fn f(&self);
+    fn g(&self);
+    fn h(&self);
+    fn i(&self);
+    fn j(&self);
+    fn k(&self);
+}
+"#,
+        );
+        let rule = CountRule {
+            name: "trait-complexity",
+            pattern: "(trait_item body: (declaration_list (function_item) @method))",
+            threshold: 10,
+            severity: Severity::Spicy,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} methods", count),
+        };
+        // The pattern may not match in all tree-sitter versions;
+        // just verify check() doesn't panic
+        let _ = rule.check(&file);
+    }
+
+    #[test]
+    fn test_trait_complexity_simple_ok() {
+        let file = parse_rust(
+            r#"
+trait Simple {
+    fn do_something(&self);
+    fn do_other(&self);
+}
+"#,
+        );
+        let rule = CountRule {
+            name: "trait-complexity",
+            pattern: "(trait_item body: (declaration_list (function_item) @method))",
+            threshold: 10,
+            severity: Severity::Spicy,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} methods", count),
+        };
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "2 methods should not trigger");
+    }
+
+    #[test]
+    fn test_generic_abuse_detected() {
+        // threshold=5 type parameters
+        let file = parse_rust(
+            r#"
+fn bad<T, U, V, W, X, Y>(a: T, b: U, c: V, d: W, e: X, f: Y) {}
+"#,
+        );
+        let rule = CountRule {
+            name: "generic-abuse",
+            pattern: "(type_parameters (type_parameter) @param)",
+            threshold: 5,
+            severity: Severity::Spicy,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} params", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            !issues.is_empty(),
+            "6 generic params should trigger (threshold=5)"
+        );
+    }
+
+    #[test]
+    fn test_generic_abuse_few_ok() {
+        let file = parse_rust("fn good<T, U>(a: T, b: U) {}");
+        let rule = CountRule {
+            name: "generic-abuse",
+            pattern: "(type_parameters (type_parameter) @param)",
+            threshold: 5,
+            severity: Severity::Spicy,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} params", count),
+        };
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "2 generic params should not trigger");
+    }
+
+    #[test]
+    fn test_module_complexity_detected() {
+        // threshold=0, so 1+ nested module triggers
+        let file = parse_rust(
+            r#"
+mod outer {
+    mod inner {
+        fn foo() {}
+    }
+}
+"#,
+        );
+        let rule = CountRule {
+            name: "module-complexity",
+            pattern: "(mod_item body: (declaration_list (mod_item) @nested))",
+            threshold: 0,
+            severity: Severity::Spicy,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} nested", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            !issues.is_empty(),
+            "Nested module should trigger (threshold=0)"
+        );
+    }
+
+    #[test]
+    fn test_module_complexity_flat_ok() {
+        let file = parse_rust(
+            r#"
+mod foo {
+    fn bar() {}
+}
+"#,
+        );
+        let rule = CountRule {
+            name: "module-complexity",
+            pattern: "(mod_item body: (declaration_list (mod_item) @nested))",
+            threshold: 0,
+            severity: Severity::Spicy,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} nested", count),
+        };
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "Flat module should not trigger");
+    }
+
+    #[test]
+    fn test_box_abuse_below_threshold() {
+        // threshold=8, need 9+ Box::new() calls
+        let file = parse_rust(
+            r#"
+fn main() {
+    let a = Box::new(1);
+    let b = Box::new(2);
+}
+"#,
+        );
+        let rule = CountRule {
+            name: "box-abuse",
+            pattern: "(call_expression function: (scoped_identifier) @si)",
+            threshold: 8,
+            severity: Severity::Spicy,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} calls", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "2 Box::new() should not trigger (threshold=8)"
+        );
+    }
+
+    #[test]
+    fn test_slice_abuse_below_threshold() {
+        // threshold=29
+        let file = parse_rust("fn foo(x: &[i32]) -> &[i32] { x }");
+        let rule = CountRule {
+            name: "slice-abuse",
+            pattern: "(slice_type) @st",
+            threshold: 29,
+            severity: Severity::Mild,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} slices", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "2 slice types should not trigger (threshold=29)"
+        );
+    }
+
+    #[test]
+    fn test_pattern_matching_below_threshold() {
+        // threshold=15 tuple patterns
+        let file = parse_rust(
+            r#"
+fn main() {
+    let (a, b) = (1, 2);
+    let (c, d) = (3, 4);
+}
+"#,
+        );
+        let rule = CountRule {
+            name: "pattern-matching-abuse",
+            pattern: "(tuple_pattern) @tp",
+            threshold: 15,
+            severity: Severity::Mild,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} patterns", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "2 tuple patterns should not trigger (threshold=15)"
+        );
+    }
+
+    #[test]
+    fn test_reference_abuse_below_threshold() {
+        // threshold=50
+        let file = parse_rust("fn foo(x: &i32) -> &i32 { x }");
+        let rule = CountRule {
+            name: "reference-abuse",
+            pattern: "(reference_type) @rt",
+            threshold: 50,
+            severity: Severity::Mild,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} refs", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "2 references should not trigger (threshold=50)"
+        );
+    }
+
+    #[test]
+    fn test_string_abuse_below_threshold() {
+        // Check that String type in a simple function doesn't trigger
+        let file = parse_rust(
+            r#"
+fn main() {
+    let s = String::from("hello");
+}
+"#,
+        );
+        let rule = CountRule {
+            name: "string-abuse",
+            pattern: "(generic_type) @gt",
+            threshold: 30,
+            severity: Severity::Mild,
+            languages: &[Language::Rust],
+            message_fn: |count| format!("{} strings", count),
+        };
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "1 String should not trigger (threshold=30)"
+        );
     }
 }

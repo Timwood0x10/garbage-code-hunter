@@ -10,6 +10,10 @@ pub fn register_python_rules(engine: &mut crate::treesitter::rule::TreeSitterRul
     engine.add(Box::new(PythonNamingRule));
     engine.add(Box::new(ComparedToBoolRule));
     engine.add(Box::new(NotIsNoneRule));
+    engine.add(Box::new(PythonTypeIgnoreRule));
+    engine.add(Box::new(PythonFStringRule));
+    engine.add(Box::new(PythonMagicMethodRule));
+    engine.add(Box::new(PythonImportOrderRule));
 }
 
 /// bare except: `except:` without specifying exception type.
@@ -311,6 +315,386 @@ impl TreeSitterRule for NotIsNoneRule {
     }
 }
 
+// ─── Python type: ignore — detect # type: ignore comments ────────
+
+struct PythonTypeIgnoreRule;
+
+impl TreeSitterRule for PythonTypeIgnoreRule {
+    fn name(&self) -> &'static str {
+        "python-type-ignore"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Python]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            if line.trim().contains("# type: ignore") {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: line.find("# type: ignore").unwrap_or(0) + 1,
+                    rule_name: "python-type-ignore".to_string(),
+                    message: "Found '# type: ignore' — fix the type issue instead of hiding it"
+                        .to_string(),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
+// ─── Python f-string — prefer f-strings over .format() and % ───────
+
+struct PythonFStringRule;
+
+impl TreeSitterRule for PythonFStringRule {
+    fn name(&self) -> &'static str {
+        "python-fstring"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Python]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if trimmed.contains(".format(") && !trimmed.contains("f-string") {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: trimmed.find(".format(").unwrap_or(0) + 1,
+                    rule_name: "python-fstring".to_string(),
+                    message: "Use f-string instead of .format()".to_string(),
+                    severity: Severity::Mild,
+                });
+            } else if trimmed.matches('%').count() >= 2
+                && !trimmed.contains("'%")
+                && !trimmed.contains("\"%")
+                && (trimmed.contains("%s") || trimmed.contains("%d") || trimmed.contains("%r"))
+            {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: trimmed.find('%').unwrap_or(0) + 1,
+                    rule_name: "python-fstring".to_string(),
+                    message: "Use f-string instead of % formatting".to_string(),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
+// ─── Python magic method — non-standard __dunder__ methods ────────
+
+struct PythonMagicMethodRule;
+
+impl TreeSitterRule for PythonMagicMethodRule {
+    fn name(&self) -> &'static str {
+        "python-magic-method"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Python]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let standard_dunders = [
+            "__init__",
+            "__new__",
+            "__del__",
+            "__repr__",
+            "__str__",
+            "__bytes__",
+            "__format__",
+            "__lt__",
+            "__le__",
+            "__eq__",
+            "__ne__",
+            "__gt__",
+            "__ge__",
+            "__hash__",
+            "__bool__",
+            "__getattr__",
+            "__getattribute__",
+            "__setattr__",
+            "__delattr__",
+            "__call__",
+            "__len__",
+            "__getitem__",
+            "__setitem__",
+            "__delitem__",
+            "__iter__",
+            "__next__",
+            "__reversed__",
+            "__contains__",
+            "__enter__",
+            "__exit__",
+            "__aenter__",
+            "__aexit__",
+            "__await__",
+            "__aiter__",
+            "__anext__",
+            "__add__",
+            "__sub__",
+            "__mul__",
+            "__truediv__",
+            "__floordiv__",
+            "__mod__",
+            "__divmod__",
+            "__pow__",
+            "__lshift__",
+            "__rshift__",
+            "__and__",
+            "__xor__",
+            "__or__",
+            "__radd__",
+            "__rsub__",
+            "__rmul__",
+            "__rtruediv__",
+            "__rfloordiv__",
+            "__rmod__",
+            "__rdivmod__",
+            "__rpow__",
+            "__rlshift__",
+            "__rrshift__",
+            "__rand__",
+            "__rxor__",
+            "__ror__",
+            "__iadd__",
+            "__isub__",
+            "__imul__",
+            "__itruediv__",
+            "__ifloordiv__",
+            "__imod__",
+            "__ipow__",
+            "__ilshift__",
+            "__irshift__",
+            "__iand__",
+            "__ixor__",
+            "__ior__",
+            "__neg__",
+            "__pos__",
+            "__abs__",
+            "__invert__",
+            "__complex__",
+            "__int__",
+            "__float__",
+            "__round__",
+            "__index__",
+            "__copy__",
+            "__deepcopy__",
+            "__sizeof__",
+            "__reduce__",
+            "__reduce_ex__",
+            "__getnewargs__",
+            "__getstate__",
+            "__setstate__",
+            "__dir__",
+            "__class__",
+            "__subclasshook__",
+            "__init_subclass__",
+            "__instancecheck__",
+            "__subclasscheck__",
+            "__fspath__",
+            "__prepare__",
+            "__slots__",
+        ];
+        let mut issues = Vec::new();
+        if let Ok(captures) = collect_captures(file, "(function_definition name: (identifier) @fn)")
+        {
+            for group in &captures {
+                if let Some(cap) = group.first() {
+                    let name = &cap.text;
+                    if name.starts_with("__")
+                        && name.ends_with("__")
+                        && !standard_dunders.contains(name)
+                    {
+                        let pos = cap.node.start_position();
+                        issues.push(CodeIssue {
+                            file_path: file.path.clone(),
+                            line: pos.row + 1,
+                            column: pos.column + 1,
+                            rule_name: "python-magic-method".to_string(),
+                            message: format!(
+                                "'{}' is not a standard dunder method — avoid custom magic methods",
+                                name
+                            ),
+                            severity: Severity::Mild,
+                        });
+                    }
+                }
+            }
+        }
+        issues
+    }
+}
+
+// ─── Python: import order (PEP 8) — stdlib before third-party ───────
+
+/// Python stdlib module names (common subset for detection)
+const PYTHON_STDLIB_MODULES: &[&str] = &[
+    "os",
+    "sys",
+    "re",
+    "json",
+    "math",
+    "datetime",
+    "time",
+    "collections",
+    "functools",
+    "itertools",
+    "typing",
+    "pathlib",
+    "io",
+    "abc",
+    "copy",
+    "enum",
+    "dataclasses",
+    "logging",
+    "unittest",
+    "argparse",
+    "subprocess",
+    "threading",
+    "multiprocessing",
+    "socket",
+    "http",
+    "urllib",
+    "email",
+    "html",
+    "xml",
+    "csv",
+    "hashlib",
+    "hmac",
+    "secrets",
+    "base64",
+    "struct",
+    "pickle",
+    "shelve",
+    "sqlite3",
+    "gzip",
+    "zipfile",
+    "tarfile",
+    "shutil",
+    "tempfile",
+    "glob",
+    "fnmatch",
+    "contextlib",
+    "textwrap",
+    "string",
+    "operator",
+    "bisect",
+    "heapq",
+    "array",
+    "weakref",
+    "types",
+    "pprint",
+    "warnings",
+    "traceback",
+    "inspect",
+    "importlib",
+    "pkgutil",
+    "pdb",
+    "profile",
+    "timeit",
+    "dis",
+    "ast",
+    "token",
+    "tokenize",
+    "keyword",
+    "platform",
+    "ctypes",
+    "concurrent",
+    "asyncio",
+    "signal",
+    "mmap",
+    "codecs",
+    "locale",
+    "gettext",
+    "unicodedata",
+    "difflib",
+    "textwrap",
+];
+
+struct PythonImportOrderRule;
+
+impl TreeSitterRule for PythonImportOrderRule {
+    fn name(&self) -> &'static str {
+        "python-import-order"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Python]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        let mut seen_third_party = false;
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            // Skip comments, blanks, and non-import lines
+            if trimmed.is_empty() || trimmed.starts_with("#") {
+                continue;
+            }
+            if !trimmed.starts_with("import ") && !trimmed.starts_with("from ") {
+                // Reset state when we hit non-import code
+                if !trimmed.is_empty() {
+                    seen_third_party = false;
+                }
+                continue;
+            }
+            // Extract module name
+            let module = if trimmed.starts_with("from ") {
+                trimmed
+                    .strip_prefix("from ")
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+            } else {
+                trimmed
+                    .strip_prefix("import ")
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+            };
+            // Skip relative imports (they're always "local")
+            if module.starts_with('.') {
+                continue;
+            }
+            let top_module = module.split('.').next().unwrap_or(module);
+            let is_stdlib = PYTHON_STDLIB_MODULES.contains(&top_module);
+            if !is_stdlib {
+                seen_third_party = true;
+            } else if seen_third_party {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: 1,
+                    rule_name: "python-import-order".to_string(),
+                    message: format!(
+                        "stdlib import '{}' should come before third-party imports (PEP 8)",
+                        module
+                    ),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::parse_python;
@@ -445,6 +829,69 @@ import sys
     }
 
     #[test]
+    fn test_python_type_ignore_detected() {
+        let file = parse_python("x = get_value()  # type: ignore\n");
+        let rule = PythonTypeIgnoreRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "# type: ignore should be flagged");
+        assert_eq!(issues[0].rule_name, "python-type-ignore");
+    }
+
+    #[test]
+    fn test_python_type_ignore_clean_ok() {
+        let file = parse_python("x = get_value()\n");
+        let rule = PythonTypeIgnoreRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "Clean code should not be flagged");
+    }
+
+    #[test]
+    fn test_python_fstring_format_detected() {
+        let file = parse_python("msg = \"hello {}\".format(name)\n");
+        let rule = PythonFStringRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, ".format() should be flagged");
+        assert_eq!(issues[0].rule_name, "python-fstring");
+    }
+
+    #[test]
+    fn test_python_fstring_percent_detected() {
+        let file = parse_python("msg = \"hello %s\" % name\n");
+        let rule = PythonFStringRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "% formatting should be flagged");
+    }
+
+    #[test]
+    fn test_python_fstring_ok() {
+        let file = parse_python("msg = f\"hello {name}\"\n");
+        let rule = PythonFStringRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "f-string should not be flagged");
+    }
+
+    #[test]
+    fn test_python_magic_method_detected() {
+        let file = parse_python("class Foo:\n    def __custom__(self): pass\n");
+        let rule = PythonMagicMethodRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "custom dunder should be flagged");
+        assert_eq!(issues[0].rule_name, "python-magic-method");
+    }
+
+    #[test]
+    fn test_python_magic_method_standard_ok() {
+        let file =
+            parse_python("class Foo:\n    def __init__(self): pass\n    def __str__(self): pass\n");
+        let rule = PythonMagicMethodRule;
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "Standard dunder methods should not be flagged"
+        );
+    }
+
+    #[test]
     fn test_not_is_none_is_ok() {
         let file = parse_python("if x is None: pass\nif x is not None: pass\n");
         let rule = NotIsNoneRule;
@@ -452,6 +899,41 @@ import sys
         assert!(
             issues.is_empty(),
             "'is None' and 'is not None' should not be flagged"
+        );
+    }
+
+    #[test]
+    fn test_import_order_ok() {
+        let file = parse_python("import os\nimport sys\nimport requests\n");
+        let rule = PythonImportOrderRule;
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "stdlib before third-party should not be flagged"
+        );
+    }
+
+    #[test]
+    fn test_import_order_wrong() {
+        let file = parse_python("import requests\nimport os\nimport sys\n");
+        let rule = PythonImportOrderRule;
+        let issues = rule.check(&file);
+        assert_eq!(
+            issues.len(),
+            2,
+            "stdlib after third-party should be flagged"
+        );
+        assert_eq!(issues[0].rule_name, "python-import-order");
+    }
+
+    #[test]
+    fn test_import_order_relative_ok() {
+        let file = parse_python("import requests\nfrom . import utils\nfrom .helpers import foo\n");
+        let rule = PythonImportOrderRule;
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "Relative imports after third-party should not be flagged"
         );
     }
 }

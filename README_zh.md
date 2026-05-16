@@ -536,6 +536,36 @@ Garbage Report
   Overall Garbage Score: 86/100
 ```
 
+## 排除生成文件
+
+生成的文件（protobuf、打包脚本、vendor 代码）会产生大量误报。在项目根目录创建 `.garbage-code-hunter.toml` 配置排除规则：
+
+```toml
+[whitelists]
+exclude_patterns = [
+    "*.pb.go",           # 生成的 protobuf Go 代码
+    "*.pulsar.go",       # 生成的 pulsar Go 代码
+    "*_grpc.pb.go",      # 生成的 gRPC Go 代码
+    "*.gen.ts",          # 生成的 TypeScript 代码
+    "*.generated.*",     # 任何生成的文件
+    "*.min.js",          # 压缩后的 JS
+    "*.bundle.js",       # 打包后的 JS
+    ".venv/",            # Python 虚拟环境
+    "venv/",
+    "__pycache__/",
+    "vendor/",           # vendor 依赖
+    "third_party/",
+]
+```
+
+**内置默认排除**（始终生效）：`target/`、`node_modules/`、`.git/`、`.svn/`、`build/`、`dist/`、`out/`、`__pycache__/`、`.DS_Store`、`.venv/`、`venv/`、`vendor/`。
+
+### 单次运行排除（CLI 参数）
+
+```bash
+garbage-code-hunter --exclude "*.pb.go" --exclude "generated/"
+```
+
 ## 工具详情
 
 ### Code Hunter 规则（Rust）

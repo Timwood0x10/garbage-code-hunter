@@ -1,3 +1,6 @@
+# Garbage Code Hunter — Project Configuration
+# Place this file in your project root. The tool auto-discovers it.
+
 [rules.println]
 enabled = false
 
@@ -7,4 +10,30 @@ enabled = false
 [whitelists]
 magic_numbers = [0, 1, 2, 3, 4, 5, 10, 60, 100]
 variable_names = ["tmp", "temp", "val", "i", "j", "k", "g", "h", "t"]
-exclude_patterns = ["reporter/", "display/"]
+
+# Patterns to exclude from analysis (glob-like, matched against full path)
+# These are merged with built-in defaults (target/, node_modules/, .git/, etc.)
+exclude_patterns = [
+    # Generated protobuf files
+    "*.pb.go",
+    "*.pulsar.go",
+    "*_grpc.pb.go",
+    # Generated TypeScript
+    "*.gen.ts",
+    "*.generated.*",
+    "*.min.js",
+    "*.bundle.js",
+    # Python virtual environments / caches
+    ".venv/",
+    "venv/",
+    "__pycache__/",
+    ".mypy_cache/",
+    ".pytest_cache/",
+    # Vendor directories
+    "vendor/",
+    "third_party/",
+    # Build artifacts
+    "build/",
+    "dist/",
+    "out/",
+]

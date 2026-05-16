@@ -82,10 +82,19 @@ impl TreeSitterRule for CountRule {
         };
         let count: usize = captures.iter().map(|c| c.len()).sum();
         if count > self.threshold {
+            let (line, col) = captures
+                .iter()
+                .flatten()
+                .next()
+                .map(|cap| {
+                    let pos = cap.node.start_position();
+                    (pos.row + 1, pos.column + 1)
+                })
+                .unwrap_or((1, 1));
             vec![CodeIssue {
                 file_path: file.path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column: col,
                 rule_name: self.name.to_string(),
                 message: (self.message_fn)(count),
                 severity: self.severity.clone(),
@@ -121,16 +130,24 @@ impl TreeSitterRule for MacroRule {
             Ok(c) => c,
             Err(_) => return vec![],
         };
-        let count = captures
+        let matching: Vec<_> = captures
             .iter()
             .filter_map(|group| group.first())
             .filter(|cap| cap.text == self.macro_name)
-            .count();
+            .collect();
+        let count = matching.len();
         if count > self.threshold {
+            let (line, col) = matching
+                .first()
+                .map(|cap| {
+                    let pos = cap.node.start_position();
+                    (pos.row + 1, pos.column + 1)
+                })
+                .unwrap_or((1, 1));
             vec![CodeIssue {
                 file_path: file.path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column: col,
                 rule_name: self.name.to_string(),
                 message: (self.message_fn)(count),
                 severity: self.severity.clone(),
@@ -167,16 +184,24 @@ impl TreeSitterRule for MethodCallRule {
             Ok(c) => c,
             Err(_) => return vec![],
         };
-        let count = captures
+        let matching: Vec<_> = captures
             .iter()
             .filter_map(|group| group.first())
             .filter(|cap| cap.text == self.method_name)
-            .count();
+            .collect();
+        let count = matching.len();
         if count > self.threshold {
+            let (line, col) = matching
+                .first()
+                .map(|cap| {
+                    let pos = cap.node.start_position();
+                    (pos.row + 1, pos.column + 1)
+                })
+                .unwrap_or((1, 1));
             vec![CodeIssue {
                 file_path: file.path.clone(),
-                line: 1,
-                column: 1,
+                line,
+                column: col,
                 rule_name: self.name.to_string(),
                 message: (self.message_fn)(count),
                 severity: (self.severity_fn)(count),

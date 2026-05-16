@@ -9,6 +9,12 @@ pub fn register_ruby_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
     engine.add(Box::new(BareRescueRule));
     engine.add(Box::new(FrozenStringRule));
     engine.add(Box::new(NegatedIfRule));
+
+    // ruby-predicate-method: boolean methods should end with ?
+    engine.add(Box::new(RubyPredicateMethodRule));
+
+    // ruby-two-space-indent: Ruby convention is 2-space indentation
+    engine.add(Box::new(RubyTwoSpaceIndentRule));
 }
 
 /// Global variables ($prefix) in Ruby.
@@ -222,6 +228,93 @@ impl TreeSitterRule for NegatedIfRule {
     }
 }
 
+// ─── Ruby predicate method: boolean methods should end with ? ─────
+
+struct RubyPredicateMethodRule;
+
+impl TreeSitterRule for RubyPredicateMethodRule {
+    fn name(&self) -> &'static str {
+        "ruby-predicate-method"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Ruby]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if let Some(name) = trimmed
+                .strip_prefix("def ")
+                .and_then(|s| s.split(&['(', ' ', '\t'][..]).next())
+            {
+                let is_predicate = name.starts_with("is_")
+                    || name.starts_with("has_")
+                    || name.starts_with("can_")
+                    || name.starts_with("should_");
+                let ends_with_q = name.ends_with('?');
+                if is_predicate && !ends_with_q {
+                    issues.push(CodeIssue {
+                        file_path: file.path.clone(),
+                        line: line_num + 1,
+                        column: trimmed.find("def ").unwrap_or(0) + 5,
+                        rule_name: "ruby-predicate-method".to_string(),
+                        message: format!("'{}' should end with '?' for predicate methods", name),
+                        severity: Severity::Mild,
+                    });
+                }
+            }
+        }
+        issues
+    }
+}
+
+// ─── Ruby: two-space indentation convention ─────────────────────────
+
+struct RubyTwoSpaceIndentRule;
+
+impl TreeSitterRule for RubyTwoSpaceIndentRule {
+    fn name(&self) -> &'static str {
+        "ruby-two-space-indent"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Ruby]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let indent = line.len() - line.trim_start().len();
+            if indent == 0 {
+                continue;
+            }
+            // Check if indentation is a multiple of 2
+            if indent % 2 != 0 {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: indent + 1,
+                    rule_name: "ruby-two-space-indent".to_string(),
+                    message: format!(
+                        "Indentation is {} spaces — Ruby convention is 2-space indentation",
+                        indent
+                    ),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::parse_ruby;
@@ -321,10 +414,51 @@ end
     }
 
     #[test]
+    fn test_ruby_predicate_method_detected() {
+        let file = parse_ruby("def is_valid\n  true\nend\n");
+        let rule = RubyPredicateMethodRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "is_valid should be flagged");
+        assert_eq!(issues[0].rule_name, "ruby-predicate-method");
+    }
+
+    #[test]
+    fn test_ruby_predicate_method_valid_ok() {
+        let file = parse_ruby("def valid?\n  true\nend\n");
+        let rule = RubyPredicateMethodRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "valid? should not be flagged");
+    }
+
+    #[test]
+    fn test_ruby_predicate_not_predicate_ok() {
+        let file = parse_ruby("def get_user\n  User.new\nend\n");
+        let rule = RubyPredicateMethodRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "non-predicate should not be flagged");
+    }
+
+    #[test]
     fn test_negated_if_unless_not_flagged() {
         let file = parse_ruby("def foo\n  unless x\n    puts 'not'\n  end\nend\n");
         let rule = NegatedIfRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "unless should not be flagged");
+    }
+
+    #[test]
+    fn test_two_space_indent_ok() {
+        let file = parse_ruby("def foo\n  if x\n    puts 'hi'\n  end\nend\n");
+        let rule = RubyTwoSpaceIndentRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "2-space indent should not be flagged");
+    }
+
+    #[test]
+    fn test_three_space_indent_detected() {
+        let file = parse_ruby("def foo\n   if x\n     puts 'hi'\n   end\nend\n");
+        let rule = RubyTwoSpaceIndentRule;
+        let issues = rule.check(&file);
+        assert!(!issues.is_empty(), "3-space indent should be flagged");
     }
 }

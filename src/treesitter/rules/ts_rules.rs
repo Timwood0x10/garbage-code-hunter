@@ -7,6 +7,7 @@ use crate::treesitter::rule::TreeSitterRule;
 pub fn register_ts_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
     engine.add(Box::new(AnyTypeRule));
     engine.add(Box::new(PreferInterfaceRule));
+    engine.add(Box::new(TsNoEnumRule));
 }
 
 /// `any` type usage in TypeScript.
@@ -100,6 +101,45 @@ impl TreeSitterRule for PreferInterfaceRule {
     }
 }
 
+// ─── TS: prefer const objects over enums ────────────────────────────
+
+struct TsNoEnumRule;
+
+impl TreeSitterRule for TsNoEnumRule {
+    fn name(&self) -> &'static str {
+        "ts-no-enum"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::TypeScript]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let captures = match collect_captures(file, "(enum_declaration name: (identifier) @name)") {
+            Ok(c) => c,
+            Err(_) => return vec![],
+        };
+        let mut issues = Vec::new();
+        for group in &captures {
+            if let Some(cap) = group.first() {
+                let pos = cap.node.start_position();
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: pos.row + 1,
+                    column: pos.column + 1,
+                    rule_name: "ts-no-enum".to_string(),
+                    message: format!(
+                        "Prefer 'const' object over 'enum {}' — enums add runtime overhead",
+                        cap.text.trim()
+                    ),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::parse_ts;
@@ -154,5 +194,22 @@ function foo(x: string): number {
         let rule = PreferInterfaceRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "interface should not be flagged");
+    }
+
+    #[test]
+    fn test_ts_no_enum_detected() {
+        let file = parse_ts("enum Color { Red, Green, Blue }\n");
+        let rule = TsNoEnumRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "enum should be flagged");
+        assert_eq!(issues[0].rule_name, "ts-no-enum");
+    }
+
+    #[test]
+    fn test_ts_const_object_ok() {
+        let file = parse_ts("const Color = { Red: 0, Green: 1, Blue: 2 } as const;\n");
+        let rule = TsNoEnumRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "const object should not be flagged");
     }
 }

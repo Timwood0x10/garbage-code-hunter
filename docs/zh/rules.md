@@ -74,6 +74,11 @@ Garbage Code Hunter 使用 tree-sitter AST 解析，在 11 种语言中检测代
 | `complex-closure` | 嵌套闭包（深度 > 2）或参数 > 5 | — |
 | `dead-code` | return/break/continue/panic 之后的不可达代码 | — |
 | `duplicate-imports` | 重复的 `use` 语句 | — |
+| `rust-doc-example` | 文档注释（`///`）没有示例代码块（&#96 &#96 &#96） | — |
+| `rust-derive-order` | `#[derive(..)]` 不按标准顺序（Debug, Clone, Copy, PartialEq...） | — |
+| `rust-error-display` | 实现了 Debug 但没有实现 Display 的类型 | — |
+| `rust-must-use` | 返回 Result/Option 的 `pub fn` 缺少 `#[must_use]` | — |
+| `too-many-params` | 函数参数超过 6 个 | — |
 
 ---
 
@@ -84,21 +89,49 @@ Garbage Code Hunter 使用 tree-sitter AST 解析，在 11 种语言中检测代
 | `panic-abuse` | `panic()` 调用 | 0 | Mild → Nuclear |
 | `goroutine-abuse` | `go` 语句生成 | 8 | Spicy |
 | `defer-in-loop` | `for` 循环体内的 `defer` | — | Spicy |
+| `go-receiver-name` | 方法接收者超过 2 个字符 | — | Mild |
+| `go-error-string` | 错误字符串首字母大写 | — | Mild |
+| `go-context-first` | `context.Context` 不是函数的第一个参数 | — | Mild |
+| `go-else-return` | `if-else` 中 `if` 块有 return（应使用 early return） | — | Mild |
 
-### 真实项目示例（interchange 项目）
+---
 
-```
-📁 main.go
-  ⚠️ cross file near duplicate: 1
+## Python 专属规则
 
-📁 params.pb.go
-  🔄 Code duplication issues: 2
-  ⚠️ magic number: 20
-  🏷️ Variable naming issues: 8 (n, n, i, l, b, ...)
+| 规则 | 检测内容 | 严重度 |
+|------|---------|--------|
+| `bare-except` | `except:` 未指定异常类型 | Spicy |
+| `wildcard-import` | `from module import *`（排除已知白名单模块） | Mild |
+| `python-naming` | 函数不是 snake_case / 类不是 PascalCase | Mild |
+| `compared-to-bool` | `if x == True` 而非 `if x` | Mild |
+| `not-is-none` | `x == None` 而非 `x is None` | Mild |
+| `python-type-ignore` | `# type: ignore` 注释 | Mild |
+| `python-fstring` | `.format()` 或 `%` 格式化（应使用 f-string） | Mild |
+| `python-magic-method` | 非标准 `__dunder__` 方法定义 | Mild |
 
-📁 errors.go
-  ⚠️ magic number: 4
-```
+---
+
+## Java 专属规则
+
+| 规则 | 检测内容 | 严重度 |
+|------|---------|--------|
+| `empty-catch` | 空的 `catch (Exception e) {}` 块 | Spicy |
+| `constant-name` | `static final` 字段不是 UPPER_SNAKE_CASE | Mild |
+| `java-javadoc-missing` | 公共/受保护方法缺少 Javadoc 注释 | Mild |
+| `java-try-resource` | `try-finally` 中的 `.close()`（应使用 try-with-resources） | Mild |
+| `java-string-concat` | 循环内的字符串拼接（`+=`） | Mild |
+
+---
+
+## Ruby 专属规则
+
+| 规则 | 检测内容 | 严重度 |
+|------|---------|--------|
+| `global-variable` | 非内置全局变量（`$xxx`） | Mild |
+| `bare-rescue` | `rescue` 未指定异常类 | Mild |
+| `frozen-string` | 缺少 `# frozen_string_literal: true` 魔法注释 | Mild |
+| `negated-if` | `if !x` 而非 `unless x` | Mild |
+| `ruby-predicate-method` | 谓词方法（`is_xxx`、`has_xxx`）不以 `?` 结尾 | Mild |
 
 ---
 
@@ -106,9 +139,50 @@ Garbage Code Hunter 使用 tree-sitter AST 解析，在 11 种语言中检测代
 
 | 规则 | 检测内容 | 阈值 |
 |------|---------|------|
-| `goto-abuse` | `goto` 语句 | 0 |
-| `new-expression` | `new` 表达式（仅 C++） | 0 |
-| `malloc-leak` | 堆分配（malloc、curlx_malloc、zmalloc 等） | 0 |
+| `c-goto-abuse` | `goto` 语句 | 0 |
+| `c-new-expression` | `new` 表达式（仅 C++） | 0 |
+| `c-malloc-leak` | 堆分配（malloc、curlx_malloc、zmalloc 等） | 0 |
+| `c-malloc-check` | `malloc` 返回值未检查是否为 NULL | — |
+| `c-sizeof-type` | `sizeof(类型名)` 而非 `sizeof(表达式)` | — |
+
+---
+
+## TypeScript 专属规则
+
+| 规则 | 检测内容 | 严重度 |
+|------|---------|--------|
+| `any-type` | `any` 类型标注 / `as any` 强制转换 | Mild |
+| `prefer-interface` | `type Foo = { ... }` 当可以使用 `interface` 时 | Mild |
+
+---
+
+## 语言专属豁免列表
+
+以下惯用写法从通用规则中豁免，以减少误报：
+
+### single-letter-variable 豁免
+
+| 语言 | 豁免的标识符 |
+|------|-------------|
+| Go | `err`、`ok`、`ctx`、`mu`、`wg`、`ch`、`fn` |
+| Python | `_`（丢弃变量） |
+| C/C++ | `i`、`j`、`k`、`n`、`p`、`s` |
+
+### abbreviation-abuse 豁免
+
+| 语言 | 豁免的缩写 |
+|------|-----------|
+| Go | `ctx`、`req`、`resp`、`srv`、`cfg`、`buf`、`ch`、`wg`、`mu`、`fn`、`fmt`、`err`、`ok`、`http`、`json`、`tls`、`ssh` |
+| Python | `cls`、`idx`、`fmt`、`msg`、`btn`、`img` |
+| Java | `str`、`num`、`obj`、`arr`、`idx` |
+
+### 其他豁免
+
+| 规则 | 语言 | 豁免模式 |
+|------|------|---------|
+| `god-function` | Go | `func main()`、`func init()` |
+| `any-type` | TypeScript | `*.d.ts` 文件 |
+| `hungarian-notation` | 所有 | `c`、`t`、`ctx`、`req`、`res`、`err`、`db`、`kv`、`fs`、`io` |
 
 ---
 
@@ -127,6 +201,27 @@ Garbage Code Hunter 使用 tree-sitter AST 解析，在 11 种语言中检测代
 | todo-comment | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | file-too-long | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | duplication | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| go-receiver-name | — | ✅ | — | — | — | — | — | — | — |
+| go-error-string | — | ✅ | — | — | — | — | — | — | — |
+| go-context-first | — | ✅ | — | — | — | — | — | — | — |
+| go-else-return | — | ✅ | — | — | — | — | — | — | — |
+| python-naming | — | — | ✅ | — | — | — | — | — | — |
+| compared-to-bool | — | — | ✅ | — | — | — | — | — | — |
+| not-is-none | — | — | ✅ | — | — | — | — | — | — |
+| python-type-ignore | — | — | ✅ | — | — | — | — | — | — |
+| python-fstring | — | — | ✅ | — | — | — | — | — | — |
+| python-magic-method | — | — | ✅ | — | — | — | — | — | — |
+| rust-doc-example | ✅ | — | — | — | — | — | — | — | — |
+| rust-derive-order | ✅ | — | — | — | — | — | — | — | — |
+| rust-error-display | ✅ | — | — | — | — | — | — | — | — |
+| rust-must-use | ✅ | — | — | — | — | — | — | — | — |
+| java-javadoc-missing | — | — | — | — | ✅ | — | — | — | — |
+| java-try-resource | — | — | — | — | ✅ | — | — | — | — |
+| java-string-concat | — | — | — | — | ✅ | — | — | — | — |
+| ruby-predicate-method | — | — | — | — | — | — | ✅ | — | — |
+| c-malloc-check | — | — | — | — | — | ✅ | — | — | — |
+| c-sizeof-type | — | — | — | — | — | ✅ | — | — | — |
+| prefer-interface | — | — | — | ✅ | — | — | — | — | — |
 
 ---
 
@@ -137,3 +232,5 @@ Garbage Code Hunter 使用 tree-sitter AST 解析，在 11 种语言中检测代
 2. **跨文件重复**：近重复检测在大型代码库上可能产生较高的 issue 数量。正在改进中。
 
 3. **评分**：非 Rust 项目可能显示偏高的分数，因为部分评分类别是 Rust 专属的。
+
+4. **Java Javadoc 检测**：`java-javadoc-missing` 规则基于行的检测，可能无法识别跨多行的多行 Javadoc 注释。

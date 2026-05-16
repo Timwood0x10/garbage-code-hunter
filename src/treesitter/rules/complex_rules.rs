@@ -590,14 +590,22 @@ impl TreeSitterRule for SingleLetterTsRule {
                 }
 
                 // Skip Go idiomatic single-letter identifiers
+                // g/e = got/expected in test assertions, tt = test table
                 if file.language == Language::Go
-                    && ["err", "ok", "ctx", "mu", "wg", "ch", "fn"].contains(&name)
+                    && ["err", "ok", "ctx", "mu", "wg", "ch", "fn", "g", "e"].contains(&name)
                 {
                     continue;
                 }
 
                 // Skip Python idiomatic single-letter identifiers
                 if file.language == Language::Python && name == "_" {
+                    continue;
+                }
+
+                // Skip C/C++ idiomatic single-letter identifiers
+                if (file.language == Language::C || file.language == Language::Cpp)
+                    && ["i", "j", "k", "n", "p", "s"].contains(&name)
+                {
                     continue;
                 }
 
@@ -767,6 +775,8 @@ impl TreeSitterRule for AbbreviationAbuseTsRule {
             "ctx", "req", "resp", "srv", "cfg", "buf", "ch", "wg", "mu", "fn", "fmt", "err", "ok",
             "http", "json", "tls", "ssh",
         ];
+        let python_abbrevs: &[&str] = &["cls", "idx", "fmt", "msg", "btn", "img"];
+        let java_abbrevs: &[&str] = &["str", "num", "obj", "arr", "idx"];
 
         let mut issues = Vec::new();
 
@@ -777,6 +787,14 @@ impl TreeSitterRule for AbbreviationAbuseTsRule {
 
                 // Skip language-specific allowed abbreviations
                 if file.language == Language::Go && go_abbrevs.contains(&name_lower.as_str()) {
+                    continue;
+                }
+                if file.language == Language::Python
+                    && python_abbrevs.contains(&name_lower.as_str())
+                {
+                    continue;
+                }
+                if file.language == Language::Java && java_abbrevs.contains(&name_lower.as_str()) {
                     continue;
                 }
 
