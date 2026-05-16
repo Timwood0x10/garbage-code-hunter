@@ -42,6 +42,12 @@ pub fn register_go_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEng
 
     // defer in loop: detect defer inside for loop body
     engine.add(Box::new(DeferInLoopRule));
+
+    // go-receiver-name: method receiver should be 1-2 chars
+    engine.add(Box::new(GoReceiverNameRule));
+
+    // go-error-string: error strings should not start with capital letter
+    engine.add(Box::new(GoErrorStringRule));
 }
 
 struct PanicRule {
@@ -207,6 +213,115 @@ fn has_defer_descendant(file: &ParsedFile, node: tree_sitter::Node) -> bool {
         cursor.goto_parent();
     }
     false
+}
+
+// ─── Go: receiver name should be 1-2 chars ──────────────────────────
+
+struct GoReceiverNameRule;
+
+impl TreeSitterRule for GoReceiverNameRule {
+    fn name(&self) -> &'static str {
+        "go-receiver-name"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Go]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let pattern = "(method_declaration receiver: (parameter_list (parameter_declaration name: (identifier) @rec)))";
+        let captures = match collect_captures(file, pattern) {
+            Ok(c) => c,
+            Err(_) => return vec![],
+        };
+        let mut issues = Vec::new();
+        for group in &captures {
+            if let Some(cap) = group.first() {
+                let name = cap.text;
+                if name.len() > 2 {
+                    let pos = cap.node.start_position();
+                    issues.push(CodeIssue {
+                        file_path: file.path.clone(),
+                        line: pos.row + 1,
+                        column: pos.column + 1,
+                        rule_name: "go-receiver-name".to_string(),
+                        message: format!(
+                            "Receiver '{}' is {} chars; Go convention is 1-2 chars",
+                            name,
+                            name.len()
+                        ),
+                        severity: Severity::Mild,
+                    });
+                }
+            }
+        }
+        issues
+    }
+}
+
+// ─── Go: error strings should not start with capital letter ─────────
+
+struct GoErrorStringRule;
+
+impl TreeSitterRule for GoErrorStringRule {
+    fn name(&self) -> &'static str {
+        "go-error-string"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Go]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let pattern = r#"(call_expression function: (selector_expression operand: (identifier) @pkg field: (field_identifier) @method) (#eq? @pkg "fmt") (#match? @method "^(Errorf|New)$"))"#;
+        let captures = match collect_captures(file, pattern) {
+            Ok(c) => c,
+            Err(_) => return vec![],
+        };
+        let mut issues = Vec::new();
+        for group in &captures {
+            if let Some(cap) = group.first() {
+                // Get parent call_expression (selector_expression → call_expression)
+                let call = cap.node.parent().and_then(|p| p.parent());
+                if let Some(call_node) = call {
+                    let mut cursor = call_node.walk();
+                    for child in call_node.children(&mut cursor) {
+                        if child.kind() == "argument_list" {
+                            let child_text = file.node_text(child);
+                            let trimmed = child_text.trim();
+                            // Extract first string argument content
+                            let start = trimmed.find('"');
+                            let content = if let Some(s) = start {
+                                let from_quote = &trimmed[s + 1..];
+                                from_quote.find('"').map(|e| &from_quote[..e]).unwrap_or("")
+                            } else {
+                                ""
+                            };
+                            if !content.is_empty() {
+                                let first = content.chars().next().unwrap_or(' ');
+                                if first.is_uppercase() {
+                                    let pos = call_node.start_position();
+                                    issues.push(CodeIssue {
+                                        file_path: file.path.clone(),
+                                        line: pos.row + 1,
+                                        column: pos.column + 1,
+                                        rule_name: "go-error-string".to_string(),
+                                        message: format!(
+                                            "Error string starts with uppercase '{}' — use lowercase per Go convention",
+                                            first
+                                        ),
+                                        severity: Severity::Mild,
+                                    });
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        issues
+    }
 }
 
 #[cfg(test)]

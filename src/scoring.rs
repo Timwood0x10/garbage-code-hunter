@@ -221,6 +221,8 @@ impl CodeScorer {
             (
                 "code-smells",
                 vec![
+                    "go-error-string",
+                    "go-receiver-name",
                     "magic-number",
                     "commented-code",
                     "dead-code",

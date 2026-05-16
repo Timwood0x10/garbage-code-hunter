@@ -246,6 +246,14 @@ impl TreeSitterRule for GodFunctionRule {
                 // Control flow nodes
                 score += count_descendants_of_types(node, &control_flow_types);
 
+                // Skip Go main() and init() — they are inherently large entry points
+                if file.language == Language::Go {
+                    let func_name_for_check = find_function_name(node, content_bytes);
+                    if func_name_for_check == "main" || func_name_for_check == "init" {
+                        continue;
+                    }
+                }
+
                 if score > 10 {
                     let func_name = find_function_name(node, content_bytes);
                     let messages = [
@@ -581,6 +589,13 @@ impl TreeSitterRule for SingleLetterTsRule {
                     continue;
                 }
 
+                // Skip Go idiomatic single-letter identifiers
+                if file.language == Language::Go
+                    && ["err", "ok", "ctx", "mu", "wg", "ch", "fn"].contains(&name)
+                {
+                    continue;
+                }
+
                 let msgs = [
                     format!(
                         "Single-letter variable '{}'? Writing math formulas or torturing readers?",
@@ -742,12 +757,23 @@ impl TreeSitterRule for AbbreviationAbuseTsRule {
             ("cnt", "count"),
         ];
 
+        // Language-specific allowed abbreviations
+        let go_abbrevs: &[&str] = &[
+            "ctx", "req", "resp", "srv", "cfg", "buf", "ch", "wg", "mu", "fn", "fmt", "err", "ok",
+            "http", "json", "tls", "ssh",
+        ];
+
         let mut issues = Vec::new();
 
         for group in &captures {
             if let Some(cap) = group.first() {
                 let name = cap.text;
                 let name_lower = name.to_lowercase();
+
+                // Skip language-specific allowed abbreviations
+                if file.language == Language::Go && go_abbrevs.contains(&name_lower.as_str()) {
+                    continue;
+                }
 
                 for &(abbrev, full) in bad_abbrevs {
                     if name_lower == abbrev || name_lower.starts_with(&format!("{}_", abbrev)) {
