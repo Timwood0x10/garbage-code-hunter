@@ -109,25 +109,25 @@ clean:
 .PHONY: test
 test:
 	@echo "$(BLUE)Running all tests (serial)...$(NC)"
-	$(CARGO) test --workspace -- --test-threads=1
+	$(CARGO) test --workspace -- 
 	@echo "$(GREEN)All tests passed$(NC)"
 
 .PHONY: test-unit
 test-unit:
 	@echo "$(BLUE)Running unit tests...$(NC)"
-	$(CARGO) test --lib --workspace -- --test-threads=1
+	$(CARGO) test --lib --workspace -- 
 	@echo "$(GREEN)Unit tests passed$(NC)"
 
 .PHONY: test-integration
 test-integration:
 	@echo "$(BLUE)Running integration tests...$(NC)"
-	$(CARGO) test --test '*' --workspace -- --test-threads=1
+	$(CARGO) test --test '*' --workspace -- 
 	@echo "$(GREEN)Integration tests passed$(NC)"
 
 .PHONY: test-verbose
 test-verbose:
 	@echo "$(BLUE)Running tests (verbose)...$(NC)"
-	$(CARGO) test --tests -- --test-threads=1 --nocapture
+	$(CARGO) test --tests --  --nocapture
 
 # ─── Analyze ───────────────────────────────────────────────────────────────────
 
@@ -215,11 +215,11 @@ ci:
 	@echo "$(GREEN)OK$(NC)"
 	@echo ""
 	@echo "$(BLUE)[4/5] Unit tests...$(NC)"
-	$(CARGO) test --lib --workspace -- --test-threads=1
+	$(CARGO) test --lib --workspace -- 
 	@echo "$(GREEN)OK$(NC)"
 	@echo ""
 	@echo "$(BLUE)[5/5] Integration tests...$(NC)"
-	$(CARGO) test --test '*' --workspace -- --test-threads=1
+	$(CARGO) test --test '*' --workspace -- 
 	@echo ""
 	@echo "$(GREEN)✅ CI passed$(NC)"
 

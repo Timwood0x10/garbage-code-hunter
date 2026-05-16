@@ -1,10 +1,29 @@
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::TreeSitterEngine;
 use std::path::Path;
+use std::sync::OnceLock;
+
+/// Shared engine reused across all tests — saves ~85s by loading grammars once
+fn shared_engine() -> &'static TreeSitterEngine {
+    static ENGINE: OnceLock<TreeSitterEngine> = OnceLock::new();
+    ENGINE.get_or_init(|| {
+        let engine = TreeSitterEngine::new();
+        // Pre-warm all grammars so test timings are consistent
+        engine.ensure_parser(crate::language::Language::Rust);
+        engine.ensure_parser(crate::language::Language::Go);
+        engine.ensure_parser(crate::language::Language::Python);
+        engine.ensure_parser(crate::language::Language::JavaScript);
+        engine.ensure_parser(crate::language::Language::TypeScript);
+        engine.ensure_parser(crate::language::Language::Java);
+        engine.ensure_parser(crate::language::Language::Ruby);
+        engine.ensure_parser(crate::language::Language::C);
+        engine.ensure_parser(crate::language::Language::Cpp);
+        engine
+    })
+}
 
 fn parse_as(filename: &str, code: &str) -> ParsedFile {
-    let engine = TreeSitterEngine::new();
-    engine
+    shared_engine()
         .parse_file(Path::new(filename), code)
         .expect("Should parse")
 }
