@@ -224,16 +224,8 @@ impl TreeSitterRule for NegatedIfRule {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::parse_ruby;
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-    use std::path::Path;
-
-    fn parse_ruby(code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new("test.rb"), code)
-            .expect("Should parse Ruby")
-    }
 
     #[test]
     fn test_global_variable_detected() {
@@ -294,5 +286,45 @@ end
         let rule = BareRescueRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "Typed rescue should not trigger");
+    }
+
+    #[test]
+    fn test_frozen_string_missing() {
+        let file = parse_ruby("def foo; end\n");
+        let rule = FrozenStringRule;
+        let issues = rule.check(&file);
+        assert_eq!(
+            issues.len(),
+            1,
+            "Missing frozen_string_literal should be flagged"
+        );
+    }
+
+    #[test]
+    fn test_frozen_string_present_ok() {
+        let file = parse_ruby("# frozen_string_literal: true\n\ndef foo; end\n");
+        let rule = FrozenStringRule;
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "Present frozen_string_literal should be OK"
+        );
+    }
+
+    #[test]
+    fn test_negated_if_detected() {
+        let file = parse_ruby("def foo\n  if !x\n    puts 'not'\n  end\nend\n");
+        let rule = NegatedIfRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "if !x should be flagged");
+        assert_eq!(issues[0].rule_name, "negated-if");
+    }
+
+    #[test]
+    fn test_negated_if_unless_not_flagged() {
+        let file = parse_ruby("def foo\n  unless x\n    puts 'not'\n  end\nend\n");
+        let rule = NegatedIfRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "unless should not be flagged");
     }
 }

@@ -102,16 +102,8 @@ impl TreeSitterRule for PreferInterfaceRule {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::parse_ts;
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-    use std::path::Path;
-
-    fn parse_ts(code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new("test.ts"), code)
-            .expect("Should parse TypeScript")
-    }
 
     #[test]
     fn test_any_type_detected() {
@@ -142,5 +134,25 @@ function foo(x: string): number {
         let rule = AnyTypeRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "Typed params should not trigger");
+    }
+
+    #[test]
+    fn test_prefer_interface_detected() {
+        let file = parse_ts("type Person = { name: string; };\n");
+        let rule = PreferInterfaceRule;
+        let issues = rule.check(&file);
+        assert_eq!(
+            issues.len(),
+            1,
+            "type alias with object type should be flagged"
+        );
+    }
+
+    #[test]
+    fn test_prefer_interface_interface_ok() {
+        let file = parse_ts("interface Person { name: string; }\n");
+        let rule = PreferInterfaceRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "interface should not be flagged");
     }
 }

@@ -121,16 +121,8 @@ impl TreeSitterRule for ConstantNameRule {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::parse_java;
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-    use std::path::Path;
-
-    fn parse_java(code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new("Test.java"), code)
-            .expect("Should parse Java")
-    }
 
     #[test]
     fn test_empty_catch_detected() {
@@ -169,5 +161,33 @@ class Test {
         let rule = EmptyCatchRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "Non-empty catch should not trigger");
+    }
+
+    #[test]
+    fn test_constant_name_uppercase_ok() {
+        let file = parse_java(
+            r#"
+public class Test {
+    public static final int MAX_SIZE = 100;
+}
+"#,
+        );
+        let rule = ConstantNameRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "UPPER_CASE constant should be OK");
+    }
+
+    #[test]
+    fn test_constant_name_lowercase_flagged() {
+        let file = parse_java(
+            r#"
+public class Test {
+    public static final int maxSize = 100;
+}
+"#,
+        );
+        let rule = ConstantNameRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "lowercase constant should be flagged");
     }
 }

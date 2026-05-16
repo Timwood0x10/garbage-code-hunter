@@ -326,16 +326,8 @@ impl TreeSitterRule for GoErrorStringRule {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::parse_go;
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-    use std::path::Path;
-
-    fn parse_go(code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new("test.go"), code)
-            .expect("Should parse Go")
-    }
 
     #[test]
     fn test_panic_abuse_detection() {
@@ -424,5 +416,47 @@ func main() {
         let rule = DeferInLoopRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "Defer outside loop should not trigger");
+    }
+
+    #[test]
+    fn test_go_receiver_name_short_ok() {
+        let file = parse_go(
+            r#"
+package main
+type T struct{}
+func (s *T) Good() {}   // 1 char — OK
+func (srv *T) Bad() {}  // 3 chars — should flag
+"#,
+        );
+        let rule = GoReceiverNameRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "Only srv should be flagged");
+        assert!(issues[0].message.contains("srv"), "srv should be flagged");
+    }
+
+    #[test]
+    fn test_go_error_string_uppercase() {
+        let file = parse_go(
+            r#"
+package main
+import "fmt"
+func ok() error  { return fmt.Errorf("lowercase ok") }    // lowercase — OK
+func bad() error { return fmt.Errorf("Uppercase bad") }   // uppercase — flag
+func also_bad() error { return fmt.Errorf("Invalid input") }  // uppercase — flag
+"#,
+        );
+        let rule = GoErrorStringRule;
+        let issues = rule.check(&file);
+        // The lowercase error should be OK, two uppercase should be flagged
+        assert_eq!(
+            issues.len(),
+            2,
+            "Should flag 2 uppercase errors, got {}",
+            issues.len()
+        );
+        assert!(
+            issues.iter().all(|i| i.rule_name == "go-error-string"),
+            "Rule name mismatch"
+        );
     }
 }

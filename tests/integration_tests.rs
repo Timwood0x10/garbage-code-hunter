@@ -213,10 +213,9 @@ fn main() {
     let issues = analyzer.analyze_file(&file_path);
 
     // Clean code should have minimal or no issues
-    // With the addition of new comprehensive rules, we may detect more issues
-    // Adjust the threshold to account for new file structure and pattern detection rules
+    // Currently: println-debugging (1) + magic-number (2) = 3 false positives
     assert!(
-        issues.len() <= 10,
+        issues.len() <= 5,
         "Clean code should have minimal issues, found: {}",
         issues.len()
     );

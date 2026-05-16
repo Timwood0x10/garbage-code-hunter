@@ -261,6 +261,7 @@ impl CodeScorer {
                     "c-commented-code",
                     "c-dead-code",
                     "c-goto-abuse",
+                    "c-new-expression",
                     "c-malloc-leak",
                     "defer-in-loop",
                     "goroutine-abuse",

@@ -313,16 +313,8 @@ impl TreeSitterRule for NotIsNoneRule {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::parse_python;
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-    use std::path::Path;
-
-    fn parse_python(code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new("test.py"), code)
-            .expect("Should parse Python")
-    }
 
     #[test]
     fn test_bare_except_detected() {
@@ -378,5 +370,88 @@ import sys
         let rule = WildcardImportRule;
         let issues = rule.check(&file);
         assert!(issues.is_empty(), "Normal imports should not trigger");
+    }
+
+    // ── Python naming tests ─────────────────────────────────
+
+    #[test]
+    fn test_python_naming_camelcase_function() {
+        let file = parse_python("def badFunction(): pass\n");
+        let rule = PythonNamingRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "camelCase function should be flagged");
+    }
+
+    #[test]
+    fn test_python_naming_snakecase_function_ok() {
+        let file = parse_python("def good_function(): pass\n");
+        let rule = PythonNamingRule;
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "snake_case function should not be flagged"
+        );
+    }
+
+    #[test]
+    fn test_python_naming_snakecase_class() {
+        let file = parse_python("class bad_class: pass\n");
+        let rule = PythonNamingRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "snake_case class should be flagged");
+    }
+
+    #[test]
+    fn test_python_naming_pascalcase_class_ok() {
+        let file = parse_python("class GoodClass: pass\n");
+        let rule = PythonNamingRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "PascalCase class should not be flagged");
+    }
+
+    // ── Compared-to-bool tests ──────────────────────────────
+
+    #[test]
+    fn test_compared_to_bool_detected() {
+        let file = parse_python("if x == True: pass\nif y == False: pass\n");
+        let rule = ComparedToBoolRule;
+        let issues = rule.check(&file);
+        assert_eq!(
+            issues.len(),
+            2,
+            "Both == True and == False should be flagged"
+        );
+    }
+
+    #[test]
+    fn test_compared_to_bool_is_ok() {
+        let file = parse_python("if x is True: pass\nif x: pass\n");
+        let rule = ComparedToBoolRule;
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "'is True' and bare 'if x' should not be flagged"
+        );
+    }
+
+    // ── Not-is-none tests ───────────────────────────────────
+
+    #[test]
+    fn test_not_is_none_eq_detected() {
+        let file = parse_python("if x == None: pass\n");
+        let rule = NotIsNoneRule;
+        let issues = rule.check(&file);
+        assert_eq!(issues.len(), 1, "x == None should be flagged");
+    }
+
+    #[test]
+    fn test_not_is_none_is_ok() {
+        let file = parse_python("if x is None: pass\nif x is not None: pass\n");
+        let rule = NotIsNoneRule;
+        let issues = rule.check(&file);
+        assert!(
+            issues.is_empty(),
+            "'is None' and 'is not None' should not be flagged"
+        );
     }
 }

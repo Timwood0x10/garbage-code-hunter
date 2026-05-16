@@ -307,8 +307,9 @@ fn test_binary_file_does_not_crash() {
 
     // Should return empty or minimal issues for non-parseable files
     assert!(
-        issues.len() <= 5,
-        "Binary-like content should produce minimal issues"
+        issues.len() <= 1,
+        "Binary-like content should produce at most 1 issue, got {}",
+        issues.len()
     );
 }
 
@@ -386,7 +387,7 @@ impl Rectangle {
         .collect();
 
     assert!(
-        naming_issues.len() <= 4,
+        naming_issues.len() <= 2,
         "UI coordinate variables should be mostly whitelisted, got {} naming issues",
         naming_issues.len()
     );
@@ -423,9 +424,9 @@ fn main() {
         .filter(|i| i.rule_name.contains("magic-number"))
         .collect();
 
-    // Allow up to 2 false positives (some implementations may still flag constants)
+    // Named constants should NOT be flagged as magic numbers
     assert!(
-        magic_issues.len() <= 2,
+        magic_issues.is_empty(),
         "Named constants should not be flagged as magic numbers, got {}",
         magic_issues.len()
     );

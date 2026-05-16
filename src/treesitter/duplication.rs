@@ -305,26 +305,8 @@ impl IntraFileDupDetector {
 
 #[cfg(test)]
 mod tests {
+    use super::super::rules::test_helpers::{parse_python_as, parse_rust, parse_rust_as};
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-
-    fn parse_rust_as(name: &str, code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new(name), code)
-            .expect("Should parse")
-    }
-
-    fn parse_rust(code: &str) -> ParsedFile {
-        parse_rust_as("default.rs", code)
-    }
-
-    fn parse_python_as(name: &str, code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new(name), code)
-            .expect("Should parse")
-    }
 
     #[test]
     fn test_find_function_nodes() {

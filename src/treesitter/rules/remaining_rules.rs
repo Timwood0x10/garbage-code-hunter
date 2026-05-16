@@ -483,16 +483,8 @@ impl TreeSitterRule for FileTooLongRule {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::parse_rust;
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-    use std::path::Path;
-
-    fn parse_rust(code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new("test.rs"), code)
-            .expect("Should parse")
-    }
 
     #[test]
     fn test_meaningless_names_detected() {
@@ -575,5 +567,27 @@ fn main() {}
         let rule = DuplicateImportsRule;
         let issues = rule.check(&file);
         assert!(!issues.is_empty(), "Should detect duplicate import");
+    }
+
+    #[test]
+    fn test_file_too_long_detected() {
+        // Generate a file with >1000 lines
+        let mut code = String::from("fn main() {\n");
+        for i in 0..1100 {
+            code.push_str(&format!("    let x{} = {};\n", i, i));
+        }
+        code.push_str("}\n");
+        let file = parse_rust(&code);
+        let rule = FileTooLongRule;
+        let issues = rule.check(&file);
+        assert!(!issues.is_empty(), "Should detect file >1000 lines");
+    }
+
+    #[test]
+    fn test_file_too_long_short_ok() {
+        let file = parse_rust("fn main() { println!(\"hello\"); }\n");
+        let rule = FileTooLongRule;
+        let issues = rule.check(&file);
+        assert!(issues.is_empty(), "Short file should not trigger");
     }
 }
