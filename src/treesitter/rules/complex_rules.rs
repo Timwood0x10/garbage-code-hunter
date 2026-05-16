@@ -596,6 +596,11 @@ impl TreeSitterRule for SingleLetterTsRule {
                     continue;
                 }
 
+                // Skip Python idiomatic single-letter identifiers
+                if file.language == Language::Python && name == "_" {
+                    continue;
+                }
+
                 let msgs = [
                     format!(
                         "Single-letter variable '{}'? Writing math formulas or torturing readers?",

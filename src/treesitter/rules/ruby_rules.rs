@@ -7,6 +7,8 @@ use crate::treesitter::rule::TreeSitterRule;
 pub fn register_ruby_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
     engine.add(Box::new(GlobalVariableRule));
     engine.add(Box::new(BareRescueRule));
+    engine.add(Box::new(FrozenStringRule));
+    engine.add(Box::new(NegatedIfRule));
 }
 
 /// Global variables ($prefix) in Ruby.
@@ -150,6 +152,73 @@ fn find_bare_rescue(file: &ParsedFile, node: tree_sitter::Node, issues: &mut Vec
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         find_bare_rescue(file, child, issues);
+    }
+}
+
+// ─── Ruby frozen_string_literal: file should start with magic comment ──
+
+struct FrozenStringRule;
+
+impl TreeSitterRule for FrozenStringRule {
+    fn name(&self) -> &'static str {
+        "frozen-string"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Ruby]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let first_line = file.content.lines().next().unwrap_or("");
+        if !first_line.contains("frozen_string_literal: true") {
+            return vec![CodeIssue {
+                file_path: file.path.clone(),
+                line: 1,
+                column: 1,
+                rule_name: "frozen-string".to_string(),
+                message: "Missing '# frozen_string_literal: true' at top of file".to_string(),
+                severity: Severity::Mild,
+            }];
+        }
+        vec![]
+    }
+}
+
+// ─── Ruby negated if: `if !x` → `unless x` ─────────────────────────
+
+struct NegatedIfRule;
+
+impl TreeSitterRule for NegatedIfRule {
+    fn name(&self) -> &'static str {
+        "negated-if"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Ruby]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if (trimmed.starts_with("if !") || trimmed.starts_with("if("))
+                && trimmed.contains('!')
+                && !trimmed.contains("!= ")
+            {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: 1,
+                    rule_name: "negated-if".to_string(),
+                    message: "Use 'unless' instead of 'if !'".to_string(),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
     }
 }
 

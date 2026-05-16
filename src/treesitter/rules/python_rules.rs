@@ -7,6 +7,9 @@ use crate::treesitter::rule::TreeSitterRule;
 pub fn register_python_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
     engine.add(Box::new(BareExceptRule));
     engine.add(Box::new(WildcardImportRule));
+    engine.add(Box::new(PythonNamingRule));
+    engine.add(Box::new(ComparedToBoolRule));
+    engine.add(Box::new(NotIsNoneRule));
 }
 
 /// bare except: `except:` without specifying exception type.
@@ -117,6 +120,189 @@ impl TreeSitterRule for WildcardImportRule {
                     column: pos.column + 1,
                     rule_name: "wildcard-import".to_string(),
                     message: msgs[issues.len() % msgs.len()].to_string(),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
+// ─── Python naming convention: snake_case functions, PascalCase classes ──
+
+struct PythonNamingRule;
+
+impl TreeSitterRule for PythonNamingRule {
+    fn name(&self) -> &'static str {
+        "python-naming"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Python]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        // Check function definitions: not snake_case
+        if let Ok(captures) = collect_captures(file, "(function_definition name: (identifier) @fn)")
+        {
+            for group in &captures {
+                if let Some(cap) = group.first() {
+                    let name = cap.text;
+                    if name.chars().any(|c| c.is_uppercase()) && !name.starts_with("__") {
+                        let pos = cap.node.start_position();
+                        issues.push(CodeIssue {
+                            file_path: file.path.clone(),
+                            line: pos.row + 1,
+                            column: pos.column + 1,
+                            rule_name: "python-naming".to_string(),
+                            message: format!(
+                                "'{}' should be snake_case (e.g. '{}')",
+                                name,
+                                to_snake_case(name)
+                            ),
+                            severity: Severity::Mild,
+                        });
+                    }
+                }
+            }
+        }
+        // Check class definitions: not PascalCase
+        if let Ok(captures) = collect_captures(file, "(class_definition name: (identifier) @cls)") {
+            for group in &captures {
+                if let Some(cap) = group.first() {
+                    let name = cap.text;
+                    if name.chars().next().is_some_and(|c| c.is_lowercase()) {
+                        let pos = cap.node.start_position();
+                        issues.push(CodeIssue {
+                            file_path: file.path.clone(),
+                            line: pos.row + 1,
+                            column: pos.column + 1,
+                            rule_name: "python-naming".to_string(),
+                            message: format!(
+                                "'{}' should be PascalCase (e.g. '{}')",
+                                name,
+                                to_pascal_case(name)
+                            ),
+                            severity: Severity::Mild,
+                        });
+                    }
+                }
+            }
+        }
+        issues
+    }
+}
+
+fn to_snake_case(name: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in name.chars().enumerate() {
+        if c.is_uppercase() {
+            if i > 0 {
+                result.push('_');
+            }
+            result.push(c.to_ascii_lowercase());
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+fn to_pascal_case(name: &str) -> String {
+    let mut result = String::new();
+    let mut upper = true;
+    for c in name.chars() {
+        if c == '_' {
+            upper = true;
+            continue;
+        }
+        if upper {
+            result.push(c.to_ascii_uppercase());
+            upper = false;
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+// ─── Compared to bool: `if x == True` → `if x` ─────────────────────
+
+struct ComparedToBoolRule;
+
+impl TreeSitterRule for ComparedToBoolRule {
+    fn name(&self) -> &'static str {
+        "compared-to-bool"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Python]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if (trimmed.contains("== True") || trimmed.contains("== False"))
+                && !trimmed.contains("is True")
+                && !trimmed.contains("is False")
+            {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: trimmed.find("==").unwrap_or(0) + 1,
+                    rule_name: "compared-to-bool".to_string(),
+                    message: "Comparing to True/False via '==' is redundant — use 'if x:' instead"
+                        .to_string(),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
+    }
+}
+
+// ─── Not is None: `if x == None` → `if x is None` ─────────────────
+
+struct NotIsNoneRule;
+
+impl TreeSitterRule for NotIsNoneRule {
+    fn name(&self) -> &'static str {
+        "not-is-none"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Python]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if trimmed.contains("== None") && !trimmed.contains("is None") {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: trimmed.find("==").unwrap_or(0) + 1,
+                    rule_name: "not-is-none".to_string(),
+                    message: "Use 'is None' instead of '== None'".to_string(),
+                    severity: Severity::Mild,
+                });
+            }
+            if trimmed.contains("!= None") && !trimmed.contains("is not None") {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: trimmed.find("!=").unwrap_or(0) + 1,
+                    rule_name: "not-is-none".to_string(),
+                    message: "Use 'is not None' instead of '!= None'".to_string(),
                     severity: Severity::Mild,
                 });
             }

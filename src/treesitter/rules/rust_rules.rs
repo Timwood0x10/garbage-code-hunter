@@ -8,8 +8,10 @@ use super::remaining_rules::{
     CommentedCodeRule, DeadCodeRule, DuplicateImportsRule, FileTooLongRule, MeaninglessRule,
     TodoCommentRule,
 };
-use crate::analyzer::Severity;
+use crate::analyzer::{CodeIssue, Severity};
 use crate::language::Language;
+use crate::treesitter::engine::ParsedFile;
+use crate::treesitter::rule::TreeSitterRule;
 
 /// Register all tree-sitter based Rust rules.
 pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
@@ -323,6 +325,52 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
             )
         },
     }));
+
+    // too-many-params: warn if function has > 6 parameters
+    engine.add(Box::new(TooManyParamsRule));
+}
+
+struct TooManyParamsRule;
+
+impl TreeSitterRule for TooManyParamsRule {
+    fn name(&self) -> &'static str {
+        "too-many-params"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Rust]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        use super::base_rules::count_parameters;
+        if let Ok(captures) =
+            crate::treesitter::query::collect_captures(file, "(function_item) @fn")
+        {
+            let mut issues = Vec::new();
+            for group in &captures {
+                if let Some(cap) = group.first() {
+                    let count = count_parameters(cap.node);
+                    if count > 6 {
+                        let pos = cap.node.start_position();
+                        issues.push(CodeIssue {
+                            file_path: file.path.clone(),
+                            line: pos.row + 1,
+                            column: pos.column + 1,
+                            rule_name: "too-many-params".to_string(),
+                            message: format!(
+                                "Function has {} parameters — consider splitting",
+                                count
+                            ),
+                            severity: Severity::Mild,
+                        });
+                    }
+                }
+            }
+            issues
+        } else {
+            vec![]
+        }
+    }
 }
 
 #[cfg(test)]

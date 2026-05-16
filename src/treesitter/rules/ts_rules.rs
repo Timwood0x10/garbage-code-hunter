@@ -6,6 +6,7 @@ use crate::treesitter::rule::TreeSitterRule;
 
 pub fn register_ts_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
     engine.add(Box::new(AnyTypeRule));
+    engine.add(Box::new(PreferInterfaceRule));
 }
 
 /// `any` type usage in TypeScript.
@@ -23,6 +24,10 @@ impl TreeSitterRule for AnyTypeRule {
     }
 
     fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        // Skip declaration files (.d.ts) where `any` is often necessary
+        if file.path.to_string_lossy().ends_with(".d.ts") {
+            return vec![];
+        }
         // predefined_type captures built-in types; filter for "any"
         let captures = match collect_captures(file, "(predefined_type) @t") {
             Ok(c) => c,
@@ -54,6 +59,44 @@ impl TreeSitterRule for AnyTypeRule {
             }
         }
         issues
+    }
+}
+
+// ─── prefer-interface: type Foo = { ... } should be interface Foo { ... } ──
+
+struct PreferInterfaceRule;
+
+impl TreeSitterRule for PreferInterfaceRule {
+    fn name(&self) -> &'static str {
+        "prefer-interface"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::TypeScript]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let pattern =
+            "(type_alias_declaration name: (type_identifier) @name value: (object_type) @obj)";
+        if let Ok(captures) = collect_captures(file, pattern) {
+            let mut issues = Vec::new();
+            for group in &captures {
+                if let Some(cap) = group.first() {
+                    let pos = cap.node.start_position();
+                    issues.push(CodeIssue {
+                        file_path: file.path.clone(),
+                        line: pos.row + 1,
+                        column: pos.column + 1,
+                        rule_name: "prefer-interface".to_string(),
+                        message: "Use 'interface' instead of 'type' for object types".to_string(),
+                        severity: Severity::Mild,
+                    });
+                }
+            }
+            issues
+        } else {
+            vec![]
+        }
     }
 }
 

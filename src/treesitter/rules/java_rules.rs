@@ -5,6 +5,7 @@ use crate::treesitter::rule::TreeSitterRule;
 
 pub fn register_java_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
     engine.add(Box::new(EmptyCatchRule));
+    engine.add(Box::new(ConstantNameRule));
 }
 
 /// Empty catch block: `catch (Exception e) {}`
@@ -57,6 +58,64 @@ fn find_empty_catch(file: &ParsedFile, node: tree_sitter::Node, issues: &mut Vec
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         find_empty_catch(file, child, issues);
+    }
+}
+
+// ─── Java constant naming: static final fields should be UPPER_SNAKE_CASE ──
+
+struct ConstantNameRule;
+
+impl TreeSitterRule for ConstantNameRule {
+    fn name(&self) -> &'static str {
+        "constant-name"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        &[Language::Java]
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        let mut issues = Vec::new();
+        // Simple text-based check: find lines with "static final" or "final static"
+        // followed by a type and name, check if name is UPPER_SNAKE_CASE
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if !trimmed.contains("static final") && !trimmed.contains("final static") {
+                continue;
+            }
+            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
+                continue;
+            }
+            // Find constant name: word right before '=' or ';'
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let name = parts
+                .iter()
+                .position(|p| *p == "=" || p.ends_with('=') || p.ends_with(';'))
+                .and_then(|idx| {
+                    if idx > 0 {
+                        parts
+                            .get(idx - 1)
+                            .map(|s| s.trim_end_matches('=').trim_end_matches(';'))
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or("");
+            if !name.is_empty()
+                && name != name.to_uppercase()
+                && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+            {
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: trimmed.find(name).unwrap_or(0) + 1,
+                    rule_name: "constant-name".to_string(),
+                    message: format!("'{}' should be UPPER_SNAKE_CASE for constants", name),
+                    severity: Severity::Mild,
+                });
+            }
+        }
+        issues
     }
 }
 
