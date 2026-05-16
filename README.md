@@ -147,6 +147,71 @@ graph LR
 - **VSCode extension**: Real-time analysis in your editor
 - **11 languages**: Rust, C, C++, Python, JavaScript, TypeScript, Go, Java, Ruby, Swift, Zig
 
+## Scoring System
+
+The code quality score uses an **accumulation model** — starts at 0 (best), each issue adds points. Higher score = worse code quality.
+
+### Severity Multipliers
+
+| Severity | Multiplier | Description |
+|----------|:----------:|-------------|
+| 🔥 Nuclear | 3.0x | Critical issues, fix immediately |
+| 🌶️ Spicy | 1.5x | Should fix |
+| 😐 Mild | 0.5x | Can ignore |
+
+### Per-Rule Base Penalties
+
+Each rule has a base penalty tuned by verified TP (True Positive) rate:
+
+| Rule | Base Penalty | TP Rate | Category |
+|------|:------------:|:-------:|----------|
+| deep-nesting | 2.0 | ~95% | complexity |
+| god-function | 2.0 | ~85% | complexity |
+| bare-except | 2.0 | ~100% | code-smells |
+| long-function | 1.5 | ~85% | complexity |
+| any-type | 1.5 | ~95% | code-smells |
+| defer-in-loop | 0.8 | ~80% | code-smells |
+| complex-closure | 0.8 | ~70% | complexity |
+| file-too-long | 0.5 | ~70% | code-smells |
+| unwrap-abuse | 0.5 | ~70% | code-smells |
+| code-duplication | 0.4 | ~50% | duplication |
+| magic-number | 0.3 | ~40% | code-smells |
+| wildcard-import | 0.3 | ~60% | code-smells |
+| single-letter-variable | 0.1 | ~10% | naming |
+| dead-code | 0.1 | ~0% | code-smells |
+| commented-code | 0.1 | ~5% | code-smells |
+
+### Calculation Formula
+
+```
+Category score = min(100, Σ(rule_weighted_count × rule_base_penalty) / total_lines × 1000)
+Total score = Σ category scores
+
+Where rule_weighted_count = Σ severity_multiplier per issue
+```
+
+Each category is normalized to "per 1000 lines of code" and capped at 100. The total score is the sum of all category scores.
+
+### Quality Levels
+
+| Score Range | Level | Emoji |
+|:-----------:|-------|:-----:|
+| 0 - 20 | Excellent | 🏆 |
+| 21 - 40 | Good | 👍 |
+| 41 - 60 | Average | 😐 |
+| 61 - 80 | Poor | 😞 |
+| 81+ | Terrible | 💀 |
+
+### Categories
+
+| Category | Rules |
+|----------|-------|
+| **naming** | terrible-naming, single-letter-variable, meaningless-naming, hungarian-notation, abbreviation-abuse |
+| **complexity** | deep-nesting, long-function, god-function, complex-closure |
+| **duplication** | code-duplication, cross-file-duplication |
+| **code-smells** | magic-number, commented-code, dead-code, file-too-long, unwrap-abuse, any-type, bare-except, bare-rescue, empty-catch, global-variable, wildcard-import |
+| **student-code** | println-debugging, panic-abuse, todo-comment, todo-fixme, todo-bug, todo-hack |
+
 ## How to Play
 
 ### Level 1: Quick Roast (30 seconds)

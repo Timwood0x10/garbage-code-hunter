@@ -142,6 +142,71 @@ graph LR
 - **VSCode 插件**：编辑器内实时分析
 - **11 种语言**：Rust、C、C++、Python、JavaScript、TypeScript、Go、Java、Ruby、Swift、Zig
 
+## 评分系统
+
+代码质量评分采用**累加模型** — 从 0 分开始（最佳），每个问题累加分值。分越高 = 代码风格越差。
+
+### 严重性权重
+
+| 严重性 | 权重倍数 | 说明 |
+|--------|:--------:|------|
+| 🔥 核弹级 (Nuclear) | 3.0x | 严重问题，需立即修复 |
+| 🌶️ 辣眼睛 (Spicy) | 1.5x | 建议修复 |
+| 😐 轻微 (Mild) | 0.5x | 可以忽略 |
+
+### 各规则基础分值
+
+每条规则有基于真实 TP（命中率）调校的基础分值：
+
+| 规则 | 基础分 | TP 命中率 | 分类 |
+|------|:------:|:---------:|------|
+| deep-nesting（深嵌套） | 2.0 | ~95% | complexity |
+| god-function（上帝函数） | 2.0 | ~85% | complexity |
+| bare-except（裸异常捕获） | 2.0 | ~100% | code-smells |
+| long-function（超长函数） | 1.5 | ~85% | complexity |
+| any-type（any 类型） | 1.5 | ~95% | code-smells |
+| defer-in-loop（循环中 defer） | 0.8 | ~80% | code-smells |
+| complex-closure（复杂闭包） | 0.8 | ~70% | complexity |
+| file-too-long（文件过长） | 0.5 | ~70% | code-smells |
+| unwrap-abuse（unwrap 滥用） | 0.5 | ~70% | code-smells |
+| code-duplication（代码重复） | 0.4 | ~50% | duplication |
+| magic-number（魔法数字） | 0.3 | ~40% | code-smells |
+| wildcard-import（通配符导入） | 0.3 | ~60% | code-smells |
+| single-letter-variable（单字母变量） | 0.1 | ~10% | naming |
+| dead-code（死代码） | 0.1 | ~0% | code-smells |
+| commented-code（注释代码） | 0.1 | ~5% | code-smells |
+
+### 计算公式
+
+```
+分类得分 = min(100, Σ(规则加权次数 × 规则基础分) / 总代码行数 × 1000)
+总分 = Σ 各分类得分
+
+其中：规则加权次数 = Σ 每个问题的严重性权重
+```
+
+每个分类按"每 1000 行代码"归一化，上限 100 分。总分为各分类得分之和。
+
+### 质量等级
+
+| 分数范围 | 等级 | 图标 |
+|:--------:|------|:----:|
+| 0 - 20 | 优秀 (Excellent) | 🏆 |
+| 21 - 40 | 良好 (Good) | 👍 |
+| 41 - 60 | 一般 (Average) | 😐 |
+| 61 - 80 | 较差 (Poor) | 😞 |
+| 81+ | 糟糕 (Terrible) | 💀 |
+
+### 分类详情
+
+| 分类 | 包含规则 |
+|------|----------|
+| **命名 (naming)** | terrible-naming, single-letter-variable, meaningless-naming, hungarian-notation, abbreviation-abuse |
+| **复杂度 (complexity)** | deep-nesting, long-function, god-function, complex-closure |
+| **重复 (duplication)** | code-duplication, cross-file-duplication |
+| **代码气味 (code-smells)** | magic-number, commented-code, dead-code, file-too-long, unwrap-abuse, any-type, bare-except, bare-rescue, empty-catch, global-variable, wildcard-import |
+| **学生代码 (student-code)** | println-debugging, panic-abuse, todo-comment, todo-fixme, todo-bug, todo-hack |
+
 ## 怎么玩
 
 ### 第 1 关：快速吐槽（30 秒）

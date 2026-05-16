@@ -267,207 +267,109 @@ impl Reporter {
                     .push(issue);
             }
 
-            // Show limited number of issues per rule type
-            let mut total_shown = 0;
-            let max_total = if self.max_issues_per_file > 0 {
-                self.max_issues_per_file
-            } else {
-                usize::MAX
-            };
-
-            // Sort rule groups by severity (most severe first)
+            // Sort rule groups by count (most issues first)
             let mut sorted_rules: Vec<_> = rule_groups.into_iter().collect();
-            sorted_rules.sort_by(|a, b| {
-                let severity_order = |s: &Severity| match s {
-                    Severity::Nuclear => 3,
-                    Severity::Spicy => 2,
-                    Severity::Mild => 1,
-                };
-                let max_severity_a =
-                    a.1.iter()
-                        .map(|i| severity_order(&i.severity))
-                        .max()
-                        .unwrap_or(1);
-                let max_severity_b =
-                    b.1.iter()
-                        .map(|i| severity_order(&i.severity))
-                        .max()
-                        .unwrap_or(1);
-                max_severity_b.cmp(&max_severity_a)
-            });
+            sorted_rules.sort_by_key(|b| std::cmp::Reverse(b.1.len()));
 
             for (rule_name, rule_issues) in sorted_rules {
-                if total_shown >= max_total {
-                    break;
-                }
+                let count = rule_issues.len();
 
-                let rule_issues_len = rule_issues.len();
+                // Collect line numbers, deduplicated and sorted
+                let mut lines: Vec<usize> = rule_issues
+                    .iter()
+                    .map(|i| i.line)
+                    .collect::<std::collections::HashSet<_>>()
+                    .into_iter()
+                    .collect();
+                lines.sort_unstable();
 
-                // Create compact summary for each rule type
-                if rule_name.contains("naming") || rule_name.contains("single-letter") {
-                    // Collect variable names for naming issues
-                    let bad_names: Vec<String> = rule_issues
+                // Format: show up to 6 line numbers, then "+N more"
+                let max_show = 6;
+                let line_str = if lines.is_empty() {
+                    String::new()
+                } else if lines.len() <= max_show {
+                    lines
                         .iter()
-                        .filter_map(|issue| {
-                            if let Some(start) = issue.message.find("'") {
-                                issue.message[start + 1..].find("'").map(|end| {
-                                    issue.message[start + 1..start + 1 + end].to_string()
-                                })
-                            } else {
-                                None
-                            }
-                        })
-                        .take(5)
-                        .collect();
-
-                    let names_display = if bad_names.len() < rule_issues_len {
-                        format!("{}, ...", bad_names.join(", "))
-                    } else {
-                        bad_names.join(", ")
-                    };
-
-                    let label = if self.i18n.lang == "zh-CN" {
-                        "变量命名问题"
-                    } else {
-                        "Variable naming issues"
-                    };
-
-                    println!(
-                        "  🏷️ {}: {} ({})",
-                        label.bright_yellow().bold(),
-                        rule_issues_len.to_string().bright_red().bold(),
-                        names_display.bright_black()
-                    );
-                    total_shown += 1;
-                } else if rule_name.contains("duplication") {
-                    let label = if self.i18n.lang == "zh-CN" {
-                        "代码重复问题"
-                    } else {
-                        "Code duplication issues"
-                    };
-
-                    // Extract instance count from message if available
-                    let instance_info = if let Some(first_issue) = rule_issues.first() {
-                        if first_issue.message.contains("instances") {
-                            let parts: Vec<&str> = first_issue.message.split_whitespace().collect();
-                            if let Some(pos) = parts.iter().position(|&x| x == "instances") {
-                                if pos > 0 {
-                                    format!("{} instances", parts[pos - 1])
-                                } else {
-                                    "multiple instances".to_string()
-                                }
-                            } else {
-                                if self.i18n.lang == "zh-CN" {
-                                    "多个代码块".to_string()
-                                } else {
-                                    "multiple blocks".to_string()
-                                }
-                            }
-                        } else {
-                            if self.i18n.lang == "zh-CN" {
-                                "多个代码块".to_string()
-                            } else {
-                                "multiple blocks".to_string()
-                            }
-                        }
-                    } else {
-                        if self.i18n.lang == "zh-CN" {
-                            "多个代码块".to_string()
-                        } else {
-                            "multiple blocks".to_string()
-                        }
-                    };
-
-                    println!(
-                        "  🔄 {}: {} ({})",
-                        label.bright_cyan().bold(),
-                        rule_issues_len.to_string().bright_cyan().bold(),
-                        instance_info.bright_black()
-                    );
-                    total_shown += 1;
-                } else if rule_name.contains("nesting") {
-                    let label = if self.i18n.lang == "zh-CN" {
-                        "嵌套深度问题"
-                    } else {
-                        "Nesting depth issues"
-                    };
-
-                    // Extract depth range from messages
-                    let depths: Vec<usize> = rule_issues
-                        .iter()
-                        .filter_map(|issue| {
-                            if let Some(start) = issue.message.find("depth: ") {
-                                let depth_str = &issue.message[start + 7..];
-                                if let Some(end) = depth_str.find(')') {
-                                    depth_str[..end].parse().ok()
-                                } else {
-                                    None
-                                }
-                            } else if let Some(start) = issue.message.find("深度: ") {
-                                let depth_str = &issue.message[start + 6..];
-                                if let Some(end) = depth_str.find(')') {
-                                    depth_str[..end].parse().ok()
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-
-                    let depth_info = if !depths.is_empty() {
-                        let min_depth = depths.iter().min().unwrap_or(&4);
-                        let max_depth = depths.iter().max().unwrap_or(&8);
-                        if min_depth == max_depth {
-                            format!("depth {min_depth}")
-                        } else {
-                            format!("depth {min_depth}-{max_depth}")
-                        }
-                    } else {
-                        if self.i18n.lang == "zh-CN" {
-                            "深度嵌套".to_string()
-                        } else {
-                            "deep nesting".to_string()
-                        }
-                    };
-
-                    println!(
-                        "  📦 {}: {} ({})",
-                        label.bright_magenta().bold(),
-                        rule_issues_len.to_string().bright_magenta().bold(),
-                        depth_info.bright_black()
-                    );
-                    total_shown += 1;
+                        .map(|l| format!(":{l}"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 } else {
-                    // For other types, show a generic summary with proper translation
-                    let display_name = match (self.i18n.lang.as_str(), rule_name.as_str()) {
-                        ("zh-CN", "panic-abuse") => "panic 滥用",
-                        ("zh-CN", "god-function") => "上帝函数",
-                        ("zh-CN", "magic-number") => "魔法数字",
-                        ("zh-CN", "todo-comment") => "TODO 注释",
-                        ("zh-CN", "println-debugging") => "println 调试",
-                        ("zh-CN", "string-abuse") => "String 滥用",
-                        ("zh-CN", "vec-abuse") => "Vec 滥用",
-                        ("zh-CN", "iterator-abuse") => "迭代器滥用",
-                        ("zh-CN", "match-abuse") => "Match 滥用",
-                        ("zh-CN", "hungarian-notation") => "匈牙利命名法",
-                        ("zh-CN", "abbreviation-abuse") => "过度缩写",
-                        ("zh-CN", "meaningless-naming") => "无意义命名",
-                        ("zh-CN", "commented-code") => "被注释代码",
-                        ("zh-CN", "dead-code") => "死代码",
-                        _ => &rule_name.replace("-", " "),
-                    };
-                    println!(
-                        "  ⚠️ {}: {}",
-                        display_name.bright_yellow().bold(),
-                        rule_issues_len.to_string().bright_yellow().bold()
-                    );
-                    total_shown += 1;
-                }
+                    let shown: Vec<String> =
+                        lines[..max_show].iter().map(|l| format!(":{l}")).collect();
+                    format!("{}, +{} more", shown.join(", "), lines.len() - max_show)
+                };
+
+                // Severity icon
+                let max_sev = rule_issues
+                    .iter()
+                    .map(|i| &i.severity)
+                    .max_by_key(|s| match s {
+                        Severity::Nuclear => 3,
+                        Severity::Spicy => 2,
+                        Severity::Mild => 1,
+                    })
+                    .unwrap();
+                let icon = match max_sev {
+                    Severity::Nuclear => "💥",
+                    Severity::Spicy => "🌶️ ",
+                    Severity::Mild => "😐",
+                };
+
+                // Display name
+                let display_name = self.rule_display_name(&rule_name);
+
+                // Print: "  💥 magic-number  × 15  [:42, :55, :78, :91, :104, :120, +9 more]"
+                println!(
+                    "  {} {} {} {}  [{}]",
+                    icon,
+                    display_name.bright_yellow(),
+                    "×".bright_black(),
+                    count.to_string().bright_red().bold(),
+                    line_str.bright_black()
+                );
             }
             println!();
         }
+    }
+
+    fn rule_display_name(&self, rule_name: &str) -> String {
+        let name = match (self.i18n.lang.as_str(), rule_name) {
+            ("zh-CN", "panic-abuse") => "panic滥用",
+            ("zh-CN", "god-function") => "上帝函数",
+            ("zh-CN", "magic-number") => "魔法数字",
+            ("zh-CN", "todo-comment")
+            | ("zh-CN", "todo-fixme")
+            | ("zh-CN", "todo-bug")
+            | ("zh-CN", "todo-hack") => "TODO注释",
+            ("zh-CN", "println-debugging") => "println调试",
+            ("zh-CN", "string-abuse") => "String滥用",
+            ("zh-CN", "vec-abuse") => "Vec滥用",
+            ("zh-CN", "hungarian-notation") => "匈牙利命名",
+            ("zh-CN", "abbreviation-abuse") => "过度缩写",
+            ("zh-CN", "meaningless-naming") => "无意义命名",
+            ("zh-CN", "commented-code") => "注释代码",
+            ("zh-CN", "dead-code") => "死代码",
+            ("zh-CN", "single-letter-variable") => "单字母变量",
+            ("zh-CN", "terrible-naming") => "糟糕命名",
+            ("zh-CN", "code-duplication") => "代码重复",
+            ("zh-CN", "cross-file-duplication") => "跨文件重复",
+            ("zh-CN", "deep-nesting") => "深层嵌套",
+            ("zh-CN", "long-function") => "过长函数",
+            ("zh-CN", "file-too-long") => "过长文件",
+            ("zh-CN", "any-type") => "any类型",
+            ("zh-CN", "bare-except") => "裸except",
+            ("zh-CN", "bare-rescue") => "裸rescue",
+            ("zh-CN", "empty-catch") => "空catch",
+            ("zh-CN", "unwrap-abuse") => "unwrap滥用",
+            ("zh-CN", "box-abuse") => "Box滥用",
+            ("zh-CN", "global-variable") => "全局变量",
+            ("zh-CN", "wildcard-import") => "通配符导入",
+            ("zh-CN", "defer-in-loop") => "循环中defer",
+            ("zh-CN", "goroutine-abuse") => "goroutine滥用",
+            ("zh-CN", "duplicate-imports") => "重复导入",
+            _ => return rule_name.replace('-', " "),
+        };
+        name.to_string()
     }
 
     fn print_footer(&self, _issues: &[CodeIssue]) {

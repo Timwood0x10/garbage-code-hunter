@@ -1408,8 +1408,30 @@ fn calculate_metrics(path: &PathBuf, exclude_patterns: &[String]) -> (usize, usi
     let mut file_count = 0;
     let mut total_lines = 0;
 
-    // Convert exclude patterns to regex patterns
-    let exclude_regexes: Vec<regex::Regex> = exclude_patterns
+    // Merge CLI exclude patterns with built-in defaults
+    let default_excludes = [
+        "target",
+        "node_modules",
+        ".git",
+        ".svn",
+        ".hg",
+        "build",
+        "dist",
+        "out",
+        "__pycache__",
+        ".DS_Store",
+        ".venv",
+        "venv",
+        "vendor",
+    ];
+    let all_patterns: Vec<String> = default_excludes
+        .iter()
+        .map(|s| s.to_string())
+        .chain(exclude_patterns.iter().cloned())
+        .collect();
+
+    // Convert patterns to regex
+    let exclude_regexes: Vec<regex::Regex> = all_patterns
         .iter()
         .filter_map(|pattern| {
             let regex_pattern = pattern

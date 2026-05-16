@@ -1,0 +1,10 @@
+[rules.println]
+enabled = false
+
+[rules.magic-number]
+enabled = false
+
+[whitelists]
+magic_numbers = [0, 1, 2, 3, 4, 5, 10, 60, 100]
+variable_names = ["tmp", "temp", "val", "i", "j", "k", "g", "h", "t"]
+exclude_patterns = ["reporter/", "display/"]

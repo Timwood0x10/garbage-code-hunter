@@ -626,10 +626,8 @@ impl Reporter {
             ("naming", "命名规范", "Naming", "🏷️"),
             ("complexity", "复杂度", "Complexity", "🧩"),
             ("duplication", "代码重复", "Duplication", "🔄"),
-            ("rust-basics", "Rust基础", "Rust Basics", "🦀"),
-            ("advanced-rust", "高级特性", "Advanced Rust", "⚡"),
-            ("rust-features", "Rust功能", "Rust Features", "🚀"),
-            ("structure", "代码结构", "Code Structure", "🏗️"),
+            ("code-smells", "代码异味", "Code Smells", "⚠️"),
+            ("student-code", "学生代码", "Student Code", "📚"),
         ];
 
         for (category_key, zh_name, en_name, icon) in &categories {
@@ -741,49 +739,48 @@ impl Reporter {
     fn print_weighted_calculation(
         &self,
         category_scores: &std::collections::HashMap<String, f64>,
-        _total_score: f64,
+        total_score: f64,
     ) {
         let calc_title = if self.i18n.lang == "zh-CN" {
-            "🧮 加权计算:"
+            "🧮 评分明细:"
         } else {
-            "🧮 Weighted Calculation:"
+            "🧮 Score Breakdown:"
         };
 
         println!("{}", calc_title.bright_yellow());
 
-        // Show the calculation formula
-        let weights = [
-            ("naming", 0.25, "命名规范", "Naming"),
-            ("complexity", 0.20, "复杂度", "Complexity"),
-            ("duplication", 0.15, "代码重复", "Duplication"),
-            ("rust-basics", 0.15, "Rust基础", "Rust Basics"),
-            ("advanced-rust", 0.10, "高级特性", "Advanced Rust"),
-            ("rust-features", 0.10, "Rust功能", "Rust Features"),
-            ("structure", 0.05, "代码结构", "Code Structure"),
+        let order = [
+            "naming",
+            "complexity",
+            "duplication",
+            "code-smells",
+            "student-code",
         ];
+        let mut parts = Vec::new();
 
-        let mut calculation_parts = Vec::new();
-        let mut weighted_sum = 0.0;
-
-        for (category_key, weight, _zh_name, _en_name) in &weights {
-            if let Some(score) = category_scores.get(*category_key) {
-                let weighted_value = score * weight;
-                weighted_sum += weighted_value;
-                calculation_parts.push(format!("{score:.1}×{weight:.2}"));
+        for key in &order {
+            if let Some(score) = category_scores.get(*key) {
+                if *score > 0.0 {
+                    parts.push(format!("{score:.1}"));
+                }
             }
+        }
+
+        if parts.is_empty() {
+            parts.push("0.0".to_string());
         }
 
         if self.i18n.lang == "zh-CN" {
             println!(
-                "  评分计算: ({}) ÷ 1.00 = {}",
-                calculation_parts.join(" + ").bright_white(),
-                format!("{weighted_sum:.1}").bright_green().bold()
+                "  各类别累加: {} = {}",
+                parts.join(" + ").bright_white(),
+                format!("{total_score:.1}").bright_green().bold()
             );
         } else {
             println!(
-                "  Score calculation: ({}) ÷ 1.00 = {}",
-                calculation_parts.join(" + ").bright_white(),
-                format!("{weighted_sum:.1}").bright_green().bold()
+                "  Categories: {} = {}",
+                parts.join(" + ").bright_white(),
+                format!("{total_score:.1}").bright_green().bold()
             );
         }
     }

@@ -31,6 +31,7 @@ pub struct CodeAnalyzer {
     ts_engine: TreeSitterEngine,
     ts_rule_engine: TreeSitterRuleEngine,
     exclude_patterns: Vec<Regex>,
+    project_config: ProjectConfig,
     lang: String,
 }
 
@@ -90,6 +91,7 @@ impl CodeAnalyzer {
             ts_engine: TreeSitterEngine::new(),
             ts_rule_engine,
             exclude_patterns: patterns,
+            project_config: config,
             lang: lang.to_string(),
         }
     }
@@ -204,7 +206,7 @@ impl CodeAnalyzer {
                 &parsed,
                 is_test_file,
                 &context,
-                &ProjectConfig::default(),
+                &self.project_config,
             )
         } else if lang == Language::C || lang == Language::Cpp {
             // Fallback to generic text-based rules for C/C++

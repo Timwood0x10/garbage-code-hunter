@@ -26,6 +26,7 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 git2 = "0.20"
+rand = "0.10.1"
 
 # Unified AST parsing for multi-language support
 tree-sitter = "0.26.8"
