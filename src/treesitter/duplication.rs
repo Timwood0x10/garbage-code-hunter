@@ -219,6 +219,54 @@ impl CrossFileDupDetector {
     pub fn stats(&self) -> (usize, usize) {
         (self.fingerprints.len(), self.processed)
     }
+
+    /// Build infection spread graph: for each file, list which other files
+    /// share identical function hashes (indicating copy-paste propagation).
+    pub fn infection_spread(&self) -> HashMap<String, Vec<(String, usize, Vec<String>)>> {
+        let mut by_hash: HashMap<u64, Vec<&FuncFingerprint>> = HashMap::new();
+        for fp in &self.fingerprints {
+            by_hash.entry(fp.hash).or_default().push(fp);
+        }
+
+        // For each file pair, count shared function hashes
+        let mut spread: HashMap<String, HashMap<String, (usize, Vec<String>)>> = HashMap::new();
+        for group in by_hash.values() {
+            let unique_files: std::collections::HashSet<&PathBuf> =
+                group.iter().map(|fp| &fp.file).collect();
+            if unique_files.len() < 2 {
+                continue;
+            }
+            let func_name = &group[0].name;
+
+            for a in &unique_files {
+                let a_str = a.to_string_lossy().to_string();
+                for b in &unique_files {
+                    if a == b {
+                        continue;
+                    }
+                    let b_str = b.to_string_lossy().to_string();
+                    let entry = spread.entry(a_str.clone()).or_default();
+                    let inner = entry.entry(b_str).or_insert((0, Vec::new()));
+                    inner.0 += 1;
+                    inner.1.push(func_name.clone());
+                }
+            }
+        }
+
+        // Convert to sorted output format
+        spread
+            .into_iter()
+            .map(|(file, targets)| {
+                let mut sorted: Vec<_> = targets.into_iter().collect();
+                sorted.sort_by_key(|(_, (count, _))| std::cmp::Reverse(*count));
+                let result: Vec<_> = sorted
+                    .into_iter()
+                    .map(|(target, (count, funcs))| (target, count, funcs))
+                    .collect();
+                (file, result)
+            })
+            .collect()
+    }
 }
 
 // ─── Intra-file duplication ──────────────────────────────────────────────────

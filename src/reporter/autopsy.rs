@@ -1,0 +1,360 @@
+use crate::analyzer::CodeIssue;
+use std::collections::HashMap;
+
+pub type SpreadTarget = (String, usize, Vec<String>);
+pub type SpreadChain = (String, Vec<SpreadTarget>);
+use crate::scoring::CodeQualityScore;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+pub struct ProjectPersonality {
+    pub project_type: &'static str,
+    pub emoji: &'static str,
+    pub core_traits: Vec<&'static str>,
+    pub emotional_state: &'static str,
+    pub code_philosophy: &'static str,
+    pub threat_level: &'static str,
+    pub lore: Vec<&'static str>,
+}
+
+pub struct AutopsyReport {
+    pub cause_of_death: &'static str,
+    pub patient_condition: &'static str,
+    pub corrupted_regions: Vec<(String, f64)>,
+    pub final_words: &'static str,
+    pub spread_chains: Vec<SpreadChain>,
+}
+
+const ALL_LORE: &[&str] = &[
+    "nobody remembers why this function exists",
+    "this file has more authors than tests",
+    "touching this module may awaken ancient bugs",
+    "the original developer has left the company",
+    "three developers entered main.rs, only one returned",
+    "this comment predates the git history",
+    "the architecture decision was made at 3am",
+    "this code has survived three rewrites",
+    "legacy code — proceed with caution and incense",
+    "the spec was 'make it work' and it shows",
+];
+
+fn pick_lore() -> Vec<&'static str> {
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as usize;
+    vec![ALL_LORE[seed % ALL_LORE.len()]]
+}
+
+pub fn analyze(
+    issues: &[CodeIssue],
+    score: &CodeQualityScore,
+    _file_count: usize,
+    _spread: &HashMap<String, Vec<SpreadTarget>>,
+) -> (ProjectPersonality, AutopsyReport) {
+    let total = issues.len().max(1);
+
+    let mut dup_count = 0usize;
+    let mut naming_count = 0usize;
+    let mut unwrap_count = 0usize;
+    let mut nested_count = 0usize;
+    let mut god_fn_count = 0usize;
+    let mut long_fn_count = 0usize;
+    let mut todo_count = 0usize;
+
+    for issue in issues {
+        let r = issue.rule_name.as_str();
+        if r.contains("duplicat") {
+            dup_count += 1;
+        } else if r.contains("naming")
+            || r == "terrible-naming"
+            || r == "single-letter-variable"
+            || r.contains("meaningless")
+            || r == "hungarian-notation"
+            || r == "abbreviation-abuse"
+            || r == "go-receiver-name"
+            || r == "ruby-predicate-method"
+            || r == "constant-name"
+        {
+            naming_count += 1;
+        }
+        if r == "unwrap-abuse" {
+            unwrap_count += 1;
+        }
+        if r.contains("nest") {
+            nested_count += 1;
+        }
+        if r == "god-function" {
+            god_fn_count += 1;
+        }
+        if r == "long-function" || r.contains("too-many-params") {
+            long_fn_count += 1;
+        }
+        if r.contains("todo") {
+            todo_count += 1;
+        }
+    }
+
+    let total_f = total as f64;
+    let dup_ratio = dup_count as f64 / total_f;
+    let unwrap_ratio = unwrap_count as f64 / total_f;
+    let nested_ratio = nested_count as f64 / total_f;
+    let naming_ratio = naming_count as f64 / total_f;
+    let todo_ratio = todo_count as f64 / total_f;
+    let score_val = score.total_score;
+
+    let threat_level = if score_val >= 80.0 {
+        "☢ CRITICAL"
+    } else if score_val >= 60.0 {
+        "⚠ HIGH"
+    } else if score_val >= 40.0 {
+        "⚠ ELEVATED"
+    } else {
+        "🟢 MODERATE"
+    };
+
+    let files_per_category = categorize_files(issues, total_f);
+
+    // Build spread chains: top 5 spreader files
+    let mut spread_list: Vec<_> = _spread
+        .iter()
+        .map(|(file, targets)| (file.clone(), targets.clone()))
+        .collect();
+    spread_list.sort_by_key(|(_, targets)| std::cmp::Reverse(targets.len()));
+    spread_list.truncate(5);
+
+    let (personality, autopsy) = if dup_ratio > 0.35 {
+        (
+            ProjectPersonality {
+                project_type: "The Copy-Paste Artist",
+                emoji: "📋",
+                core_traits: vec![
+                    "Ctrl+C, Ctrl+V is your IDE's most used shortcut",
+                    "Why abstract when you can duplicate",
+                    "Same bug in 5 places = 5x debugging fun",
+                    "DRY stands for 'Don't Repeat... wait, too late'",
+                ],
+                emotional_state: "numb from repetitive work",
+                code_philosophy: "it worked once, it'll work again",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "uncontrolled duplication metastasis",
+                patient_condition: if dup_count > 500 {
+                    "terminal — palliative care recommended"
+                } else {
+                    "critical but treatable"
+                },
+                corrupted_regions: files_per_category
+                    .get("duplication")
+                    .cloned()
+                    .unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "just one more hotfix",
+            },
+        )
+    } else if unwrap_ratio > 0.15 {
+        (
+            ProjectPersonality {
+                project_type: "The YOLO Engineer",
+                emoji: "🤘",
+                core_traits: vec![
+                    "Believes every Result is Ok",
+                    "unwrap() used more often than error handling",
+                    "Production incidents are just 'surprise features'",
+                    "Has never met a None they couldn't ignore",
+                ],
+                emotional_state: "denial",
+                code_philosophy: "it won't crash in production",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "panic-driven development",
+                patient_condition: if unwrap_count > 20 {
+                    "critical — needs immediate Result therapy"
+                } else {
+                    "stable but concerning"
+                },
+                corrupted_regions: files_per_category
+                    .get("unwrap-abuse")
+                    .cloned()
+                    .unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "i'll add error handling later",
+            },
+        )
+    } else if nested_ratio > 0.15 || god_fn_count > 5 || long_fn_count > 5 {
+        (
+            ProjectPersonality {
+                project_type: "The Trait Wizard",
+                emoji: "🧙",
+                core_traits: vec![
+                    "Loves building pyramids of doom",
+                    "Each function is a journey through layers of abstraction",
+                    "Indentation is a competitive sport",
+                    "Thinks 'extract method' is for amateurs",
+                ],
+                emotional_state: "proud of the complexity",
+                code_philosophy: "if it's not nested, it's not sophisticated",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "complexity collapse — nesting level exceeded event horizon",
+                patient_condition: if god_fn_count > 5 {
+                    "severe — god functions threatening readability"
+                } else {
+                    "moderate — some functions need splitting"
+                },
+                corrupted_regions: files_per_category
+                    .get("complexity")
+                    .cloned()
+                    .unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "i can still understand it",
+            },
+        )
+    } else if naming_ratio > 0.25 {
+        (
+            ProjectPersonality {
+                project_type: "The Legacy Necromancer",
+                emoji: "☢",
+                core_traits: vec![
+                    "Why use many word when few letter do trick",
+                    "Variables named like chess coordinates",
+                    "'data', 'temp', 'val' — the holy trinity of naming",
+                    "Has never heard of domain-driven design",
+                ],
+                emotional_state: "confident in their abbreviations",
+                code_philosophy: "comments are for people who can't read code",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "semantic starvation — variable names lost all meaning",
+                patient_condition: "chronic but manageable",
+                corrupted_regions: files_per_category
+                    .get("naming")
+                    .cloned()
+                    .unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "temp2 should work",
+            },
+        )
+    } else if todo_ratio > 0.1 {
+        (
+            ProjectPersonality {
+                project_type: "The Hotfix Mercenary",
+                emoji: "🔥",
+                core_traits: vec![
+                    "More TODOs than actual features",
+                    "'TODO: fix this later' — later never came",
+                    "Commits with 'temp', 'test', 'asdf' messages",
+                    "WIP is a lifestyle, not a branch name",
+                ],
+                emotional_state: "overwhelmed but optimistic",
+                code_philosophy: "future me will deal with it",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "TODO accumulation — promises exceeded delivery capacity",
+                patient_condition: "stable with high technical debt interest",
+                corrupted_regions: files_per_category.get("todo").cloned().unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "i'll fix it in the next sprint",
+            },
+        )
+    } else {
+        (
+            ProjectPersonality {
+                project_type: "The Enterprise Bureaucrat",
+                emoji: "🏢",
+                core_traits: vec![
+                    "A balanced mix of code smells",
+                    "Not great at anything, not terrible at anything",
+                    "Jack of all trades, master of technical debt",
+                ],
+                emotional_state: "professional detachment",
+                code_philosophy: "it compiles, it ships",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "death by a thousand paper cuts",
+                patient_condition: "fair — routine maintenance recommended",
+                corrupted_regions: files_per_category
+                    .get("duplication")
+                    .cloned()
+                    .unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "we'll refactor next quarter",
+            },
+        )
+    };
+
+    (personality, autopsy)
+}
+
+fn categorize_files(
+    issues: &[CodeIssue],
+    total_f: f64,
+) -> HashMap<&'static str, Vec<(String, f64)>> {
+    let mut dups: HashMap<String, usize> = HashMap::new();
+    let mut naming: HashMap<String, usize> = HashMap::new();
+    let mut complexity: HashMap<String, usize> = HashMap::new();
+    let mut unwrap: HashMap<String, usize> = HashMap::new();
+    let mut todo_files: HashMap<String, usize> = HashMap::new();
+
+    for issue in issues {
+        let name = issue.file_path.to_string_lossy().to_string();
+        let r = issue.rule_name.as_str();
+        if r.contains("duplicat") {
+            *dups.entry(name.clone()).or_insert(0) += 1;
+        } else if r.contains("naming")
+            || r == "terrible-naming"
+            || r == "single-letter-variable"
+            || r.contains("meaningless")
+            || r == "hungarian-notation"
+            || r == "abbreviation-abuse"
+        {
+            *naming.entry(name.clone()).or_insert(0) += 1;
+        } else if r.contains("nesting")
+            || r == "god-function"
+            || r == "long-function"
+            || r.contains("closure")
+            || r == "file-too-long"
+            || r == "too-many-params"
+            || r.contains("complex")
+        {
+            *complexity.entry(name.clone()).or_insert(0) += 1;
+        }
+        if r == "unwrap-abuse" {
+            *unwrap.entry(name.clone()).or_insert(0) += 1;
+        }
+        if r.contains("todo") {
+            *todo_files.entry(name.clone()).or_insert(0) += 1;
+        }
+    }
+
+    let mut result = HashMap::new();
+    let top_pct = |m: &HashMap<String, usize>| -> Vec<(String, f64)> {
+        let mut v: Vec<_> = m
+            .iter()
+            .map(|(k, v)| {
+                let pct = (*v as f64 / total_f.max(1.0)) * 100.0;
+                (k.clone(), pct)
+            })
+            .collect();
+        v.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        v.truncate(3);
+        v
+    };
+    result.insert("duplication", top_pct(&dups));
+    result.insert("naming", top_pct(&naming));
+    result.insert("complexity", top_pct(&complexity));
+    result.insert("unwrap-abuse", top_pct(&unwrap));
+    result.insert("todo", top_pct(&todo_files));
+    result
+}

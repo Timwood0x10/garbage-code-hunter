@@ -191,7 +191,7 @@ fn test_cli_verbose_mode() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Verbose mode should contain detailed analysis
-    assert!(stdout.contains("详细分析") || stdout.contains("Detailed Analysis"));
+    assert!(stdout.contains("MUTATION ANALYSIS") || stdout.contains("Personality"));
 }
 
 #[test]

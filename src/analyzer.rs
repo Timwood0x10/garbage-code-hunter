@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -33,6 +34,7 @@ pub struct CodeAnalyzer {
     exclude_patterns: Vec<Regex>,
     project_config: ProjectConfig,
     lang: String,
+    cross_detector: std::cell::RefCell<CrossFileDupDetector>,
 }
 
 impl CodeAnalyzer {
@@ -42,6 +44,10 @@ impl CodeAnalyzer {
 
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
         Self::with_config(exclude_patterns, lang, ProjectConfig::default())
+    }
+
+    pub fn infection_spread(&self) -> HashMap<String, Vec<(String, usize, Vec<String>)>> {
+        self.cross_detector.borrow().infection_spread()
     }
 
     pub fn with_config(exclude_patterns: &[String], lang: &str, config: ProjectConfig) -> Self {
@@ -94,6 +100,7 @@ impl CodeAnalyzer {
             exclude_patterns: patterns,
             project_config: config,
             lang: lang.to_string(),
+            cross_detector: std::cell::RefCell::new(CrossFileDupDetector::new()),
         }
     }
 
@@ -146,16 +153,16 @@ impl CodeAnalyzer {
             .collect();
 
         // Phase 2: Cross-file duplication detection (tree-sitter based)
-        let mut cross_detector = CrossFileDupDetector::new();
+        *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
         for file_path in &real_files {
             if let Ok(content) = fs::read_to_string(file_path) {
                 if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                    cross_detector.process_file(&parsed);
+                    self.cross_detector.borrow_mut().process_file(&parsed);
                 }
             }
         }
-        issues.extend(cross_detector.find_duplicates());
-        issues.extend(cross_detector.find_near_duplicates());
+        issues.extend(self.cross_detector.borrow().find_duplicates());
+        issues.extend(self.cross_detector.borrow().find_near_duplicates());
 
         // Phase 3: Intra-file code duplication
         for file_path in &real_files {

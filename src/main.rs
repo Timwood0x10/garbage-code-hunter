@@ -1279,6 +1279,7 @@ fn run_analyze(args: AnalyzeArgs) {
 
     let analyzer = CodeAnalyzer::with_config(&args.exclude, &args.lang, project_config);
     let issues = analyzer.analyze_path(&args.path);
+    let spread = analyzer.infection_spread();
 
     // Calculate metrics for scoring
     let (file_count, total_lines) = calculate_metrics(&args.path, &args.exclude);
@@ -1340,7 +1341,7 @@ fn run_analyze(args: AnalyzeArgs) {
     }
 
     if args.educational || args.hall_of_shame || args.suggestions {
-        reporter.report_with_metrics(issues.clone(), file_count, total_lines);
+        reporter.report_with_spread(issues.clone(), file_count, total_lines, &spread);
 
         if args.educational {
             if let Some(advisor) = educational_advisor.as_ref() {
@@ -1400,7 +1401,7 @@ fn run_analyze(args: AnalyzeArgs) {
             println!("- Replace unwrap() with proper error handling");
         }
     } else {
-        reporter.report_with_metrics(issues, file_count, total_lines);
+        reporter.report_with_spread(issues, file_count, total_lines, &spread);
     }
 }
 
