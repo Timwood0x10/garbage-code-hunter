@@ -2,6 +2,8 @@
 
 use super::Personality;
 use crate::analyzer::CodeIssue;
+use crate::signals::{classify_rule, StyleSignal};
+use std::collections::HashMap;
 
 /// Analyze issues and determine a personality profile.
 pub fn analyze(issues: &[CodeIssue]) -> Personality {
@@ -26,56 +28,35 @@ pub fn analyze(issues: &[CodeIssue]) -> Personality {
         };
     }
 
-    // Count issue types
-    let mut unwrap_count = 0u32;
-    let mut naming_count = 0u32;
-    let mut nesting_count = 0u32;
-    let mut long_fn_count = 0u32;
-    let mut magic_count = 0u32;
-    let mut dup_count = 0u32;
-
+    let mut counts: HashMap<StyleSignal, u32> = HashMap::new();
     for issue in issues {
-        let rule = issue.rule_name.to_lowercase();
-        if rule.contains("unwrap") {
-            unwrap_count += 1;
-        } else if rule.contains("name")
-            || rule.contains("single_letter")
-            || rule.contains("meaningless")
-        {
-            naming_count += 1;
-        } else if rule.contains("nest") || rule.contains("complex") {
-            nesting_count += 1;
-        } else if rule.contains("long") || rule.contains("function_length") {
-            long_fn_count += 1;
-        } else if rule.contains("magic") {
-            magic_count += 1;
-        } else if rule.contains("duplicat") {
-            dup_count += 1;
-        }
+        let signal = classify_rule(&issue.rule_name.to_lowercase());
+        *counts.entry(signal).or_insert(0) += 1;
     }
 
-    // Determine dominant pattern
-    let counts = [
-        (unwrap_count, "unwrap"),
-        (naming_count, "naming"),
-        (nesting_count, "nesting"),
-        (long_fn_count, "long_fn"),
-        (magic_count, "magic"),
-        (dup_count, "dup"),
+    let get = |s| counts.get(&s).copied().unwrap_or(0);
+
+    let candidates = [
+        (get(StyleSignal::PanicAddiction), "unwrap"),
+        (get(StyleSignal::NamingChaos), "naming"),
+        (get(StyleSignal::NestedHell), "nesting"),
+        (get(StyleSignal::OverEngineering), "long_fn"),
+        (get(StyleSignal::CodeSmells), "magic"),
+        (get(StyleSignal::Duplication), "dup"),
     ];
 
-    let dominant = counts
+    let dominant = candidates
         .iter()
         .max_by_key(|(c, _)| *c)
         .unwrap_or(&(0, "none"));
 
     match dominant.1 {
-        "unwrap" => panic_personality(unwrap_count, total),
-        "naming" => naming_personality(naming_count, total),
-        "nesting" => nesting_personality(nesting_count, total),
-        "long_fn" => long_fn_personality(long_fn_count, total),
-        "magic" => magic_personality(magic_count, total),
-        "dup" => dup_personality(dup_count, total),
+        "unwrap" => panic_personality(get(StyleSignal::PanicAddiction), total),
+        "naming" => naming_personality(get(StyleSignal::NamingChaos), total),
+        "nesting" => nesting_personality(get(StyleSignal::NestedHell), total),
+        "long_fn" => long_fn_personality(get(StyleSignal::OverEngineering), total),
+        "magic" => magic_personality(get(StyleSignal::CodeSmells), total),
+        "dup" => dup_personality(get(StyleSignal::Duplication), total),
         _ => balanced_personality(total),
     }
 }
@@ -261,9 +242,9 @@ mod tests {
     #[test]
     fn test_unwrap_dominant() {
         let issues = vec![
-            make_issue("unwrap_abuse"),
-            make_issue("unwrap_abuse"),
-            make_issue("unwrap_abuse"),
+            make_issue("unwrap-abuse"),
+            make_issue("unwrap-abuse"),
+            make_issue("unwrap-abuse"),
         ];
         let p = analyze(&issues);
         assert_eq!(p.title, "The Optimist", "3 unwrap => Optimist");
@@ -272,8 +253,8 @@ mod tests {
     #[test]
     fn test_naming_dominant() {
         let issues = vec![
-            make_issue("single_letter_variable"),
-            make_issue("meaningless_name"),
+            make_issue("single-letter-variable"),
+            make_issue("meaningless-naming"),
         ];
         let p = analyze(&issues);
         assert_eq!(p.title, "The Minimalist", "2 naming => Minimalist");
@@ -282,9 +263,9 @@ mod tests {
     #[test]
     fn test_nesting_dominant() {
         let issues = vec![
-            make_issue("deep_nesting"),
-            make_issue("complex_function"),
-            make_issue("high_complexity"),
+            make_issue("deep-nesting"),
+            make_issue("cyclomatic-complexity"),
+            make_issue("complex-closure"),
         ];
         let p = analyze(&issues);
         assert_eq!(p.title, "The Architect", "3 nesting/complex => Architect");
@@ -292,14 +273,14 @@ mod tests {
 
     #[test]
     fn test_long_fn_dominant() {
-        let issues = vec![make_issue("long_function"), make_issue("function_length")];
+        let issues = vec![make_issue("long-function"), make_issue("file-too-long")];
         let p = analyze(&issues);
         assert_eq!(p.title, "The Storyteller", "2 long-fn => Storyteller");
     }
 
     #[test]
     fn test_magic_dominant() {
-        let issues = vec![make_issue("magic_number"), make_issue("magic_number")];
+        let issues = vec![make_issue("magic-number"), make_issue("magic-number")];
         let p = analyze(&issues);
         assert_eq!(p.title, "The Sorcerer", "2 magic => Sorcerer");
     }
@@ -307,9 +288,9 @@ mod tests {
     #[test]
     fn test_dup_dominant() {
         let issues = vec![
-            make_issue("code_duplication"),
-            make_issue("code_duplication"),
-            make_issue("code_duplication"),
+            make_issue("code-duplication"),
+            make_issue("code-duplication"),
+            make_issue("code-duplication"),
         ];
         let p = analyze(&issues);
         assert_eq!(
@@ -325,7 +306,7 @@ mod tests {
     #[test]
     fn test_score_boundary_floor_at_zero() {
         // 34 unwraps => 100 - 34*3 = -2 => clamped to 0
-        let issues: Vec<_> = (0..34).map(|_| make_issue("unwrap_abuse")).collect();
+        let issues: Vec<_> = (0..34).map(|_| make_issue("unwrap-abuse")).collect();
         let p = analyze(&issues);
         assert_eq!(p.title, "The Optimist");
         assert_eq!(
@@ -338,7 +319,7 @@ mod tests {
     /// Objective: Verify score is exactly 100 - n*multiplier for small n (not clamped).
     #[test]
     fn test_score_exact_value_for_small_count() {
-        let issues = vec![make_issue("unwrap_abuse")];
+        let issues = vec![make_issue("unwrap-abuse")];
         let p = analyze(&issues);
         assert_eq!(p.score, 97.0, "1 unwrap => 100 - 3 = 97, got {}", p.score);
     }
@@ -348,8 +329,11 @@ mod tests {
     #[test]
     fn test_archetype_specific_multipliers() {
         // naming has multiplier 2.0, nesting has 4.0
-        let naming = analyze(&[make_issue("terrible_naming"), make_issue("single_letter")]);
-        let nesting = analyze(&[make_issue("deep_nesting"), make_issue("complex_closure")]);
+        let naming = analyze(&[
+            make_issue("terrible-naming"),
+            make_issue("single-letter-variable"),
+        ]);
+        let nesting = analyze(&[make_issue("deep-nesting"), make_issue("complex-closure")]);
         assert_eq!(naming.title, "The Minimalist");
         assert_eq!(nesting.title, "The Architect");
         assert!(
@@ -362,41 +346,41 @@ mod tests {
 
     // ── unrecognized rules ───────────────────────────────────────
 
-    /// Objective: Verify that issues with unrecognized rule names still count toward total
-    ///            but do NOT affect any category count → last max (dup) is picked when all tied.
-    /// Invariants: Unrecognized rules fall through all if-else branches without incrementing.
+    /// Objective: Verify that unrecognized rule names fall into CodeSmells (catch-all) and
+    ///            contribute to "The Sorcerer" personality, reflecting uncategorized smells.
+    /// Invariants: classify_rule maps all unlisted rule names to StyleSignal::CodeSmells.
     #[test]
-    fn test_unrecognized_rules_fall_to_balanced() {
+    fn test_unrecognized_rules_fall_to_sorcerer() {
         let issues = vec![make_issue("random_rule"), make_issue("another_unknown")];
         let p = analyze(&issues);
-        // All categories are 0, max_by_key returns last max when tied => "dup" (last in array)
+        // Both map to CodeSmells => magic_count = 2 => The Sorcerer, score = 100 - 2*2 = 96
         assert_eq!(
-            p.title, "The Copy-Paste Artist",
-            "all 0 => last tied max is dup => Copy-Paste Artist"
+            p.title, "The Sorcerer",
+            "2 unknown => CodeSmells => Sorcerer"
         );
-        assert_eq!(
-            p.score, 100.0,
-            "0 dupes => 100 - 0*3 = 100, got {}",
+        assert!(
+            (p.score - 96.0).abs() < f64::EPSILON,
+            "2 magic => score should be 96 (100 - 2*2), got {}",
             p.score
         );
     }
 
     // ── case insensitivity ───────────────────────────────────────
 
-    /// Objective: Verify rule name matching is case-insensitive.
-    /// Invariants: The code lowercases rule_name before substring matching.
+    /// Objective: Verify rule name matching is case-insensitive via to_lowercase() before classify_rule.
+    /// Invariants: to_lowercase() normalizes UPPER/Mixed case to match classify_rule's lowercase strings.
     #[test]
     fn test_case_insensitivity() {
         let issues = vec![
-            make_issue("UNWRAP_ABUSE"),
-            make_issue("Unwrap_Abuse"),
-            make_issue("DEEP_NESTING"),
+            make_issue("UNWRAP-ABUSE"),
+            make_issue("Unwrap-Abuse"),
+            make_issue("DEEP-NESTING"),
         ];
         let p = analyze(&issues);
-        // 2 unwrap + 1 nesting => unwrap dominant => Optimist
+        // 2 PanicAddiction + 1 NestedHell => panic_addiction=2 dominant => Optimist
         assert_eq!(
             p.title, "The Optimist",
-            "case-insensitive matching: UPPER/mixed should match unwrap"
+            "case-insensitive matching via to_lowercase: UPPER/mixed should match"
         );
     }
 
@@ -407,12 +391,12 @@ mod tests {
     #[test]
     fn test_tied_categories_pick_last() {
         let issues = vec![
-            make_issue("unwrap_abuse"),
-            make_issue("terrible_naming"), // doesn't match "name": "naming" ≠ "name"
-            make_issue("deep_nesting"),
+            make_issue("unwrap-abuse"),
+            make_issue("terrible-naming"),
+            make_issue("deep-nesting"),
         ];
         let p = analyze(&issues);
-        // unwrap=1, naming=0, nesting=1 => last max value 1 is nesting => Architect
+        // PanicAddiction=1, NamingChaos=1, NestedHell=1 => last max value 1 is nesting => Architect
         assert_eq!(
             p.title, "The Architect",
             "tied at 1 between unwrap/nesting => last max (nesting) => Architect"
@@ -424,10 +408,10 @@ mod tests {
     #[test]
     fn test_score_formula_with_dominant_category() {
         let issues = vec![
-            make_issue("code_duplication"),
-            make_issue("code_duplication"),
-            make_issue("code_duplication"),
-            make_issue("deep_nesting"),
+            make_issue("code-duplication"),
+            make_issue("code-duplication"),
+            make_issue("code-duplication"),
+            make_issue("deep-nesting"),
         ];
         let p = analyze(&issues);
         assert_eq!(

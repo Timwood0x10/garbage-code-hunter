@@ -125,6 +125,7 @@ graph LR
 ## 特性一览
 
 - **18 个工具**：静态分析、git 吐槽、依赖羞耻、PR 审查 + 11 个娱乐工具
+- **软件法证引擎**：人格画像、代码尸检、行为分布、突变传播链
 - **多生态依赖**：Cargo.toml、package.json、go.mod、requirements.txt、pyproject.toml
 - **GitHub API**：PR Title Hunter 支持远程仓库（`--repo owner/repo`）
 - **历史趋势**：用 ASCII 图表追踪质量变化
@@ -139,7 +140,8 @@ graph LR
 - **多种吐槽人格**：Linux 内核维护者、硅谷 CTO、日本企业工程师、Rust 布道者
 - **上下文感知**：对测试/示例/UI 代码自动降低检测灵敏度
 - **双输出格式**：彩色终端或 JSON
-- **中英双语**：支持中文和英文吐槽
+- **中英双语**：完整支持中文和英文（`--lang zh-CN`）
+- **精简模式**：`--brief` 只输出核心四板块（人格+尸检+分布+判决）
 - **LLM 增强**：可选接入 Ollama 生成创意吐槽
 - **VSCode 插件**：编辑器内实时分析
 - **11 种语言**：Rust、C、C++、Python、JavaScript、TypeScript、Go、Java、Ruby、Swift、Zig
@@ -348,6 +350,8 @@ cargo install garbage-code-hunter
 garbage-code-hunter                    # 分析当前目录
 garbage-code-hunter src/main.rs        # 分析指定文件
 garbage-code-hunter --lang zh-CN src/  # 中文吐槽
+garbage-code-hunter --brief            # 精简模式：人格+尸检+分布+判决
+garbage-code-hunter -v                 # 详细模式：显示突变分析详情
 garbage-code-hunter --markdown src/    # Markdown 报告（给 AI 用）
 garbage-code-hunter --educational      # 显示修复建议
 garbage-code-hunter --hall-of-shame    # 显示最烂文件排名
@@ -534,6 +538,129 @@ Garbage Report
   pr-title-hunter      95/100  (30 items)
 
   Overall Garbage Score: 86/100
+```
+
+### 代码分析（法证引擎）
+
+完整输出：人格画像、尸检报告、行为分布、最终判决：
+
+```bash
+$ garbage-code-hunter --brief
+```
+```
+🗑️  Garbage Code Hunter 🗑️
+Preparing to roast your code...
+
+🧠 Project Personality
+══════════════════════════════════════════════════
+  📋  The Copy-Paste Artist
+
+  Score:  71/100  😞
+  Threat Level:  ⚠ HIGH
+  Corruption:  71%
+
+  Core Traits:
+    ▸ Ctrl+C, Ctrl+V is your IDE's most used shortcut
+    ▸ Why abstract when you can duplicate
+    ▸ Same bug in 5 places = 5x debugging fun
+
+  Emotional State:  numb from repetitive work
+
+☠ CODEBASE AUTOPSY
+══════════════════════════════════════════════════
+  Cause of Death: "uncontrolled duplication metastasis"
+
+  Condition:  terminal — palliative care recommended
+
+  ☣ High Contamination Zones:
+    ./src/treesitter/rules/rust_rules.rs [#···················] 9%
+    ./src/treesitter/rules/complex_rules.rs [#···················] 6%
+
+  Final Words: "just one more hotfix"
+
+  🧬 Mutation Propagation:
+    ☣ Infection Origin: ./src/treesitter/rules/complex_rules.rs →
+      ▸ ./src/treesitter/rules/ts_rules.rs (2 functions: test_long_function_clean_code, test_wildcard_import_detected)
+      ▸ ./src/treesitter/rules/java_rules.rs (2 functions: test_long_function_clean_code, test_wildcard_import_detected)
+
+🧬 Behavior Distribution
+══════════════════════════════════════════════════
+  Duplication        █████████████████████████ 100
+  Code Smells        ███████████████░░░░░░░░░░ 59
+  Naming Chaos       █████████████░░░░░░░░░░░░ 51
+  Over-Engineering   █████████░░░░░░░░░░░░░░░░ 35
+  Nested Hell        ███████░░░░░░░░░░░░░░░░░░ 30
+  Panic Addiction    █░░░░░░░░░░░░░░░░░░░░░░░░ 3
+  Hotfix Culture     █░░░░░░░░░░░░░░░░░░░░░░░░ 2
+
+📊 FINAL VERDICT
+══════════════════════════════════════════════════
+  😞 71/100 — Poor  |  📁 94  |  🔍 36.2/1k
+  Corruption Index: 1153 (💥76 🌶️83 😐994)
+
+  Dominant Personality: The Copy-Paste Artist
+  Diagnosis: moderate duplication-driven development syndrome
+
+  Mutation Density: extreme — aggressive intervention required
+  📜  "this file has more authors than tests"
+```
+
+中文输出（`--lang zh-CN`）：
+
+```bash
+$ garbage-code-hunter --brief --lang zh-CN
+```
+```
+🗑️  垃圾代码猎人 🗑️
+正在准备吐槽你的代码...
+
+🧠 项目人格
+══════════════════════════════════════════════════
+  📋  复制粘贴艺术家
+
+  评分:  71/100  😞
+  威胁等级:  ⚠ 高危
+  腐化度:  71%
+
+  核心特征:
+    ▸ Ctrl+C、Ctrl+V是你IDE最常用的快捷键
+    ▸ 能复制何必抽象
+    ▸ 同一个bug出现在5个地方 = 5倍调试乐趣
+
+  情绪状态:  重复劳动导致麻木
+
+☠ 代码库尸检报告
+══════════════════════════════════════════════════
+  死因: "失控的重复代码转移"
+
+  状况:  晚期 — 建议姑息治疗
+
+  遗言: "再修一个热修复就好"
+
+  🧬 突变传播:
+    ☣ 感染源: ./src/treesitter/rules/complex_rules.rs →
+      ▸ ./src/treesitter/rules/ts_rules.rs (2 个函数: test_long_function_clean_code, test_wildcard_import_detected)
+
+🧬 行为分布
+══════════════════════════════════════════════════
+  重复代码            █████████████████████████ 100
+  代码异味            ███████████████░░░░░░░░░░ 59
+  命名混乱            █████████████░░░░░░░░░░░░ 51
+  过度工程            █████████░░░░░░░░░░░░░░░░ 35
+  嵌套地狱            ███████░░░░░░░░░░░░░░░░░░ 30
+  恐慌成瘾            █░░░░░░░░░░░░░░░░░░░░░░░░ 3
+  热修复文化           █░░░░░░░░░░░░░░░░░░░░░░░░ 2
+
+📊 最终判决
+══════════════════════════════════════════════════
+  😞 71/100 — 较差  |  📁 94  |  🔍 35.4/1k
+  腐化指数: 1130 (💥76 🌶️77 😐977)
+
+  主导人格: 复制粘贴艺术家
+  诊断: 中度 重复代码驱动开发综合症
+
+  突变密度: 极端——需要紧急干预
+  📜  "the spec was 'make it work' and it shows"
 ```
 
 ## 排除生成文件

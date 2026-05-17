@@ -1,10 +1,11 @@
 use crate::analyzer::CodeIssue;
+use crate::scoring::CodeQualityScore;
+use crate::signals::{StyleProfile, StyleSignal};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub type SpreadTarget = (String, usize, Vec<String>);
 pub type SpreadChain = (String, Vec<SpreadTarget>);
-use crate::scoring::CodeQualityScore;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct ProjectPersonality {
     pub project_type: &'static str,
@@ -51,70 +52,22 @@ pub fn analyze(
     _file_count: usize,
     _spread: &HashMap<String, Vec<SpreadTarget>>,
 ) -> (ProjectPersonality, AutopsyReport) {
-    let total = issues.len().max(1);
+    let profile = StyleProfile::from_signal_scores(score.signal_scores.clone());
+    let personality_type = profile.infer_personality_type();
 
-    let mut dup_count = 0usize;
-    let mut naming_count = 0usize;
-    let mut unwrap_count = 0usize;
-    let mut nested_count = 0usize;
-    let mut god_fn_count = 0usize;
-    let mut long_fn_count = 0usize;
-    let mut todo_count = 0usize;
-
-    for issue in issues {
-        let r = issue.rule_name.as_str();
-        if r.contains("duplicat") {
-            dup_count += 1;
-        } else if r.contains("naming")
-            || r == "terrible-naming"
-            || r == "single-letter-variable"
-            || r.contains("meaningless")
-            || r == "hungarian-notation"
-            || r == "abbreviation-abuse"
-            || r == "go-receiver-name"
-            || r == "ruby-predicate-method"
-            || r == "constant-name"
-        {
-            naming_count += 1;
-        }
-        if r == "unwrap-abuse" {
-            unwrap_count += 1;
-        }
-        if r.contains("nest") {
-            nested_count += 1;
-        }
-        if r == "god-function" {
-            god_fn_count += 1;
-        }
-        if r == "long-function" || r.contains("too-many-params") {
-            long_fn_count += 1;
-        }
-        if r.contains("todo") {
-            todo_count += 1;
-        }
-    }
-
-    let total_f = total as f64;
-    let dup_ratio = dup_count as f64 / total_f;
-    let unwrap_ratio = unwrap_count as f64 / total_f;
-    let nested_ratio = nested_count as f64 / total_f;
-    let naming_ratio = naming_count as f64 / total_f;
-    let todo_ratio = todo_count as f64 / total_f;
-    let score_val = score.total_score;
-
-    let threat_level = if score_val >= 80.0 {
+    let threat_level = if score.total_score >= 80.0 {
         "☢ CRITICAL"
-    } else if score_val >= 60.0 {
+    } else if score.total_score >= 60.0 {
         "⚠ HIGH"
-    } else if score_val >= 40.0 {
+    } else if score.total_score >= 40.0 {
         "⚠ ELEVATED"
     } else {
         "🟢 MODERATE"
     };
 
+    let total_f = issues.len().max(1) as f64;
     let files_per_category = categorize_files(issues, total_f);
 
-    // Build spread chains: top 5 spreader files
     let mut spread_list: Vec<_> = _spread
         .iter()
         .map(|(file, targets)| (file.clone(), targets.clone()))
@@ -122,8 +75,12 @@ pub fn analyze(
     spread_list.sort_by_key(|(_, targets)| std::cmp::Reverse(targets.len()));
     spread_list.truncate(5);
 
-    let (personality, autopsy) = if dup_ratio > 0.35 {
-        (
+    let dup = profile.score(StyleSignal::Duplication);
+    let panic = profile.score(StyleSignal::PanicAddiction);
+    let nested = profile.score(StyleSignal::NestedHell);
+
+    let (personality, autopsy) = match personality_type {
+        "The Copy-Paste Artist" => (
             ProjectPersonality {
                 project_type: "The Copy-Paste Artist",
                 emoji: "📋",
@@ -140,7 +97,7 @@ pub fn analyze(
             },
             AutopsyReport {
                 cause_of_death: "uncontrolled duplication metastasis",
-                patient_condition: if dup_count > 500 {
+                patient_condition: if dup >= 20.0 {
                     "terminal — palliative care recommended"
                 } else {
                     "critical but treatable"
@@ -152,9 +109,8 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "just one more hotfix",
             },
-        )
-    } else if unwrap_ratio > 0.15 {
-        (
+        ),
+        "The YOLO Engineer" => (
             ProjectPersonality {
                 project_type: "The YOLO Engineer",
                 emoji: "🤘",
@@ -171,7 +127,7 @@ pub fn analyze(
             },
             AutopsyReport {
                 cause_of_death: "panic-driven development",
-                patient_condition: if unwrap_count > 20 {
+                patient_condition: if panic >= 15.0 {
                     "critical — needs immediate Result therapy"
                 } else {
                     "stable but concerning"
@@ -183,9 +139,8 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "i'll add error handling later",
             },
-        )
-    } else if nested_ratio > 0.15 || god_fn_count > 5 || long_fn_count > 5 {
-        (
+        ),
+        "The Trait Wizard" => (
             ProjectPersonality {
                 project_type: "The Trait Wizard",
                 emoji: "🧙",
@@ -202,7 +157,7 @@ pub fn analyze(
             },
             AutopsyReport {
                 cause_of_death: "complexity collapse — nesting level exceeded event horizon",
-                patient_condition: if god_fn_count > 5 {
+                patient_condition: if nested >= 15.0 {
                     "severe — god functions threatening readability"
                 } else {
                     "moderate — some functions need splitting"
@@ -214,9 +169,8 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "i can still understand it",
             },
-        )
-    } else if naming_ratio > 0.25 {
-        (
+        ),
+        "The Legacy Necromancer" => (
             ProjectPersonality {
                 project_type: "The Legacy Necromancer",
                 emoji: "☢",
@@ -241,9 +195,8 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "temp2 should work",
             },
-        )
-    } else if todo_ratio > 0.1 {
-        (
+        ),
+        "The Hotfix Mercenary" => (
             ProjectPersonality {
                 project_type: "The Hotfix Mercenary",
                 emoji: "🔥",
@@ -265,10 +218,8 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "i'll fix it in the next sprint",
             },
-        )
-    } else if dup_ratio > 0.15 && unwrap_ratio > 0.05 {
-        // Startup Survivor: mix of duplication + panic
-        (
+        ),
+        "The Startup Survivor" => (
             ProjectPersonality {
                 project_type: "The Startup Survivor",
                 emoji: "🚀",
@@ -293,10 +244,8 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "we'll fix it after the next funding round",
             },
-        )
-    } else if naming_ratio > 0.1 && nested_ratio > 0.1 {
-        // Academic Wizard: complex naming + deep nesting
-        (
+        ),
+        "The Academic Wizard" => (
             ProjectPersonality {
                 project_type: "The Academic Wizard",
                 emoji: "🧙",
@@ -321,9 +270,8 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "it's actually quite simple once you understand the theory",
             },
-        )
-    } else {
-        (
+        ),
+        _ => (
             ProjectPersonality {
                 project_type: "The Enterprise Bureaucrat",
                 emoji: "🏢",
@@ -347,7 +295,7 @@ pub fn analyze(
                 spread_chains: spread_list.clone(),
                 final_words: "we'll refactor next quarter",
             },
-        )
+        ),
     };
 
     (personality, autopsy)

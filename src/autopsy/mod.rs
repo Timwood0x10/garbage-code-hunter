@@ -3,6 +3,7 @@
 use crate::analyzer::{CodeAnalyzer, CodeIssue};
 use crate::common::i18n_ext::t;
 use crate::common::OutputFormat;
+use crate::signals::{classify_rule, StyleSignal};
 use anyhow::Result;
 use colored::Colorize;
 use std::collections::HashMap;
@@ -154,24 +155,14 @@ fn generate_autopsy(issues: &[CodeIssue]) -> AutopsyReport {
 }
 
 fn categorize(rule_name: &str) -> &'static str {
-    let lower = rule_name.to_lowercase();
-    if lower.contains("duplicat") || lower.contains("copy") {
-        "Copy-Paste Driven Development"
-    } else if lower.contains("unwrap") {
-        "Uncontrolled unwrap() Proliferation"
-    } else if lower.contains("nest") || lower.contains("complex") {
-        "Pyramid of Doom"
-    } else if lower.contains("name")
-        || lower.contains("single_letter")
-        || lower.contains("meaningless")
-    {
-        "Naming Atrophy"
-    } else if lower.contains("magic") {
-        "Magic Number Syndrome"
-    } else if lower.contains("long") {
-        "Function Obesity"
-    } else {
-        "Chronic Code Smell"
+    match classify_rule(rule_name) {
+        StyleSignal::Duplication => "Copy-Paste Driven Development",
+        StyleSignal::PanicAddiction => "Uncontrolled unwrap() Proliferation",
+        StyleSignal::NamingChaos => "Naming Atrophy",
+        StyleSignal::NestedHell => "Pyramid of Doom",
+        StyleSignal::CodeSmells => "Magic Number Syndrome",
+        StyleSignal::OverEngineering => "Function Obesity",
+        StyleSignal::HotfixCulture => "Chronic Code Smell",
     }
 }
 
@@ -268,12 +259,12 @@ mod tests {
     #[test]
     fn test_categorize() {
         assert_eq!(
-            categorize("unwrap_abuse"),
+            categorize("unwrap-abuse"),
             "Uncontrolled unwrap() Proliferation"
         );
-        assert_eq!(categorize("deep_nesting"), "Pyramid of Doom");
+        assert_eq!(categorize("deep-nesting"), "Pyramid of Doom");
         assert_eq!(
-            categorize("code_duplication"),
+            categorize("code-duplication"),
             "Copy-Paste Driven Development"
         );
     }

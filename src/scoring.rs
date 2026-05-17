@@ -1,5 +1,5 @@
 use crate::analyzer::{CodeIssue, Severity};
-use crate::signals::{compute_signal_scores, StyleSignal};
+use crate::signals::{classify_rule, compute_signal_scores, StyleSignal};
 use std::collections::HashMap;
 
 /// Code quality rating system — two-tier log model.
@@ -111,14 +111,21 @@ impl CodeScorer {
         let severity_distribution = self.calculate_severity_distribution(issues);
 
         // Category breakdown: log-scaled density per category (informational only)
-        let categories = self.build_categories();
         let k_lines = total_lines as f64 / 1000.0;
+        let mut category_counts: HashMap<&str, usize> = HashMap::new();
+        for issue in issues {
+            let cat = legacy_category_name(classify_rule(&issue.rule_name));
+            *category_counts.entry(cat).or_insert(0) += 1;
+        }
         let mut category_scores = HashMap::new();
-        for (cat_name, rules) in &categories {
-            let cat_count = issues
-                .iter()
-                .filter(|i| rules.contains(&i.rule_name.as_str()))
-                .count();
+        for &cat_name in &[
+            "naming",
+            "complexity",
+            "duplication",
+            "code-smells",
+            "student-code",
+        ] {
+            let cat_count = category_counts.get(cat_name).copied().unwrap_or(0);
             let cat_density = if k_lines > 0.0 {
                 cat_count as f64 / k_lines
             } else {
@@ -177,6 +184,21 @@ impl CodeScorer {
         }
     }
 
+    pub fn calculate_score_with_direct(
+        &self,
+        issues: &[CodeIssue],
+        file_count: usize,
+        total_lines: usize,
+        direct_scores: HashMap<StyleSignal, f64>,
+    ) -> CodeQualityScore {
+        let mut score = self.calculate_score(issues, file_count, total_lines);
+        for (signal, direct_score) in direct_scores {
+            let entry = score.signal_scores.entry(signal).or_insert(0.0);
+            *entry = (*entry).max(direct_score);
+        }
+        score
+    }
+
     fn calculate_severity_distribution(&self, issues: &[CodeIssue]) -> SeverityDistribution {
         let mut nuclear = 0;
         let mut spicy = 0;
@@ -194,123 +216,15 @@ impl CodeScorer {
             mild,
         }
     }
+}
 
-    fn build_categories(&self) -> Vec<(&str, Vec<&str>)> {
-        vec![
-            (
-                "naming",
-                vec![
-                    "terrible-naming",
-                    "single-letter-variable",
-                    "meaningless-naming",
-                    "hungarian-notation",
-                    "abbreviation-abuse",
-                    "c-naming",
-                    "go-receiver-name",
-                    "go-mixed-caps",
-                    "ruby-predicate-method",
-                    "python-naming",
-                    "constant-name",
-                ],
-            ),
-            (
-                "complexity",
-                vec![
-                    "deep-nesting",
-                    "long-function",
-                    "god-function",
-                    "cyclomatic-complexity",
-                    "c-nesting",
-                    "c-long-function",
-                    "complex-closure",
-                    "go-else-return",
-                    "negated-if",
-                ],
-            ),
-            (
-                "duplication",
-                vec!["code-duplication", "cross-file-duplication"],
-            ),
-            (
-                "code-smells",
-                vec![
-                    "go-error-string",
-                    "go-context-first",
-                    "compared-to-bool",
-                    "not-is-none",
-                    "prefer-interface",
-                    "too-many-params",
-                    "frozen-string",
-                    "magic-number",
-                    "commented-code",
-                    "dead-code",
-                    "file-too-long",
-                    "unwrap-abuse",
-                    "unnecessary-clone",
-                    "string-abuse",
-                    "vec-abuse",
-                    "macro-abuse",
-                    "channel-abuse",
-                    "async-abuse",
-                    "dyn-trait-abuse",
-                    "unsafe-abuse",
-                    "ffi-abuse",
-                    "box-abuse",
-                    "slice-abuse",
-                    "reference-abuse",
-                    "module-complexity",
-                    "pattern-matching-abuse",
-                    "duplicate-imports",
-                    "deep-module-nesting",
-                    "lifetime-abuse",
-                    "trait-complexity",
-                    "generic-abuse",
-                    "c-include-chaos",
-                    "c-magic-number",
-                    "c-god-function",
-                    "c-commented-code",
-                    "c-dead-code",
-                    "c-goto-abuse",
-                    "c-new-expression",
-                    "c-malloc-leak",
-                    "c-malloc-check",
-                    "c-sizeof-type",
-                    "defer-in-loop",
-                    "goroutine-abuse",
-                    "global-variable",
-                    "bare-rescue",
-                    "wildcard-import",
-                    "bare-except",
-                    "empty-catch",
-                    "any-type",
-                    "python-type-ignore",
-                    "python-fstring",
-                    "python-magic-method",
-                    "rust-doc-example",
-                    "rust-derive-order",
-                    "rust-error-display",
-                    "rust-must-use",
-                    "java-javadoc-missing",
-                    "java-try-resource",
-                    "java-string-concat",
-                    "java-wildcard-import",
-                    "python-import-order",
-                    "ruby-two-space-indent",
-                    "ts-no-enum",
-                ],
-            ),
-            (
-                "student-code",
-                vec![
-                    "println-debugging",
-                    "panic-abuse",
-                    "todo-comment",
-                    "todo-fixme",
-                    "todo-bug",
-                    "todo-hack",
-                ],
-            ),
-        ]
+fn legacy_category_name(signal: StyleSignal) -> &'static str {
+    match signal {
+        StyleSignal::NamingChaos => "naming",
+        StyleSignal::NestedHell => "complexity",
+        StyleSignal::Duplication => "duplication",
+        StyleSignal::PanicAddiction | StyleSignal::HotfixCulture => "student-code",
+        StyleSignal::OverEngineering | StyleSignal::CodeSmells => "code-smells",
     }
 }
 

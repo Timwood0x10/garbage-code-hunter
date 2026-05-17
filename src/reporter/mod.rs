@@ -3,7 +3,6 @@ mod display;
 
 use colored::*;
 use std::collections::{BTreeMap, HashMap};
-
 use std::path::Path;
 
 use crate::analyzer::{CodeIssue, Severity};
@@ -11,6 +10,7 @@ use crate::i18n::I18n;
 use crate::llm::{RoastMap, RoastProvider};
 use crate::reporter::autopsy::SpreadTarget;
 use crate::scoring::{CodeQualityScore, CodeScorer};
+use crate::signals::StyleSignal;
 
 pub struct Reporter {
     harsh_mode: bool,
@@ -21,9 +21,11 @@ pub struct Reporter {
     top_files: usize,
     max_issues_per_file: usize,
     summary_only: bool,
+    brief: bool,
     markdown: bool,
     i18n: I18n,
     roast_provider: Box<dyn RoastProvider>,
+    direct_scores: HashMap<StyleSignal, f64>,
 }
 
 impl Reporter {
@@ -35,6 +37,7 @@ impl Reporter {
         top_files: usize,
         max_issues_per_file: usize,
         summary_only: bool,
+        brief: bool,
         markdown: bool,
         lang: &str,
         roast_provider: Box<dyn RoastProvider>,
@@ -46,10 +49,17 @@ impl Reporter {
             top_files,
             max_issues_per_file,
             summary_only,
+            brief,
             markdown,
             i18n: I18n::new(lang),
             roast_provider,
+            direct_scores: HashMap::new(),
         }
+    }
+
+    pub fn with_direct_scores(mut self, scores: HashMap<StyleSignal, f64>) -> Self {
+        self.direct_scores = scores;
+        self
     }
 
     fn is_test_path(path: &Path) -> bool {
@@ -94,9 +104,18 @@ impl Reporter {
             .cloned()
             .collect();
 
-        // Calculate separate scores
+        // Calculate separate scores (merge issue-derived + direct signal scores)
         let scorer = CodeScorer::new();
-        let combined_score = scorer.calculate_score(&issues, file_count, total_lines);
+        let combined_score = if self.direct_scores.is_empty() {
+            scorer.calculate_score(&issues, file_count, total_lines)
+        } else {
+            scorer.calculate_score_with_direct(
+                &issues,
+                file_count,
+                total_lines,
+                self.direct_scores.clone(),
+            )
+        };
 
         if issues.is_empty() {
             self.print_clean_code_message_with_score(&combined_score);
@@ -134,14 +153,16 @@ impl Reporter {
                 self.print_header();
                 self.print_personality(&personality, &combined_score, corruption_pct);
                 self.print_autopsy(&autopsy);
-                self.print_boss_file(&issues);
+                if !self.brief {
+                    self.print_boss_file(&issues);
+                }
                 self.print_behavior_distribution(&combined_score);
 
                 if self.verbose {
                     self.print_symptoms(&issues);
                 }
             }
-            self.print_final_summary(&combined_score, file_count);
+            self.print_final_summary(&combined_score, file_count, Some(personality.project_type));
         }
     }
 
@@ -401,6 +422,7 @@ mod tests {
             5,
             false,
             false,
+            false,
             "en",
             Box::new(crate::llm::LocalRoastProvider),
         );
@@ -420,6 +442,7 @@ mod tests {
             false,
             10,
             5,
+            false,
             false,
             false,
             "zh-CN",

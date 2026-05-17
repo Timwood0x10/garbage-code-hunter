@@ -361,3 +361,41 @@ fn test_cli_invalid_rust_file() {
     // Should handle invalid Rust files gracefully
     assert!(output.status.success());
 }
+
+#[test]
+fn test_cli_brief_mode() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let file_path = temp_dir.path().join("garbage.rs");
+    fs::write(
+        &file_path,
+        "fn main() { let x = 42; let y = Some(1).unwrap(); }",
+    )
+    .expect("Failed to write test file");
+
+    // Brief mode should skip boss file and mutation chains
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--",
+            "analyze",
+            "--brief",
+            file_path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(output.status.success(), "brief mode should exit 0");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should contain personality and verdict (non-brief sections)
+    assert!(
+        stdout.contains("Personality") || stdout.contains("VERDICT"),
+        "brief output should contain personality/verdict"
+    );
+
+    // Should NOT contain boss file section
+    assert!(
+        !stdout.contains("FINAL BOSS"),
+        "brief output should not contain FINAL BOSS section"
+    );
+}

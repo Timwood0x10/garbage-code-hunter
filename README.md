@@ -130,6 +130,7 @@ graph LR
 ## Features
 
 - **18 tools**: Static analysis, git roasting, dependency shaming, PR review, and 11 entertainment tools
+- **Software Forensics Engine**: Personality profiling, codebase autopsy, behavior distribution, mutation propagation
 - **Multi-ecosystem deps**: Cargo.toml, package.json, go.mod, requirements.txt, pyproject.toml
 - **GitHub API**: PR Title Hunter supports remote repos (`--repo owner/repo`)
 - **Historical trends**: Track quality over time with ASCII charts
@@ -144,7 +145,8 @@ graph LR
 - **Multiple personas**: Roast as Linux Kernel Maintainer, Silicon Valley CTO, Japanese Enterprise Engineer, or Rust Evangelist
 - **Context-aware**: Adjusts sensitivity for test/example/UI code
 - **Dual output**: Colored terminal or JSON for all commands
-- **Bilingual**: English and Chinese roasts
+- **Bilingual**: Full English and Chinese support (`--lang zh-CN`)
+- **Brief mode**: `--brief` for concise output (personality + autopsy + distribution + verdict)
 - **LLM powered**: Optional Ollama integration for creative roasts
 - **VSCode extension**: Real-time analysis in your editor
 - **11 languages**: Rust, C, C++, Python, JavaScript, TypeScript, Go, Java, Ruby, Swift, Zig
@@ -372,6 +374,8 @@ cargo install garbage-code-hunter
 garbage-code-hunter                    # Analyze current directory
 garbage-code-hunter src/main.rs        # Analyze specific file
 garbage-code-hunter --lang zh-CN src/  # Chinese roasts
+garbage-code-hunter --brief            # Brief: personality + autopsy + distribution + verdict
+garbage-code-hunter -v                 # Verbose: add mutation analysis details
 garbage-code-hunter --markdown src/    # Markdown report for AI tools
 garbage-code-hunter --educational      # Show how-to-fix advice
 garbage-code-hunter --hall-of-shame    # Show worst files ranking
@@ -558,6 +562,118 @@ Garbage Report
   pr-title-hunter      95/100  (30 items)
 
   Overall Garbage Score: 86/100
+```
+
+### Code Analysis (Forensics Engine)
+
+Full output with personality, autopsy, behavior distribution, and verdict:
+
+```bash
+$ garbage-code-hunter --brief
+```
+```
+🗑️  Garbage Code Hunter 🗑️
+Preparing to roast your code...
+
+🧠 Project Personality
+══════════════════════════════════════════════════
+  📋  The Copy-Paste Artist
+
+  Score:  71/100  😞
+  Threat Level:  ⚠ HIGH
+  Corruption:  71%
+
+  Core Traits:
+    ▸ Ctrl+C, Ctrl+V is your IDE's most used shortcut
+    ▸ Why abstract when you can duplicate
+    ▸ Same bug in 5 places = 5x debugging fun
+
+  Emotional State:  numb from repetitive work
+
+☠ CODEBASE AUTOPSY
+══════════════════════════════════════════════════
+  Cause of Death: "uncontrolled duplication metastasis"
+
+  Condition:  terminal — palliative care recommended
+
+  ☣ High Contamination Zones:
+    ./src/treesitter/rules/rust_rules.rs [#···················] 9%
+    ./src/treesitter/rules/complex_rules.rs [#···················] 6%
+
+  Final Words: "just one more hotfix"
+
+  🧬 Mutation Propagation:
+    ☣ Infection Origin: ./src/treesitter/rules/complex_rules.rs →
+      ▸ ./src/treesitter/rules/ts_rules.rs (2 functions: test_long_function_clean_code, test_wildcard_import_detected)
+      ▸ ./src/treesitter/rules/java_rules.rs (2 functions: test_long_function_clean_code, test_wildcard_import_detected)
+
+🧬 Behavior Distribution
+══════════════════════════════════════════════════
+  Duplication        █████████████████████████ 100
+  Code Smells        ███████████████░░░░░░░░░░ 59
+  Naming Chaos       █████████████░░░░░░░░░░░░ 51
+  Over-Engineering   █████████░░░░░░░░░░░░░░░░ 35
+  Nested Hell        ███████░░░░░░░░░░░░░░░░░░ 30
+  Panic Addiction    █░░░░░░░░░░░░░░░░░░░░░░░░ 3
+  Hotfix Culture     █░░░░░░░░░░░░░░░░░░░░░░░░ 2
+
+📊 FINAL VERDICT
+══════════════════════════════════════════════════
+  😞 71/100 — Poor  |  📁 94  |  🔍 36.2/1k
+  Corruption Index: 1153 (💥76 🌶️83 😐994)
+
+  Dominant Personality: The Copy-Paste Artist
+  Diagnosis: moderate duplication-driven development syndrome
+
+  Mutation Density: extreme — aggressive intervention required
+  📜  "this file has more authors than tests"
+```
+
+Chinese output (`--lang zh-CN`):
+
+```bash
+$ garbage-code-hunter --brief --lang zh-CN
+```
+```
+🗑️  垃圾代码猎人 🗑️
+正在准备吐槽你的代码...
+
+🧠 项目人格
+══════════════════════════════════════════════════
+  📋  复制粘贴艺术家
+
+  评分:  71/100  😞
+  威胁等级:  ⚠ 高危
+  腐化度:  71%
+
+  核心特征:
+    ▸ Ctrl+C、Ctrl+V是你IDE最常用的快捷键
+    ▸ 能复制何必抽象
+    ▸ 同一个bug出现在5个地方 = 5倍调试乐趣
+
+  情绪状态:  重复劳动导致麻木
+
+☠ 代码库尸检报告
+══════════════════════════════════════════════════
+  死因: "失控的重复代码转移"
+
+  状况:  晚期 — 建议姑息治疗
+
+  遗言: "再修一个热修复就好"
+
+  🧬 突变传播:
+    ☣ 感染源: ./src/treesitter/rules/complex_rules.rs →
+      ▸ ./src/treesitter/rules/ts_rules.rs (2 个函数: test_long_function_clean_code, test_wildcard_import_detected)
+
+📊 最终判决
+══════════════════════════════════════════════════
+  😞 71/100 — 较差  |  📁 94  |  🔍 35.4/1k
+  腐化指数: 1130 (💥76 🌶️77 😐977)
+
+  主导人格: 复制粘贴艺术家
+  诊断: 中度 重复代码驱动开发综合症
+
+  突变密度: 极端——需要紧急干预
 ```
 
 ## Excluding Generated Files

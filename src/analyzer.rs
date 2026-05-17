@@ -1,12 +1,15 @@
 use regex::Regex;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 use crate::context::{FileContext, ProjectConfig};
+use crate::finding::StyleFinding;
 use crate::language::{Language, SUPPORTED_EXTENSIONS};
 use crate::rules::generic::GenericRuleEngine;
+use crate::signals::{aggregate_detector_scores, SignalDetector, StyleSignal};
 use crate::treesitter::duplication::{CrossFileDupDetector, IntraFileDupDetector};
 use crate::treesitter::{TreeSitterEngine, TreeSitterRuleEngine};
 
@@ -34,7 +37,9 @@ pub struct CodeAnalyzer {
     exclude_patterns: Vec<Regex>,
     project_config: ProjectConfig,
     lang: String,
-    cross_detector: std::cell::RefCell<CrossFileDupDetector>,
+    cross_detector: RefCell<CrossFileDupDetector>,
+    detectors: Vec<Box<dyn SignalDetector>>,
+    direct_scores: RefCell<HashMap<StyleSignal, f64>>,
 }
 
 impl CodeAnalyzer {
@@ -100,8 +105,19 @@ impl CodeAnalyzer {
             exclude_patterns: patterns,
             project_config: config,
             lang: lang.to_string(),
-            cross_detector: std::cell::RefCell::new(CrossFileDupDetector::new()),
+            cross_detector: RefCell::new(CrossFileDupDetector::new()),
+            detectors: Vec::new(),
+            direct_scores: RefCell::new(HashMap::new()),
         }
+    }
+
+    pub fn with_detectors(mut self, detectors: Vec<Box<dyn SignalDetector>>) -> Self {
+        self.detectors = detectors;
+        self
+    }
+
+    pub fn direct_signal_scores(&self) -> HashMap<StyleSignal, f64> {
+        self.direct_scores.borrow().clone()
     }
 
     fn should_exclude(&self, path: &Path) -> bool {
@@ -173,7 +189,28 @@ impl CodeAnalyzer {
             }
         }
 
+        // Phase 4: Direct signal detection (bypasses Rule → Issue pipeline)
+        if !self.detectors.is_empty() {
+            let parsed: Vec<_> = real_files
+                .iter()
+                .filter_map(|file_path| {
+                    let content = fs::read_to_string(file_path).ok()?;
+                    self.ts_engine.parse_file(file_path, &content)
+                })
+                .collect();
+            *self.direct_scores.borrow_mut() = aggregate_detector_scores(&self.detectors, &parsed);
+        }
+
         issues
+    }
+
+    /// Run the same pipeline as `analyze_path` but return `StyleFinding`s
+    /// instead of raw `CodeIssue`s.
+    pub fn analyze_to_findings(&self, path: &Path) -> Vec<StyleFinding> {
+        self.analyze_path(path)
+            .iter()
+            .map(StyleFinding::from)
+            .collect()
     }
 
     fn is_generated_file(path: &Path) -> bool {

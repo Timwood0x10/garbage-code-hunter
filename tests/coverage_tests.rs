@@ -90,20 +90,20 @@ fn main() {
 
     // Test all possible reporter configurations
     let configurations = vec![
-        // (harsh, savage, verbose, top, max_issues, summary, markdown, lang)
-        (true, true, true, 1, 1, false, false, "zh-CN"),
-        (true, true, true, 1, 1, false, true, "zh-CN"),
-        (true, true, true, 1, 1, true, false, "zh-CN"),
-        (true, true, true, 1, 1, true, true, "zh-CN"),
-        (false, false, false, 10, 10, false, false, "en-US"),
-        (false, false, false, 10, 10, false, true, "en-US"),
-        (false, false, false, 10, 10, true, false, "en-US"),
-        (false, false, false, 10, 10, true, true, "en-US"),
-        (true, false, true, 5, 5, false, false, "zh-CN"),
-        (false, true, false, 3, 3, false, false, "en-US"),
+        (true, true, true, 1, 1, false, false, false, "zh-CN"),
+        (true, true, true, 1, 1, false, false, true, "zh-CN"),
+        (true, true, true, 1, 1, true, false, false, "zh-CN"),
+        (true, true, true, 1, 1, true, false, true, "zh-CN"),
+        (false, false, false, 10, 10, false, false, false, "en-US"),
+        (false, false, false, 10, 10, false, false, true, "en-US"),
+        (false, false, false, 10, 10, true, false, false, "en-US"),
+        (false, false, false, 10, 10, true, false, true, "en-US"),
+        (true, false, true, 5, 5, false, false, false, "zh-CN"),
+        (false, true, false, 3, 3, false, false, false, "en-US"),
     ];
 
-    for (harsh, savage, verbose, top, max_issues, summary, markdown, lang) in configurations {
+    for (harsh, savage, verbose, top, max_issues, summary, brief, markdown, lang) in configurations
+    {
         let reporter = Reporter::new(
             harsh,
             savage,
@@ -111,6 +111,7 @@ fn main() {
             top,
             max_issues,
             summary,
+            brief,
             markdown,
             lang,
             Box::new(LocalRoastProvider),

@@ -14,6 +14,7 @@ pub mod debt_invoice;
 pub mod decay;
 pub mod deps_shamer;
 pub mod educational;
+pub mod finding;
 pub mod hall_of_shame;
 pub mod i18n;
 pub mod language;

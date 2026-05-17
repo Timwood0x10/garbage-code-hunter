@@ -19,6 +19,7 @@ use garbage_code_hunter::{
     llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
     personality, personas, pr_title_hunter, radar,
     reporter::Reporter,
+    signals::{NamingChaosDetector, PanicAddictionDetector},
     team_roast,
 };
 
@@ -120,6 +121,10 @@ struct AnalyzeArgs {
     /// Only show summary conclusion, skip details
     #[arg(short = 's', long)]
     summary: bool,
+
+    /// Brief output: personality, autopsy, distribution, verdict only (skip boss file & chains)
+    #[arg(short, long)]
+    brief: bool,
 
     /// Output Markdown format report for AI tools
     #[arg(short, long)]
@@ -1235,6 +1240,7 @@ impl Default for AnalyzeArgs {
             top: 5,
             issues: 5,
             summary: false,
+            brief: false,
             markdown: false,
             lang: "en-US".to_string(),
             exclude: Vec::new(),
@@ -1277,7 +1283,11 @@ fn run_analyze(args: AnalyzeArgs) {
         None => ProjectConfig::discover(&args.path),
     };
 
-    let analyzer = CodeAnalyzer::with_config(&args.exclude, &args.lang, project_config);
+    let analyzer = CodeAnalyzer::with_config(&args.exclude, &args.lang, project_config)
+        .with_detectors(vec![
+            Box::new(PanicAddictionDetector::new()),
+            Box::new(NamingChaosDetector::new()),
+        ]);
     let issues = analyzer.analyze_path(&args.path);
     let spread = analyzer.infection_spread();
 
@@ -1322,6 +1332,7 @@ fn run_analyze(args: AnalyzeArgs) {
         }
     };
 
+    let direct_scores = analyzer.direct_signal_scores();
     let reporter = Reporter::new(
         args.harsh,
         args.savage,
@@ -1329,10 +1340,12 @@ fn run_analyze(args: AnalyzeArgs) {
         args.top,
         args.issues,
         args.summary,
+        args.brief,
         args.markdown,
         &args.lang,
         roast_provider,
-    );
+    )
+    .with_direct_scores(direct_scores);
 
     // Handle JSON output format
     if args.format == "json" {
