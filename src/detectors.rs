@@ -3,9 +3,9 @@
 //! Each detector implements `SignalDetector` and produces scores
 //! directly from parsed AST files, bypassing the Rule → Issue pipeline.
 
-use crate::language::adapter::adapter_for;
 use crate::language::Language;
 use crate::signals::{SignalDetector, StyleSignal};
+use crate::style_ir::StyleIr;
 use crate::treesitter::duplication::IntraFileDupDetector;
 use crate::treesitter::engine::ParsedFile;
 
@@ -51,8 +51,8 @@ impl SignalDetector for PanicAddictionDetector {
     }
 
     fn count_violations(&self, file: &ParsedFile) -> usize {
-        adapter_for(file.language)
-            .map(|a| a.count_panic_calls(file))
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.panic_call_count)
             .unwrap_or(0)
     }
 }
@@ -85,8 +85,8 @@ impl SignalDetector for NamingChaosDetector {
     }
 
     fn count_violations(&self, file: &ParsedFile) -> usize {
-        adapter_for(file.language)
-            .map(|a| a.count_naming_violations(file))
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.naming_violation_count)
             .unwrap_or(0)
     }
 }
@@ -118,8 +118,8 @@ impl SignalDetector for NestedHellDetector {
     }
 
     fn count_violations(&self, file: &ParsedFile) -> usize {
-        adapter_for(file.language)
-            .map(|a| a.count_deeply_nested_blocks(file))
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.deeply_nested_block_count)
             .unwrap_or(0)
     }
 }
@@ -151,8 +151,8 @@ impl SignalDetector for HotfixCultureDetector {
     }
 
     fn count_violations(&self, file: &ParsedFile) -> usize {
-        adapter_for(file.language)
-            .map(|a| a.count_debug_calls(file))
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.debug_call_count)
             .unwrap_or(0)
     }
 }
@@ -184,20 +184,9 @@ impl SignalDetector for OverEngineeringDetector {
     }
 
     fn count_violations(&self, file: &ParsedFile) -> usize {
-        let Some(adapter) = adapter_for(file.language) else {
-            return 0;
-        };
-        let param_threshold = 5;
-        let god_threshold = 50;
-        let mut count = 0;
-        let functions = adapter.extract_functions(file);
-        for f in &functions {
-            if f.end_line - f.start_line > god_threshold {
-                count += 1;
-            }
-        }
-        count += adapter.count_excessive_params(file, param_threshold);
-        count
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.over_engineering_count())
+            .unwrap_or(0)
     }
 }
 
@@ -228,12 +217,9 @@ impl SignalDetector for CodeSmellsDetector {
     }
 
     fn count_violations(&self, file: &ParsedFile) -> usize {
-        let Some(adapter) = adapter_for(file.language) else {
-            return 0;
-        };
-        let unsafe_count = adapter.count_unsafe_blocks(file);
-        let magic_count = adapter.count_magic_numbers(file);
-        unsafe_count * 2 + magic_count
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.code_smell_count())
+            .unwrap_or(0)
     }
 }
 
