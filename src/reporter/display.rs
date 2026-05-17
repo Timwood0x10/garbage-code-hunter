@@ -807,6 +807,64 @@ impl Reporter {
         println!();
     }
 
+    pub(super) fn print_style_ir_summary(&self) {
+        let Some(ref summary) = self.style_ir_summary else {
+            return;
+        };
+
+        let title = if self.is_zh() {
+            "📐 风格IR 摘要"
+        } else {
+            "📐 Style IR Summary"
+        };
+        println!("{}", title.bright_cyan().bold());
+        println!("{}", "═".repeat(50).bright_black());
+
+        println!(
+            "  Language: {}  |  Lines: {}  |  Fns: {}",
+            summary.language.bright_white(),
+            summary.line_count,
+            summary.function_count,
+        );
+
+        if summary.is_clean_signal_baseline {
+            let clean_msg = if self.is_zh() {
+                "✅ 信号基线干净 —— 无显著风格问题"
+            } else {
+                "✅ Clean signal baseline — no significant style issues"
+            };
+            println!("  {}", clean_msg.bright_green());
+        } else {
+            println!(
+                "  {} {}  {} {}  {} {}  {} {}",
+                "🔥".bright_red(),
+                summary.panic_call_count,
+                "🏷️".bright_white(),
+                summary.naming_violation_count,
+                "🏗️".bright_blue(),
+                summary.god_function_count,
+                "📦".bright_yellow(),
+                summary.deeply_nested_block_count,
+            );
+            println!(
+                "  {} {}  {} {}  {} {}  {} {}",
+                "🐛".bright_green(),
+                summary.debug_call_count,
+                "⚠️".bright_yellow(),
+                summary.excessive_param_count,
+                "🛡️".bright_blue(),
+                summary.unsafe_block_count,
+                "🔢".bright_cyan(),
+                summary.magic_number_count,
+            );
+            println!(
+                "  Over-engineering: {}  |  Code smells: {}",
+                summary.over_engineering_count, summary.code_smell_count,
+            );
+        }
+        println!();
+    }
+
     fn diagnose_personality(&self, ptype: &str, score: f64) -> String {
         let severity = if score >= 80.0 {
             if self.is_zh() {

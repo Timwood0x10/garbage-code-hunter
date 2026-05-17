@@ -11,6 +11,7 @@ use crate::llm::{RoastMap, RoastProvider};
 use crate::reporter::autopsy::SpreadTarget;
 use crate::scoring::{CodeQualityScore, CodeScorer};
 use crate::signals::StyleSignal;
+use crate::style_ir::StyleIrSummary;
 
 pub struct Reporter {
     harsh_mode: bool,
@@ -26,6 +27,7 @@ pub struct Reporter {
     i18n: I18n,
     roast_provider: Box<dyn RoastProvider>,
     direct_scores: HashMap<StyleSignal, f64>,
+    style_ir_summary: Option<StyleIrSummary>,
 }
 
 impl Reporter {
@@ -54,11 +56,17 @@ impl Reporter {
             i18n: I18n::new(lang),
             roast_provider,
             direct_scores: HashMap::new(),
+            style_ir_summary: None,
         }
     }
 
     pub fn with_direct_scores(mut self, scores: HashMap<StyleSignal, f64>) -> Self {
         self.direct_scores = scores;
+        self
+    }
+
+    pub fn with_style_ir_summary(mut self, summary: Option<StyleIrSummary>) -> Self {
+        self.style_ir_summary = summary;
         self
     }
 
@@ -163,6 +171,7 @@ impl Reporter {
                 }
             }
             self.print_final_summary(&combined_score, file_count, Some(personality.project_type));
+            self.print_style_ir_summary();
         }
     }
 

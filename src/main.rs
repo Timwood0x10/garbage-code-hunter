@@ -1357,7 +1357,8 @@ fn run_analyze(args: AnalyzeArgs) {
         &args.lang,
         roast_provider,
     )
-    .with_direct_scores(direct_scores);
+    .with_direct_scores(direct_scores)
+    .with_style_ir_summary(style_ir_summary.clone());
 
     // Handle JSON output format
     if args.format == "json" {
