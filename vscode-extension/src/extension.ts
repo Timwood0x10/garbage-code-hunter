@@ -52,7 +52,17 @@ interface StyleIrJsonSummary {
 }
 
 interface AnalyzeJsonReport {
+    schema_version?: string;
     issues: GarbageIssue[];
+    files?: Array<{
+        file_path: string;
+        style_ir_summary: StyleIrJsonSummary;
+    }>;
+    summary?: {
+        file_count: number;
+        issue_count: number;
+        style_ir_summary?: StyleIrJsonSummary | null;
+    };
     style_ir_summary?: StyleIrJsonSummary | null;
 }
 

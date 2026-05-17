@@ -1,5 +1,6 @@
 mod autopsy;
 mod display;
+mod translations;
 
 use colored::*;
 use std::collections::{BTreeMap, HashMap};

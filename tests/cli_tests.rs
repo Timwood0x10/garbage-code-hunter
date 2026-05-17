@@ -154,6 +154,29 @@ fn test_cli_json_includes_style_ir_summary() {
             .is_some(),
         "analyze JSON should include an issues array"
     );
+    assert_eq!(
+        parsed
+            .get("schema_version")
+            .and_then(|value| value.as_str()),
+        Some("1.0")
+    );
+    assert!(
+        parsed
+            .get("files")
+            .and_then(|value| value.as_array())
+            .is_some(),
+        "analyze JSON should include a files array"
+    );
+    assert_eq!(
+        parsed
+            .get("summary")
+            .and_then(|value| value.get("issue_count"))
+            .and_then(|value| value.as_u64()),
+        parsed
+            .get("issues")
+            .and_then(|value| value.as_array())
+            .map(|issues| issues.len() as u64)
+    );
     let summary = parsed
         .get("style_ir_summary")
         .expect("analyze JSON should include style_ir_summary");
