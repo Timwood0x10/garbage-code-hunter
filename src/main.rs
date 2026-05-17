@@ -12,7 +12,10 @@ use garbage_code_hunter::{
     config::{AppConfig, AppMode},
     context::ProjectConfig,
     danger_zone, debt_invoice, decay, deps_shamer,
-    detectors::{NamingChaosDetector, NestedHellDetector, PanicAddictionDetector},
+    detectors::{
+        CodeSmellsDetector, DuplicationDetector, HotfixCultureDetector, NamingChaosDetector,
+        NestedHellDetector, OverEngineeringDetector, PanicAddictionDetector,
+    },
     educational::EducationalAdvisor,
     hall_of_shame::HallOfShame,
     language::SUPPORTED_EXTENSIONS,
@@ -1288,8 +1291,13 @@ fn run_analyze(args: AnalyzeArgs) {
             Box::new(PanicAddictionDetector::new()),
             Box::new(NamingChaosDetector::new()),
             Box::new(NestedHellDetector::new()),
+            Box::new(HotfixCultureDetector::new()),
+            Box::new(OverEngineeringDetector::new()),
+            Box::new(CodeSmellsDetector::new()),
+            Box::new(DuplicationDetector::new()),
         ]);
-    let issues = analyzer.analyze_path(&args.path);
+    let findings = analyzer.analyze_to_findings(&args.path);
+    let issues: Vec<CodeIssue> = findings.iter().map(|f| f.to_code_issue()).collect();
     let spread = analyzer.infection_spread();
 
     // Calculate metrics for scoring

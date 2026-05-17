@@ -18,6 +18,18 @@ pub trait SignalDetector: Send + Sync {
     fn supported_languages(&self) -> &'static [Language];
     /// Run detection on a parsed file. Returns the number of signal violations found.
     fn count_violations(&self, file: &ParsedFile) -> usize;
+
+    /// Produce per-file signal findings with violation counts.
+    /// Default implementation wraps `count_violations` into a single `(signal, count)` pair.
+    /// Override for more granular findings (e.g., one per call-site).
+    fn detect_findings(&self, file: &ParsedFile) -> Vec<(StyleSignal, usize)> {
+        let count = self.count_violations(file);
+        if count > 0 {
+            vec![(self.signal(), count)]
+        } else {
+            vec![]
+        }
+    }
 }
 
 /// Helpers for converting raw violations to density-normalized signal scores.
@@ -56,7 +68,10 @@ pub fn aggregate_detector_scores(
     scores
 }
 
-pub use crate::detectors::{NamingChaosDetector, NestedHellDetector, PanicAddictionDetector};
+pub use crate::detectors::{
+    CodeSmellsDetector, DuplicationDetector, NamingChaosDetector, NestedHellDetector,
+    PanicAddictionDetector,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StyleSignal {
@@ -138,7 +153,96 @@ impl LanguageCapabilityMatrix {
     /// Returns signals that have a direct SignalDetector implementation.
     pub fn direct_signals(lang: Language) -> &'static [StyleSignal] {
         match lang {
-            Language::Rust => &[StyleSignal::PanicAddiction, StyleSignal::NamingChaos],
+            Language::Rust => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::Python => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::Go => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::JavaScript => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::TypeScript => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::Java => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::Ruby => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::C => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::Cpp => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
+            Language::Swift | Language::Zig => &[
+                StyleSignal::Duplication,
+                StyleSignal::CodeSmells,
+                StyleSignal::PanicAddiction,
+                StyleSignal::NamingChaos,
+                StyleSignal::NestedHell,
+                StyleSignal::HotfixCulture,
+                StyleSignal::OverEngineering,
+            ],
             _ => &[],
         }
     }
@@ -517,26 +621,46 @@ mod tests {
         ));
     }
 
-    /// Objective: Verify direct_signals returns PanicAddiction + NamingChaos for Rust.
+    /// Objective: Verify direct_signals returns all 7 signals for Rust.
     #[test]
     fn test_matrix_direct_signals_rust() {
         let sigs = LanguageCapabilityMatrix::direct_signals(Language::Rust);
-        assert!(
-            sigs.contains(&StyleSignal::PanicAddiction),
-            "Rust should have direct PanicAddiction"
-        );
-        assert!(
-            sigs.contains(&StyleSignal::NamingChaos),
-            "Rust should have direct NamingChaos"
-        );
-        assert_eq!(sigs.len(), 2, "Rust has exactly 2 direct signals");
+        for signal in StyleSignal::all() {
+            assert!(
+                sigs.contains(signal),
+                "Rust should have direct {}",
+                signal.display_name()
+            );
+        }
+        assert_eq!(sigs.len(), 7, "Rust has all 7 direct signals");
     }
 
-    /// Objective: Verify direct_signals returns empty for non-Rust languages.
+    /// Objective: Verify direct_signals returns all 7 signals for Go.
     #[test]
     fn test_matrix_direct_signals_go() {
         let sigs = LanguageCapabilityMatrix::direct_signals(Language::Go);
-        assert!(sigs.is_empty(), "Go has no direct detectors yet");
+        for signal in StyleSignal::all() {
+            assert!(
+                sigs.contains(signal),
+                "Go should have direct {}",
+                signal.display_name()
+            );
+        }
+        assert_eq!(sigs.len(), 7, "Go has all 7 direct signals");
+    }
+
+    /// Objective: Verify direct_signals returns all 7 signals for Python.
+    #[test]
+    fn test_matrix_direct_signals_python() {
+        let sigs = LanguageCapabilityMatrix::direct_signals(Language::Python);
+        for signal in StyleSignal::all() {
+            assert!(
+                sigs.contains(signal),
+                "Python should have direct {}",
+                signal.display_name()
+            );
+        }
+        assert_eq!(sigs.len(), 7, "Python has all 7 direct signals");
     }
 
     /// Objective: Verify has_direct_detector matches direct_signals.
@@ -546,8 +670,16 @@ mod tests {
             Language::Rust,
             StyleSignal::PanicAddiction
         ));
+        assert!(LanguageCapabilityMatrix::has_direct_detector(
+            Language::Swift,
+            StyleSignal::PanicAddiction
+        ));
+        assert!(LanguageCapabilityMatrix::has_direct_detector(
+            Language::Zig,
+            StyleSignal::PanicAddiction
+        ));
         assert!(!LanguageCapabilityMatrix::has_direct_detector(
-            Language::Go,
+            Language::Unknown,
             StyleSignal::PanicAddiction
         ));
     }

@@ -5,7 +5,8 @@
 //! data model for all outputs (terminal, JSON, Markdown, CI, etc.).
 
 use crate::analyzer::{CodeIssue, Severity};
-use crate::signals::{classify_rule, StyleSignal};
+use crate::signals::{classify_rule, StyleProfile, StyleSignal};
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
@@ -182,6 +183,73 @@ pub struct StyleFinding {
     pub confidence: Confidence,
     pub evidence: Evidence,
     pub suggestion: Option<StyleSuggestion>,
+}
+
+impl StyleFinding {
+    /// Create a finding from a signal-level detection (no single-line location).
+    pub fn for_signal(signal: StyleSignal, violation_count: usize, file_path: PathBuf) -> Self {
+        let id = FindingId::new(&format!(
+            "signal:{:?}:{violation_count}:{}",
+            signal,
+            file_path.display()
+        ));
+        let severity = if violation_count > 10 {
+            Severity::Nuclear
+        } else if violation_count > 3 {
+            Severity::Spicy
+        } else {
+            Severity::Mild
+        };
+        StyleFinding {
+            id,
+            location: CodeLocation {
+                file_path,
+                line: 0,
+                column: 0,
+                span: None,
+                symbol_name: None,
+            },
+            rule: RuleMeta {
+                name: signal.display_name().to_string(),
+                category: StyleCategory::Consistency,
+                intent: RuleIntent::Maintainability,
+            },
+            signal,
+            severity,
+            confidence: Confidence::High,
+            evidence: Evidence {
+                snippet: Some(format!(
+                    "{violation_count} {} violations",
+                    signal.display_name()
+                )),
+                metric: Some(EvidenceMetric {
+                    name: "violations".to_string(),
+                    value: violation_count as f64,
+                    threshold: 0.0,
+                    unit: "count".to_string(),
+                }),
+                nearby_context: Vec::new(),
+            },
+            suggestion: None,
+        }
+    }
+
+    /// Convert back to a `CodeIssue` for downstream consumers that
+    /// still depend on the legacy issue model.
+    pub fn to_code_issue(&self) -> CodeIssue {
+        CodeIssue {
+            file_path: self.location.file_path.clone(),
+            line: self.location.line,
+            column: self.location.column,
+            rule_name: self.rule.name.clone(),
+            message: self
+                .evidence
+                .snippet
+                .clone()
+                .unwrap_or_else(|| format!("{:?}", self.signal)),
+            severity: self.severity.clone(),
+        }
+    }
 }
 
 impl From<&CodeIssue> for StyleFinding {
@@ -361,6 +429,43 @@ fn rule_to_confidence(rule_name: &str) -> Confidence {
 
     // Low-confidence: subjective / style preference
     Confidence::Low
+}
+
+// ── Universal Style IR ──────────────────────────────────────────
+//
+// These functions build StyleProfile directly from StyleFinding[*].signal,
+// without needing classify_rule(). This is the language-agnostic Style IR
+// path — any language that produces StyleFindings gets signal scoring and
+// personality inference for free.
+
+/// Compute signal scores from findings using each finding's `.signal` field
+/// (language-agnostic, no classify_rule() needed).
+pub fn compute_signal_scores_from_findings(
+    findings: &[StyleFinding],
+    total_lines: usize,
+) -> HashMap<StyleSignal, f64> {
+    let k_lines = (total_lines as f64 / 1000.0).max(0.001);
+    let mut counts: HashMap<StyleSignal, usize> = HashMap::new();
+
+    for finding in findings {
+        *counts.entry(finding.signal).or_insert(0) += 1;
+    }
+
+    let mut scores = HashMap::new();
+    for signal in StyleSignal::all() {
+        let count = counts.get(signal).copied().unwrap_or(0);
+        let density = count as f64 / k_lines;
+        let score = ((density + 1.0).log2() * 6.0).min(25.0);
+        scores.insert(*signal, score);
+    }
+
+    scores
+}
+
+/// Build a StyleProfile directly from findings (language-agnostic).
+pub fn build_profile_from_findings(findings: &[StyleFinding], total_lines: usize) -> StyleProfile {
+    let signal_scores = compute_signal_scores_from_findings(findings, total_lines);
+    StyleProfile::from_signal_scores(signal_scores)
 }
 
 #[cfg(test)]
@@ -623,5 +728,89 @@ mod tests {
         let issue = make_issue("long-function");
         let finding = StyleFinding::from(&issue);
         assert!(finding.suggestion.is_none());
+    }
+
+    // ── Universal Style IR ────────────────────────────────────────
+
+    fn finding(signal: StyleSignal, severity: Severity) -> StyleFinding {
+        let issue = CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 1,
+            column: 1,
+            rule_name: format!("{:?}", signal).to_lowercase(),
+            message: "test".to_string(),
+            severity,
+        };
+        // Override signal since rule_name won't map correctly
+        let mut f = StyleFinding::from(&issue);
+        f.signal = signal;
+        f
+    }
+
+    /// Objective: Verify compute_signal_scores_from_findings counts signals correctly.
+    #[test]
+    fn test_signal_scores_from_findings() {
+        let findings = vec![
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Spicy),
+            finding(StyleSignal::PanicAddiction, Severity::Mild),
+        ];
+        let scores = compute_signal_scores_from_findings(&findings, 1000);
+        assert!(
+            *scores.get(&StyleSignal::Duplication).unwrap_or(&0.0)
+                > *scores.get(&StyleSignal::PanicAddiction).unwrap_or(&0.0),
+            "Duplication (2 count) should score higher than PanicAddiction (1 count)"
+        );
+    }
+
+    /// Objective: Verify compute_signal_scores_from_findings returns 0 for empty input.
+    #[test]
+    fn test_signal_scores_from_findings_empty() {
+        let scores = compute_signal_scores_from_findings(&[], 1000);
+        for signal in StyleSignal::all() {
+            assert_eq!(
+                scores.get(signal).copied().unwrap_or(0.0),
+                0.0,
+                "empty findings => all signal scores 0"
+            );
+        }
+    }
+
+    /// Objective: Verify build_profile_from_findings produces correct dominant signal.
+    #[test]
+    fn test_build_profile_from_findings_dominant() {
+        let findings = vec![
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::NestedHell, Severity::Mild),
+        ];
+        let profile = build_profile_from_findings(&findings, 1000);
+        assert_eq!(
+            profile.dominant_signal,
+            Some(StyleSignal::Duplication),
+            "3 duplicates vs 1 nested => Duplication should be dominant"
+        );
+    }
+
+    /// Objective: Verify build_profile_from_findings allows personality inference.
+    #[test]
+    fn test_build_profile_from_findings_personality() {
+        let findings = vec![
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+            finding(StyleSignal::Duplication, Severity::Nuclear),
+        ];
+        let profile = build_profile_from_findings(&findings, 100);
+        let personality = profile.infer_personality_type();
+        assert_eq!(
+            personality, "The Copy-Paste Artist",
+            "massive duplication => Copy-Paste Artist, got {personality}"
+        );
     }
 }

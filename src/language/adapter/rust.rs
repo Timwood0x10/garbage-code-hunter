@@ -1,50 +1,13 @@
-//! LanguageAdapter trait — unified semantic extraction from parsed AST.
-//!
-//! SignalDetectors delegate to LanguageAdapter instead of writing
-//! per-language tree-sitter queries directly. This makes detectors
-//! language-agnostic and consolidates query logic per language.
+//! RustAdapter — Rust language adapter.
 
+use super::{
+    count_block_ancestors, count_nested_blocks, is_inside_declaration, is_repeating_chars,
+    max_scope_depth, FunctionNode, LanguageAdapter,
+};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
-
 use regex::Regex;
-
-/// Metadata for a function extracted from source code.
-#[derive(Debug, Clone)]
-pub struct FunctionNode {
-    pub name: String,
-    pub start_line: usize,
-    pub end_line: usize,
-    pub nesting_depth: usize,
-}
-
-/// LanguageAdapter provides language-specific semantic extraction.
-///
-/// Each supported language has an adapter implementation that knows
-/// the tree-sitter query patterns for that language. SignalDetectors
-/// use these methods instead of writing per-language queries.
-pub trait LanguageAdapter: Send + Sync {
-    fn language(&self) -> Language;
-
-    /// Count `.unwrap()`, `.expect()`, `panic!()` calls in a file.
-    fn count_panic_calls(&self, file: &ParsedFile) -> usize;
-
-    /// Extract all function/method definitions with metadata.
-    fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode>;
-
-    /// Maximum nesting depth (scope blocks) across the file.
-    fn max_nesting_depth(&self, file: &ParsedFile) -> usize;
-
-    /// Count naming violations: single-letter vars, terrible/meaningless names,
-    /// Hungarian notation, and abbreviation abuse.
-    fn count_naming_violations(&self, file: &ParsedFile) -> usize;
-
-    /// Count deeply-nested block scopes (nesting depth >= threshold).
-    fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize;
-}
-
-// ── Rust Adapter ──────────────────────────────────────────────────
 
 pub struct RustAdapter;
 
@@ -126,7 +89,6 @@ impl LanguageAdapter for RustAdapter {
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
         let mut count = 0usize;
 
-        // 1. Single-letter variables
         if let Ok(groups) = collect_captures(
             file,
             "(let_declaration pattern: (identifier) @var (#match? @var \"^[a-z]$\"))",
@@ -134,7 +96,6 @@ impl LanguageAdapter for RustAdapter {
             count += groups.len();
         }
 
-        // 2. Terrible naming + meaningless naming (share the same query)
         let terrible_re = Regex::new(
             r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$",
         )
@@ -164,7 +125,6 @@ impl LanguageAdapter for RustAdapter {
             }
         }
 
-        // 3. Hungarian notation + abbreviation abuse (share the all-identifiers query)
         let hungarian_prefixes: &[&str] = &[
             "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
         ];
@@ -177,13 +137,12 @@ impl LanguageAdapter for RustAdapter {
         if let Ok(groups) = collect_captures(file, "(identifier) @id") {
             for group in &groups {
                 if count > 2000 {
-                    break; // safety cap
+                    break;
                 }
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     let name_lower = name.to_lowercase();
 
-                    // Hungarian notation check
                     if scope_prefixes.iter().any(|p| name_lower.starts_with(p))
                         || hungarian_prefixes.iter().any(|p| {
                             name_lower.starts_with(p)
@@ -195,7 +154,6 @@ impl LanguageAdapter for RustAdapter {
                         continue;
                     }
 
-                    // Abbreviation abuse check
                     if bad_abbrevs
                         .iter()
                         .any(|a| name_lower == *a || name_lower.starts_with(&format!("{}_", a)))
@@ -215,84 +173,77 @@ impl LanguageAdapter for RustAdapter {
         count_nested_blocks(file.root_node(), 0, threshold, &mut count);
         count
     }
-}
 
-fn count_nested_blocks(node: tree_sitter::Node, depth: usize, threshold: usize, count: &mut usize) {
-    if node.kind() == "block" && depth >= threshold {
-        *count += 1;
-    }
-    let child_depth = match node.kind() {
-        "block" => depth + 1,
-        _ => depth,
-    };
-    for i in 0..node.child_count() {
-        if let Some(child) = node.child(i as u32) {
-            count_nested_blocks(child, child_depth, threshold, count);
+    fn count_debug_calls(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+        if let Ok(groups) = collect_captures(
+            file,
+            "(macro_invocation macro: (identifier) @name (#match? @name \"^(println|dbg|eprintln|eprint|todo|unimplemented)$\"))",
+        ) {
+            count += groups.len();
         }
+        count
     }
-}
 
-fn max_scope_depth(node: tree_sitter::Node, depth: usize) -> usize {
-    let mut max = depth;
-    for i in 0..node.child_count() {
-        if let Some(child) = node.child(i as u32) {
-            let child_depth = if is_scope_node(&child) {
-                depth + 1
-            } else {
-                depth
-            };
-            max = max.max(max_scope_depth(child, child_depth));
-        }
-    }
-    max
-}
-
-fn is_scope_node(node: &tree_sitter::Node) -> bool {
-    matches!(node.kind(), "block")
-}
-
-fn is_repeating_chars(s: &str) -> bool {
-    let chars: Vec<char> = s.chars().collect();
-    chars.len() >= 3 && chars.iter().all(|c| *c == chars[0])
-}
-
-fn count_block_ancestors(group: &[crate::treesitter::query::QueryCapture]) -> usize {
-    if let Some(cap) = group.first() {
-        let mut depth = 0usize;
-        let mut current = Some(cap.node);
-        while let Some(node) = current {
-            if let Some(parent) = node.parent() {
-                if parent.kind() == "block" {
-                    depth += 1;
+    fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
+        let mut count = 0;
+        if let Ok(groups) =
+            collect_captures(file, "(function_item parameters: (parameters) @params)")
+        {
+            for group in &groups {
+                for cap in group {
+                    if cap.name == "params" {
+                        let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                        if param_count > threshold {
+                            count += 1;
+                        }
+                    }
                 }
-                current = Some(parent);
-            } else {
-                break;
             }
         }
-        depth
-    } else {
-        0
+        count
+    }
+
+    fn count_unsafe_blocks(&self, file: &ParsedFile) -> usize {
+        let pattern = "(unsafe_block) @unsafe";
+        collect_captures(file, pattern)
+            .map(|g| g.len())
+            .unwrap_or(0)
+    }
+
+    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
+        let Ok(captures) = collect_captures(file, "(integer_literal) @num") else {
+            return 0;
+        };
+        let mut count = 0;
+        for group in &captures {
+            if let Some(cap) = group.first() {
+                if !is_inside_declaration(cap.node) {
+                    let text = cap.text;
+                    if text != "0"
+                        && text != "1"
+                        && text != "-1"
+                        && text != "true"
+                        && text != "false"
+                    {
+                        count += 1;
+                    }
+                }
+            }
+        }
+        count
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::parse_code;
     use super::*;
-    use crate::treesitter::TreeSitterEngine;
-    use std::path::Path;
 
     fn parse_rust(code: &str) -> ParsedFile {
-        let engine = TreeSitterEngine::new();
-        engine
-            .parse_file(Path::new("test.rs"), code)
-            .expect("parse")
+        parse_code(code, "test.rs").expect("parse")
     }
 
-    // ── count_panic_calls ─────────────────────────────────────────
-
-    /// Objective: Verify count_panic_calls detects .unwrap() and .expect().
-    /// Invariants: Each call is counted once per occurrence.
     #[test]
     fn test_rust_count_panic_unwrap_expect() {
         let code = "fn main() { let x = foo().unwrap(); let y = bar().expect(\"msg\"); }";
@@ -301,7 +252,6 @@ mod tests {
         assert_eq!(adapter.count_panic_calls(&file), 2);
     }
 
-    /// Objective: Verify count_panic_calls detects panic!() macro.
     #[test]
     fn test_rust_count_panic_macro() {
         let code = "fn main() { panic!(\"boom\"); }";
@@ -310,7 +260,6 @@ mod tests {
         assert_eq!(adapter.count_panic_calls(&file), 1);
     }
 
-    /// Objective: Verify count_panic_calls returns 0 for clean code.
     #[test]
     fn test_rust_count_panic_clean() {
         let code = "fn main() { let x = 42; }";
@@ -319,10 +268,6 @@ mod tests {
         assert_eq!(adapter.count_panic_calls(&file), 0);
     }
 
-    // ── extract_functions ─────────────────────────────────────────
-
-    /// Objective: Verify extract_functions finds function names and line ranges.
-    /// Invariants: Each function_item is extracted with correct metadata.
     #[test]
     fn test_rust_extract_functions() {
         let code = r#"
@@ -338,9 +283,6 @@ fn bar(x: i32) -> i32 { x + 1 }
         assert!(fns[0].start_line < fns[1].start_line, "foo before bar");
     }
 
-    // ── max_nesting_depth ─────────────────────────────────────────
-
-    /// Objective: Verify max_nesting_depth returns 0 for top-level code.
     #[test]
     fn test_rust_max_nesting_depth_flat() {
         let code = "fn main() { let x = 1; }";
@@ -349,7 +291,6 @@ fn bar(x: i32) -> i32 { x + 1 }
         assert_eq!(adapter.max_nesting_depth(&file), 1);
     }
 
-    /// Objective: Verify max_nesting_depth increases with nested blocks.
     #[test]
     fn test_rust_max_nesting_depth_nested() {
         let code = r#"
@@ -370,7 +311,6 @@ fn main() {
         );
     }
 
-    /// Objective: Verify max_nesting_depth returns 0 for empty file.
     #[test]
     fn test_rust_max_nesting_depth_empty() {
         let code = "";
@@ -379,9 +319,6 @@ fn main() {
         assert_eq!(adapter.max_nesting_depth(&file), 0);
     }
 
-    // ── count_naming_violations ────────────────────────────────────
-
-    /// Objective: Verify count_naming_violations detects single-letter vars.
     #[test]
     fn test_naming_single_letter() {
         let code = "fn main() { let a = 1; let bb = 2; }";
@@ -390,7 +327,6 @@ fn main() {
         assert_eq!(adapter.count_naming_violations(&file), 1);
     }
 
-    /// Objective: Verify count_naming_violations detects terrible naming.
     #[test]
     fn test_naming_terrible() {
         let code = "fn main() { let data = 1; let manager = 2; }";
@@ -399,7 +335,6 @@ fn main() {
         assert_eq!(adapter.count_naming_violations(&file), 2);
     }
 
-    /// Objective: Verify count_naming_violations detects meaningless names.
     #[test]
     fn test_naming_meaningless() {
         let code = "fn main() { let foo = 1; let aaa = 2; }";
@@ -408,7 +343,6 @@ fn main() {
         assert_eq!(adapter.count_naming_violations(&file), 2);
     }
 
-    /// Objective: Verify count_naming_violations detects Hungarian notation.
     #[test]
     fn test_naming_hungarian() {
         let code = "fn main() { let strName = \"hello\"; let g_count = 0; }";
@@ -417,7 +351,6 @@ fn main() {
         assert_eq!(adapter.count_naming_violations(&file), 2);
     }
 
-    /// Objective: Verify count_naming_violations detects abbreviation abuse.
     #[test]
     fn test_naming_abbreviation() {
         let code = "fn main() { let mgr = \"boss\"; let btn_submit = true; }";
@@ -426,7 +359,6 @@ fn main() {
         assert_eq!(adapter.count_naming_violations(&file), 2);
     }
 
-    /// Objective: Verify count_naming_violations returns 0 for clean code.
     #[test]
     fn test_naming_clean() {
         let code = "fn main() { let user_name = \"alice\"; let item_count = 42; }";
@@ -435,25 +367,68 @@ fn main() {
         assert_eq!(adapter.count_naming_violations(&file), 0);
     }
 
-    /// Objective: Verify is_repeating_chars returns false for short names.
     #[test]
-    fn test_is_repeating_chars_short() {
-        assert!(!is_repeating_chars("a"));
-        assert!(!is_repeating_chars("ab"));
+    fn test_rust_count_unsafe_blocks() {
+        let code = r#"
+fn main() {
+    unsafe {
+        let p = 42 as *const i32;
+    }
+    unsafe {
+        let _ = 0usize;
+    }
+}
+"#;
+        let file = parse_rust(code);
+        let adapter = RustAdapter;
+        assert_eq!(adapter.count_unsafe_blocks(&file), 2);
     }
 
-    /// Objective: Verify is_repeating_chars detects repeating chars.
     #[test]
-    fn test_is_repeating_chars_detects() {
-        assert!(is_repeating_chars("aaa"));
-        assert!(is_repeating_chars("bbb"));
-        assert!(is_repeating_chars("zzz"));
+    fn test_rust_count_unsafe_blocks_clean() {
+        let code = "fn main() { let x = 42; }";
+        let file = parse_rust(code);
+        let adapter = RustAdapter;
+        assert_eq!(adapter.count_unsafe_blocks(&file), 0);
     }
 
-    /// Objective: Verify is_repeating_chars rejects non-repeating.
     #[test]
-    fn test_is_repeating_chars_non_repeating() {
-        assert!(!is_repeating_chars("abc"));
-        assert!(!is_repeating_chars("aba"));
+    fn test_rust_count_magic_numbers() {
+        let code = r#"
+fn main() {
+    let x = 1;
+    foo(42);
+    bar(100);
+}
+"#;
+        let file = parse_rust(code);
+        let adapter = RustAdapter;
+        assert_eq!(adapter.count_magic_numbers(&file), 2);
+    }
+
+    #[test]
+    fn test_rust_count_magic_numbers_const_ok() {
+        let code = r#"
+const MAX: i32 = 100;
+fn main() {
+    let x = MAX;
+}
+"#;
+        let file = parse_rust(code);
+        let adapter = RustAdapter;
+        assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_rust_count_magic_numbers_skips_trivial() {
+        let code = r#"
+fn main() {
+    let x = 0;
+    let y = x + 1;
+}
+"#;
+        let file = parse_rust(code);
+        let adapter = RustAdapter;
+        assert_eq!(adapter.count_magic_numbers(&file), 0);
     }
 }
