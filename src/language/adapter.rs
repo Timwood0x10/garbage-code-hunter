@@ -39,6 +39,9 @@ pub trait LanguageAdapter: Send + Sync {
     /// Count naming violations: single-letter vars, terrible/meaningless names,
     /// Hungarian notation, and abbreviation abuse.
     fn count_naming_violations(&self, file: &ParsedFile) -> usize;
+
+    /// Count deeply-nested block scopes (nesting depth >= threshold).
+    fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize;
 }
 
 // ── Rust Adapter ──────────────────────────────────────────────────
@@ -204,6 +207,28 @@ impl LanguageAdapter for RustAdapter {
         }
 
         count
+    }
+
+    fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
+        let threshold = 5;
+        let mut count = 0;
+        count_nested_blocks(file.root_node(), 0, threshold, &mut count);
+        count
+    }
+}
+
+fn count_nested_blocks(node: tree_sitter::Node, depth: usize, threshold: usize, count: &mut usize) {
+    if node.kind() == "block" && depth >= threshold {
+        *count += 1;
+    }
+    let child_depth = match node.kind() {
+        "block" => depth + 1,
+        _ => depth,
+    };
+    for i in 0..node.child_count() {
+        if let Some(child) = node.child(i as u32) {
+            count_nested_blocks(child, child_depth, threshold, count);
+        }
     }
 }
 

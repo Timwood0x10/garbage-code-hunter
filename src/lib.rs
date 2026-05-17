@@ -13,6 +13,7 @@ pub mod danger_zone;
 pub mod debt_invoice;
 pub mod decay;
 pub mod deps_shamer;
+pub mod detectors;
 pub mod educational;
 pub mod finding;
 pub mod hall_of_shame;

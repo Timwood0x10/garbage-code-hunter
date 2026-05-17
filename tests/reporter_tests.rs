@@ -243,12 +243,15 @@ fn test_scorer_category_assignment() {
         "Naming category score should be > 0"
     );
 
-    // unwrap-abuse should be in "code-smells" category
-    let smells_score = score.category_scores.get("code-smells");
-    assert!(smells_score.is_some(), "Should have 'code-smells' category");
+    // unwrap-abuse now maps to PanicAddiction → "student-code"
+    let student_score = score.category_scores.get("student-code");
     assert!(
-        smells_score.unwrap() > &0.0,
-        "Code-smells score should be > 0"
+        student_score.is_some(),
+        "Should have 'student-code' category"
+    );
+    assert!(
+        student_score.unwrap() > &0.0,
+        "Student-code score should be > 0 for unwrap-abuse"
     );
 }
 

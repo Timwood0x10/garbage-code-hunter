@@ -12,6 +12,7 @@ use garbage_code_hunter::{
     config::{AppConfig, AppMode},
     context::ProjectConfig,
     danger_zone, debt_invoice, decay, deps_shamer,
+    detectors::{NamingChaosDetector, NestedHellDetector, PanicAddictionDetector},
     educational::EducationalAdvisor,
     hall_of_shame::HallOfShame,
     language::SUPPORTED_EXTENSIONS,
@@ -19,7 +20,6 @@ use garbage_code_hunter::{
     llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
     personality, personas, pr_title_hunter, radar,
     reporter::Reporter,
-    signals::{NamingChaosDetector, PanicAddictionDetector},
     team_roast,
 };
 
@@ -1287,6 +1287,7 @@ fn run_analyze(args: AnalyzeArgs) {
         .with_detectors(vec![
             Box::new(PanicAddictionDetector::new()),
             Box::new(NamingChaosDetector::new()),
+            Box::new(NestedHellDetector::new()),
         ]);
     let issues = analyzer.analyze_path(&args.path);
     let spread = analyzer.infection_spread();

@@ -52,16 +52,31 @@ macro_rules! run_test {
 
 /// Extract total issue count from output
 fn extract_total_issues(output: &str) -> u32 {
-    // New format: "Anomalies Detected: 1126 anomalies"
-    let re_new = Regex::new(r"Anomalies Detected:\s*(\d+)").unwrap();
-    if let Some(caps) = re_new.captures(output) {
+    // Current format: "Corruption Index: 1155 (💥76 🌶️87 😐992)"
+    // Take the last occurrence (final verdict total)
+    if let Some(caps) = Regex::new(r"Corruption Index:\s*(\d+)")
+        .unwrap()
+        .captures_iter(output)
+        .last()
+    {
         if let Some(m) = caps.get(1) {
             if let Ok(n) = m.as_str().parse() {
                 return n;
             }
         }
     }
-    // Legacy format: "📝 Total" or "Total"
+    // Legacy format: "Anomalies Detected: 1126 anomalies"
+    if let Some(caps) = Regex::new(r"Anomalies Detected:\s*(\d+)")
+        .unwrap()
+        .captures(output)
+    {
+        if let Some(m) = caps.get(1) {
+            if let Ok(n) = m.as_str().parse() {
+                return n;
+            }
+        }
+    }
+    // Old format: "📝 Total" or "Total"
     output
         .lines()
         .find(|line| line.contains("📝 Total") || line.contains("Total"))
