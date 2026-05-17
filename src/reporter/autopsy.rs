@@ -266,6 +266,62 @@ pub fn analyze(
                 final_words: "i'll fix it in the next sprint",
             },
         )
+    } else if dup_ratio > 0.15 && unwrap_ratio > 0.05 {
+        // Startup Survivor: mix of duplication + panic
+        (
+            ProjectPersonality {
+                project_type: "The Startup Survivor",
+                emoji: "🚀",
+                core_traits: vec![
+                    "Shipped fast, now paying the interest",
+                    "Copy-paste driven development",
+                    "Production incidents are 'learning experiences'",
+                    "Technical debt is just 'future velocity'",
+                ],
+                emotional_state: "battle-scarred but still shipping",
+                code_philosophy: "move fast and definitely break things",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "growth-at-all-costs syndrome",
+                patient_condition: "critical — needs stabilization sprint",
+                corrupted_regions: files_per_category
+                    .get("duplication")
+                    .cloned()
+                    .unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "we'll fix it after the next funding round",
+            },
+        )
+    } else if naming_ratio > 0.1 && nested_ratio > 0.1 {
+        // Academic Wizard: complex naming + deep nesting
+        (
+            ProjectPersonality {
+                project_type: "The Academic Wizard",
+                emoji: "🧙",
+                core_traits: vec![
+                    "Loves building pyramids of abstraction",
+                    "Each function is a thesis in disguise",
+                    "Naming conventions from another dimension",
+                    "If it's not complex, it's not 'elegant'",
+                ],
+                emotional_state: "intellectually satisfied, practically lost",
+                code_philosophy: "the theory is beautiful, the practice is secondary",
+                threat_level,
+                lore: pick_lore(),
+            },
+            AutopsyReport {
+                cause_of_death: "abstraction overdose — complexity exceeded comprehension",
+                patient_condition: "chronic — needs simplification therapy",
+                corrupted_regions: files_per_category
+                    .get("complexity")
+                    .cloned()
+                    .unwrap_or_default(),
+                spread_chains: spread_list.clone(),
+                final_words: "it's actually quite simple once you understand the theory",
+            },
+        )
     } else {
         (
             ProjectPersonality {

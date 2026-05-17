@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::scoring::CodeQualityScore;
+use crate::signals::StyleSignal;
 
 use super::autopsy::{AutopsyReport, ProjectPersonality};
 use super::Reporter;
@@ -146,6 +147,44 @@ impl Reporter {
         }
     }
 
+    pub(super) fn print_behavior_distribution(&self, score: &CodeQualityScore) {
+        println!("{}", "🧬 Behavior Distribution".bright_magenta().bold());
+        println!("{}", "═".repeat(50).bright_black());
+
+        let signals = [
+            StyleSignal::Duplication,
+            StyleSignal::PanicAddiction,
+            StyleSignal::NamingChaos,
+            StyleSignal::NestedHell,
+            StyleSignal::HotfixCulture,
+            StyleSignal::OverEngineering,
+            StyleSignal::CodeSmells,
+        ];
+
+        let max_score = signals
+            .iter()
+            .map(|s| score.signal_scores.get(s).copied().unwrap_or(0.0))
+            .fold(0.0f64, f64::max)
+            .max(1.0);
+
+        let bar_width: usize = 25;
+        for signal in &signals {
+            let s = score.signal_scores.get(signal).copied().unwrap_or(0.0);
+            let pct = (s / max_score * 100.0).min(100.0);
+            let filled = (pct / 100.0 * bar_width as f64).round() as usize;
+            let empty = bar_width.saturating_sub(filled);
+            let bar = "█".repeat(filled) + &"░".repeat(empty);
+            let label = format!("{:<18}", signal.display_name());
+            println!(
+                "  {} {} {:.0}",
+                label.bright_white(),
+                bar.bright_cyan(),
+                pct
+            );
+        }
+        println!();
+    }
+
     pub(super) fn print_boss_file(&self, issues: &[CodeIssue]) {
         if issues.is_empty() {
             return;
@@ -227,7 +266,7 @@ impl Reporter {
         );
         println!(
             "  {} {} anomalies (💥{} 🌶️{} 😐{})",
-            "Anomalies:".bright_white(),
+            "Corruption Index:".bright_white(),
             count,
             n,
             s,
@@ -439,7 +478,7 @@ impl Reporter {
         );
         println!(
             "  {} {} anomalies (💥{} 🌶️{} 😐{})",
-            "Anomalies Detected:".bright_white(),
+            "Corruption Index:".bright_white(),
             total,
             n,
             s,
@@ -449,11 +488,11 @@ impl Reporter {
 
         // Punchline
         let punchline = if n > 0 {
-            "Developer Prognosis: recoverable with aggressive refactoring"
+            "Mutation Density: extreme — aggressive intervention required"
         } else if total > 50 {
-            "Developer Prognosis: stable — routine maintenance recommended"
+            "Mutation Density: elevated — quarantine recommended"
         } else {
-            "Developer Prognosis: clean bill of health"
+            "Mutation Density: low — patient is stable"
         };
         println!("  {}", punchline.bright_green().bold());
 

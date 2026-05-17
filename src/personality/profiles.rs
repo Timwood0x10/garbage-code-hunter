@@ -243,12 +243,21 @@ mod tests {
         }
     }
 
+    // ── empty input ──────────────────────────────────────────────
+
+    /// Objective: Verify empty issues return "The Perfectionist" with score 100.
+    /// Invariants: The early-return path is taken when total == 0.
     #[test]
     fn test_empty_issues() {
         let p = analyze(&[]);
-        assert_eq!(p.title, "The Perfectionist");
+        assert_eq!(p.title, "The Perfectionist", "empty => Perfectionist");
+        assert_eq!(p.score, 100.0, "empty => score 100");
     }
 
+    // ── dominant archetype detection ─────────────────────────────
+
+    /// Objective: Verify each archetype is selected when its category has the highest count.
+    /// Invariants: The category with the most issues determines the archetype.
     #[test]
     fn test_unwrap_dominant() {
         let issues = vec![
@@ -257,7 +266,7 @@ mod tests {
             make_issue("unwrap_abuse"),
         ];
         let p = analyze(&issues);
-        assert_eq!(p.title, "The Optimist");
+        assert_eq!(p.title, "The Optimist", "3 unwrap => Optimist");
     }
 
     #[test]
@@ -267,7 +276,7 @@ mod tests {
             make_issue("meaningless_name"),
         ];
         let p = analyze(&issues);
-        assert_eq!(p.title, "The Minimalist");
+        assert_eq!(p.title, "The Minimalist", "2 naming => Minimalist");
     }
 
     #[test]
@@ -278,21 +287,21 @@ mod tests {
             make_issue("high_complexity"),
         ];
         let p = analyze(&issues);
-        assert_eq!(p.title, "The Architect");
+        assert_eq!(p.title, "The Architect", "3 nesting/complex => Architect");
     }
 
     #[test]
     fn test_long_fn_dominant() {
         let issues = vec![make_issue("long_function"), make_issue("function_length")];
         let p = analyze(&issues);
-        assert_eq!(p.title, "The Storyteller");
+        assert_eq!(p.title, "The Storyteller", "2 long-fn => Storyteller");
     }
 
     #[test]
     fn test_magic_dominant() {
         let issues = vec![make_issue("magic_number"), make_issue("magic_number")];
         let p = analyze(&issues);
-        assert_eq!(p.title, "The Sorcerer");
+        assert_eq!(p.title, "The Sorcerer", "2 magic => Sorcerer");
     }
 
     #[test]
@@ -303,19 +312,132 @@ mod tests {
             make_issue("code_duplication"),
         ];
         let p = analyze(&issues);
-        assert_eq!(p.title, "The Copy-Paste Artist");
+        assert_eq!(
+            p.title, "The Copy-Paste Artist",
+            "3 dup => Copy-Paste Artist"
+        );
     }
 
+    // ── score edge cases ─────────────────────────────────────────
+
+    /// Objective: Verify score floors at 0.0 when count * multiplier >= 100.
+    /// Invariants: score = max(100 - count * multiplier, 0). Must not go negative.
     #[test]
-    fn test_balanced_mixed() {
+    fn test_score_boundary_floor_at_zero() {
+        // 34 unwraps => 100 - 34*3 = -2 => clamped to 0
+        let issues: Vec<_> = (0..34).map(|_| make_issue("unwrap_abuse")).collect();
+        let p = analyze(&issues);
+        assert_eq!(p.title, "The Optimist");
+        assert_eq!(
+            p.score, 0.0,
+            "34 unwraps => score should floor at 0.0, got {}",
+            p.score
+        );
+    }
+
+    /// Objective: Verify score is exactly 100 - n*multiplier for small n (not clamped).
+    #[test]
+    fn test_score_exact_value_for_small_count() {
+        let issues = vec![make_issue("unwrap_abuse")];
+        let p = analyze(&issues);
+        assert_eq!(p.score, 97.0, "1 unwrap => 100 - 3 = 97, got {}", p.score);
+    }
+
+    /// Objective: Verify each archetype has its own multiplier.
+    /// Invariants: Same count but different category => different score.
+    #[test]
+    fn test_archetype_specific_multipliers() {
+        // naming has multiplier 2.0, nesting has 4.0
+        let naming = analyze(&[make_issue("terrible_naming"), make_issue("single_letter")]);
+        let nesting = analyze(&[make_issue("deep_nesting"), make_issue("complex_closure")]);
+        assert_eq!(naming.title, "The Minimalist");
+        assert_eq!(nesting.title, "The Architect");
+        assert!(
+            nesting.score < naming.score,
+            "nesting (mult 4) should have lower score than naming (mult 2) for same count: {} < {}",
+            nesting.score,
+            naming.score
+        );
+    }
+
+    // ── unrecognized rules ───────────────────────────────────────
+
+    /// Objective: Verify that issues with unrecognized rule names still count toward total
+    ///            but do NOT affect any category count → last max (dup) is picked when all tied.
+    /// Invariants: Unrecognized rules fall through all if-else branches without incrementing.
+    #[test]
+    fn test_unrecognized_rules_fall_to_balanced() {
+        let issues = vec![make_issue("random_rule"), make_issue("another_unknown")];
+        let p = analyze(&issues);
+        // All categories are 0, max_by_key returns last max when tied => "dup" (last in array)
+        assert_eq!(
+            p.title, "The Copy-Paste Artist",
+            "all 0 => last tied max is dup => Copy-Paste Artist"
+        );
+        assert_eq!(
+            p.score, 100.0,
+            "0 dupes => 100 - 0*3 = 100, got {}",
+            p.score
+        );
+    }
+
+    // ── case insensitivity ───────────────────────────────────────
+
+    /// Objective: Verify rule name matching is case-insensitive.
+    /// Invariants: The code lowercases rule_name before substring matching.
+    #[test]
+    fn test_case_insensitivity() {
+        let issues = vec![
+            make_issue("UNWRAP_ABUSE"),
+            make_issue("Unwrap_Abuse"),
+            make_issue("DEEP_NESTING"),
+        ];
+        let p = analyze(&issues);
+        // 2 unwrap + 1 nesting => unwrap dominant => Optimist
+        assert_eq!(
+            p.title, "The Optimist",
+            "case-insensitive matching: UPPER/mixed should match unwrap"
+        );
+    }
+
+    // ── balanced personality ──────────────────────────────────────
+
+    /// Objective: Verify that when categories are tied, max_by_key returns the LAST tied max.
+    /// Invariants: unwrap=1, nesting=1, others=0 => last max with value 1 is nesting => Architect.
+    #[test]
+    fn test_tied_categories_pick_last() {
         let issues = vec![
             make_issue("unwrap_abuse"),
-            make_issue("single_letter_variable"),
+            make_issue("terrible_naming"), // doesn't match "name": "naming" ≠ "name"
             make_issue("deep_nesting"),
         ];
         let p = analyze(&issues);
-        // All tied at 1 each - should pick one (first max)
-        assert!(!p.title.is_empty());
-        assert!(p.score > 0.0);
+        // unwrap=1, naming=0, nesting=1 => last max value 1 is nesting => Architect
+        assert_eq!(
+            p.title, "The Architect",
+            "tied at 1 between unwrap/nesting => last max (nesting) => Architect"
+        );
+    }
+
+    /// Objective: Verify score is positive for 4 issues with a clear dominant category.
+    /// Invariants: 3 dups + 1 nesting => dup dominant => score = 100 - 3*3 = 91.
+    #[test]
+    fn test_score_formula_with_dominant_category() {
+        let issues = vec![
+            make_issue("code_duplication"),
+            make_issue("code_duplication"),
+            make_issue("code_duplication"),
+            make_issue("deep_nesting"),
+        ];
+        let p = analyze(&issues);
+        assert_eq!(
+            p.title, "The Copy-Paste Artist",
+            "3 dup + 1 nesting => dup dominant"
+        );
+        assert!(
+            (p.score - 91.0).abs() < f64::EPSILON,
+            "score should be 91 (100 - 3*3), got {}",
+            p.score
+        );
     }
 }

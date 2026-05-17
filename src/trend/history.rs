@@ -133,20 +133,123 @@ fn days_to_ymd(days: u64) -> (i64, u32, u32) {
 mod tests {
     use super::*;
 
+    // ── days_to_ymd ────────────────────────────────────────────────
+
+    /// Objective: Verify days_to_ymd returns the correct date for the Unix epoch.
+    /// Invariants: 0 days since epoch → 1970-01-01.
     #[test]
-    fn test_epoch_to_datetime() {
-        // 2024-01-15T14:30:00Z = 1705328400
+    fn test_days_to_ymd_epoch() {
+        let (y, m, d) = days_to_ymd(0);
+        assert_eq!(
+            (y, m, d),
+            (1970, 1, 1),
+            "epoch = 1970-01-01, got {y}-{m}-{d}"
+        );
+    }
+
+    /// Objective: Verify days_to_ymd correctly computes dates around leap-year boundary.
+    /// Invariants: 2024 is a leap year; 2024-03-01 is 60 days after 2024-01-01 (31 Jan + 29 Feb).
+    #[test]
+    fn test_days_to_ymd_leap_year() {
+        let (y, m, d) = days_to_ymd(19723);
+        assert_eq!(
+            (y, m, d),
+            (2024, 1, 1),
+            "19723 days = 2024-01-01, got {y}-{m}-{d}"
+        );
+
+        let (y2, m2, d2) = days_to_ymd(19783);
+        assert_eq!(
+            (y2, m2, d2),
+            (2024, 3, 1),
+            "19783 days = 2024-03-01, got {y2}-{m2}-{d2}"
+        );
+    }
+
+    /// Objective: Verify days_to_ymd handles a non-leap year correctly.
+    /// Invariants: 2023-03-01 is 60 days after 2023-01-01 (non-leap Feb has 28).
+    #[test]
+    fn test_days_to_ymd_non_leap() {
+        let (y, m, d) = days_to_ymd(19358); // 2023-01-01
+        assert_eq!(
+            (y, m, d),
+            (2023, 1, 1),
+            "19358 days = 2023-01-01, got {y}-{m}-{d}"
+        );
+
+        let (y2, m2, d2) = days_to_ymd(19358 + 59); // 2023-03-01
+        assert_eq!(
+            (y2, m2, d2),
+            (2023, 3, 1),
+            "19358+59 = 2023-03-01, got {y2}-{m2}-{d2}"
+        );
+    }
+
+    /// Objective: Verify boundary at year 2000, a leap year.
+    #[test]
+    fn test_days_to_ymd_year_2000() {
+        let (y, m, d) = days_to_ymd(10957); // 2000-01-01
+        assert_eq!(
+            (y, m, d),
+            (2000, 1, 1),
+            "10957 days = 2000-01-01, got {y}-{m}-{d}"
+        );
+    }
+
+    /// Objective: Verify days_to_ymd for 2000-01-01 (leap-year century) and 2001-01-01.
+    #[test]
+    fn test_days_to_ymd_century_boundary() {
+        // 30 years from epoch (1970-2000) = 10957 days including 7 leap years
+        let (y, m, d) = days_to_ymd(10957);
+        assert_eq!(
+            (y, m, d),
+            (2000, 1, 1),
+            "10957 days = 2000-01-01, got {y}-{m}-{d}"
+        );
+
+        // 2000 is leap (366 days), so 10957 + 366 = 11323 → 2001-01-01
+        let (y2, m2, d2) = days_to_ymd(11323);
+        assert_eq!(
+            (y2, m2, d2),
+            (2001, 1, 1),
+            "11323 days = 2001-01-01, got {y2}-{m2}-{d2}"
+        );
+    }
+
+    // ── epoch_to_datetime ──────────────────────────────────────────
+
+    /// Objective: Verify epoch_to_datetime for a known value (2024-01-15T14:20:00Z).
+    #[test]
+    fn test_epoch_to_datetime_known() {
         let dt = epoch_to_datetime(1705328400);
-        assert!(dt.starts_with("2024-01-15"));
+        assert_eq!(
+            dt, "2024-01-15T14:20:00Z",
+            "1705328400 → 2024-01-15T14:20:00Z, got {dt}"
+        );
     }
 
+    /// Objective: Verify epoch_to_datetime for the Unix epoch itself (0 seconds).
+    /// Invariants: 0 seconds since epoch → 1970-01-01T00:00:00Z.
     #[test]
-    fn test_now_timestamp() {
-        let ts = now_timestamp();
-        assert!(ts.contains("T"));
-        assert!(ts.ends_with("Z"));
+    fn test_epoch_to_datetime_zero() {
+        let dt = epoch_to_datetime(0);
+        assert_eq!(dt, "1970-01-01T00:00:00Z", "0 seconds → epoch, got {dt}");
     }
 
+    /// Objective: Verify epoch_to_datetime for a leap-year date (2024-02-29 12:00:00Z).
+    #[test]
+    fn test_epoch_to_datetime_leap_day() {
+        // 2024-02-29T12:00:00Z = 1709208000
+        let dt = epoch_to_datetime(1709208000);
+        assert!(dt.starts_with("2024-02-29T12:"), "leap day noon, got {dt}");
+    }
+
+    // ── load_last / load_since ─────────────────────────────────────
+
+    // ── Serialization ──────────────────────────────────────────────
+
+    /// Objective: Verify HistoryRecord round-trips through JSON without data loss.
+    /// Invariants: All fields are preserved after serde round-trip.
     #[test]
     fn test_history_record_serde() {
         let record = HistoryRecord {
@@ -168,7 +271,44 @@ mod tests {
         };
         let json = serde_json::to_string(&record).unwrap();
         let parsed: HistoryRecord = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.overall_score, 72.5);
-        assert_eq!(parsed.tools.len(), 2);
+        assert_eq!(parsed.overall_score, 72.5, "score after round-trip");
+        assert_eq!(parsed.tools.len(), 2, "tool count after round-trip");
+        assert_eq!(
+            parsed.timestamp, "2024-01-15T14:30:00Z",
+            "timestamp preserved"
+        );
+        assert_eq!(parsed.project_path, "/tmp/test", "project path preserved");
+    }
+
+    /// Objective: Verify HistoryRecord with empty tools vector round-trips correctly.
+    #[test]
+    fn test_history_record_empty_tools() {
+        let record = HistoryRecord {
+            timestamp: "2024-06-01T00:00:00Z".to_string(),
+            project_path: "/tmp/empty".to_string(),
+            overall_score: 0.0,
+            tools: vec![],
+        };
+        let json = serde_json::to_string(&record).unwrap();
+        let parsed: HistoryRecord = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.tools.len(), 0, "empty tools preserved");
+        assert_eq!(parsed.overall_score, 0.0, "score 0.0 preserved");
+    }
+
+    // ── now_timestamp ──────────────────────────────────────────────
+
+    /// Objective: Verify now_timestamp produces a valid ISO-like timestamp.
+    /// Invariants: Contains 'T' separator and ends with 'Z'.
+    #[test]
+    fn test_now_timestamp_format() {
+        let ts = now_timestamp();
+        assert!(ts.contains('T'), "timestamp must contain T separator: {ts}");
+        assert!(ts.ends_with('Z'), "timestamp must end with Z: {ts}");
+        assert_eq!(
+            ts.len(),
+            20,
+            "expected 20-char ISO timestamp, got len {}: {ts}",
+            ts.len()
+        );
     }
 }

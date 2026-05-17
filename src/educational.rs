@@ -451,3 +451,229 @@ impl EducationalAdvisor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ALL_RULES: &[&str] = &[
+        "terrible-naming",
+        "meaningless-naming",
+        "hungarian-notation",
+        "abbreviation-abuse",
+        "deep-nesting",
+        "god-function",
+        "long-function",
+        "magic-number",
+        "commented-code",
+        "dead-code",
+        "unwrap-abuse",
+        "string-abuse",
+        "unnecessary-clone",
+        "iterator-abuse",
+        "println-debugging",
+        "panic-abuse",
+        "todo-comment",
+        "file-too-long",
+        "unordered-imports",
+        "deep-module-nesting",
+    ];
+
+    /// Objective: Verify that every known rule has English advice registered.
+    /// Invariants: If a rule is added to the engine but not the advice DB,
+    ///             calling get_advice must return Some(...).
+    #[test]
+    fn test_all_rules_have_english_advice() {
+        let advisor = EducationalAdvisor::new("en");
+        for rule in ALL_RULES {
+            let advice = advisor.get_advice(rule);
+            assert!(
+                advice.is_some(),
+                "rule '{rule}' has no advice registered in English database"
+            );
+            let a = advice.unwrap();
+            assert!(!a.why_bad.is_empty(), "rule '{rule}' has empty why_bad");
+            assert!(
+                !a.how_to_fix.is_empty(),
+                "rule '{rule}' has empty how_to_fix"
+            );
+        }
+    }
+
+    /// Objective: Verify that every known rule has Chinese advice registered.
+    /// Invariants: Even English-only rules (unordered-imports, deep-module-nesting)
+    ///             should still return Some (they store English text even when lang=zh-CN).
+    #[test]
+    fn test_all_rules_have_chinese_advice() {
+        let advisor = EducationalAdvisor::new("zh-CN");
+        for rule in ALL_RULES {
+            let advice = advisor.get_advice(rule);
+            assert!(
+                advice.is_some(),
+                "rule '{rule}' has no advice when lang=zh-CN"
+            );
+        }
+    }
+
+    /// Objective: Verify unknown rule returns None, not a crash.
+    #[test]
+    fn test_unknown_rule_returns_none() {
+        let advisor = EducationalAdvisor::new("en");
+        assert!(
+            advisor.get_advice("nonexistent-rule").is_none(),
+            "unknown rule should return None"
+        );
+    }
+
+    /// Objective: Verify that English `terrible-naming` advice contains
+    ///            expected English tokens, confirming the i18n path works.
+    #[test]
+    fn test_english_terrible_naming_has_expected_content() {
+        let advisor = EducationalAdvisor::new("en");
+        let advice = advisor
+            .get_advice("terrible-naming")
+            .expect("terrible-naming should exist");
+        assert!(
+            advice.why_bad.contains("readability"),
+            "English why_bad should mention readability, got: {}",
+            advice.why_bad
+        );
+        assert!(
+            advice.how_to_fix.contains("descriptive"),
+            "English how_to_fix should suggest descriptive names, got: {}",
+            advice.how_to_fix
+        );
+        assert!(
+            advice
+                .best_practice_tip
+                .as_ref()
+                .unwrap()
+                .contains("self-documenting"),
+            "English tip should mention self-documenting"
+        );
+    }
+
+    /// Objective: Verify that Chinese `terrible-naming` advice contains
+    ///            expected Chinese characters, confirming the zh-CN path works.
+    #[test]
+    fn test_chinese_terrible_naming_has_expected_content() {
+        let advisor = EducationalAdvisor::new("zh-CN");
+        let advice = advisor
+            .get_advice("terrible-naming")
+            .expect("terrible-naming should exist");
+        assert!(
+            advice.why_bad.contains("糟糕"),
+            "Chinese why_bad should contain '糟糕', got: {}",
+            advice.why_bad
+        );
+        assert!(
+            advice.how_to_fix.contains("描述性"),
+            "Chinese how_to_fix should contain '描述性', got: {}",
+            advice.how_to_fix
+        );
+        assert!(
+            advice
+                .best_practice_tip
+                .as_ref()
+                .unwrap()
+                .contains("自文档化"),
+            "Chinese tip should contain '自文档化'"
+        );
+    }
+
+    /// Objective: Verify ALL English advice entries have a non-None best_practice_tip.
+    /// Invariants: best_practice_tip is always Some for every rule in English.
+    #[test]
+    fn test_all_english_advice_have_best_practice_tip() {
+        let advisor = EducationalAdvisor::new("en");
+        for (rule, advice) in &advisor.advice_db {
+            assert!(
+                advice.best_practice_tip.is_some(),
+                "rule '{rule}' is missing best_practice_tip in English"
+            );
+        }
+    }
+
+    /// Objective: Verify ALL Chinese advice entries have a non-None best_practice_tip.
+    #[test]
+    fn test_all_chinese_advice_have_best_practice_tip() {
+        let advisor = EducationalAdvisor::new("zh-CN");
+        for (rule, advice) in &advisor.advice_db {
+            assert!(
+                advice.best_practice_tip.is_some(),
+                "rule '{rule}' is missing best_practice_tip in Chinese"
+            );
+        }
+    }
+
+    /// Objective: Verify that English-only rules (unordered-imports, deep-module-nesting)
+    ///            still contain English text even when lang=zh-CN.
+    /// Invariants: These rules have no Chinese translation; they fall back to English.
+    #[test]
+    fn test_english_only_rules_remain_english_in_chinese_mode() {
+        let advisor = EducationalAdvisor::new("zh-CN");
+        for rule in &["unordered-imports", "deep-module-nesting"] {
+            let advice = advisor
+                .get_advice(rule)
+                .expect("rule should exist in zh-CN");
+            assert!(
+                advice.why_bad.contains(' '),
+                "rule '{rule}' in zh-CN should still contain English (has spaces): {}",
+                advice.why_bad
+            );
+        }
+    }
+
+    /// Objective: Verify the advice DB is initialized with exactly the expected
+    ///            number of entries, catching accidental deletions or duplicates.
+    /// Invariants: The count must match the number of unique rules that have advice.
+    #[test]
+    fn test_advice_db_has_expected_rule_count() {
+        let advisor = EducationalAdvisor::new("en");
+        // 4 naming + 3 complexity + 3 code-smells + 4 Rust-specific + 3 student + 3 file-structure = 20
+        assert_eq!(
+            advisor.advice_db.len(),
+            ALL_RULES.len(),
+            "expected {} rules in advice DB, got {}",
+            ALL_RULES.len(),
+            advisor.advice_db.len()
+        );
+    }
+
+    /// Objective: Verify that how_to_fix for every English rule is at least 10 chars long,
+    ///            meaning it provides meaningful guidance rather than a one-liner.
+    /// Invariants: Short how_to_fix would indicate content was accidentally left incomplete.
+    #[test]
+    fn test_how_to_fix_minimum_length() {
+        let advisor = EducationalAdvisor::new("en");
+        let min_len = 10;
+        for (rule, advice) in &advisor.advice_db {
+            assert!(
+                advice.how_to_fix.len() >= min_len,
+                "rule '{rule}' how_to_fix is too short ({}, min {min_len}): '{}'",
+                advice.how_to_fix.len(),
+                advice.how_to_fix
+            );
+        }
+    }
+
+    /// Objective: Verify that advice is deterministic — same rule, same lang, same content.
+    /// Invariants: Two advisor instances with the same language produce identical advice.
+    #[test]
+    fn test_advice_is_deterministic() {
+        let a1 = EducationalAdvisor::new("en");
+        let a2 = EducationalAdvisor::new("en");
+        for rule in ALL_RULES {
+            let adv1 = a1.get_advice(rule).expect("rule should exist");
+            let adv2 = a2.get_advice(rule).expect("rule should exist");
+            assert_eq!(
+                adv1.why_bad, adv2.why_bad,
+                "rule '{rule}' why_bad differs between instances"
+            );
+            assert_eq!(
+                adv1.how_to_fix, adv2.how_to_fix,
+                "rule '{rule}' how_to_fix differs between instances"
+            );
+        }
+    }
+}

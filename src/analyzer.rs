@@ -292,3 +292,223 @@ impl CodeAnalyzer {
         content.contains("#[cfg(test)]")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    // ── is_generated_file ────────────────────────────────────────
+
+    /// Objective: Verify that protobuf-generated files (.pb.go, _grpc.pb.go, .pb.gw.go,
+    ///            .pulsar.go, .pb.cc, .pb.h) are correctly identified as generated.
+    /// Invariants: All protobuf suffix patterns must be detected regardless of path prefix.
+    #[test]
+    fn test_is_generated_file_detects_all_protobuf_suffixes() {
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("api.pb.go")),
+            "expected .pb.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("service_grpc.pb.go")),
+            "expected _grpc.pb.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("gateway.pb.gw.go")),
+            "expected .pb.gw.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("topic.pulsar.go")),
+            "expected .pulsar.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("types.pb.cc")),
+            "expected .pb.cc to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("types.pb.h")),
+            "expected .pb.h to be generated"
+        );
+    }
+
+    /// Objective: Verify that dependency/vendor directories are detected.
+    /// Invariants: Paths containing /node_modules/, /vendor/, or /swagger-ui/ are generated,
+    ///             regardless of the file extension.
+    #[test]
+    fn test_is_generated_file_detects_dependency_directories() {
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("/project/node_modules/foo/index.js")),
+            "node_modules should be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("/project/vendor/bar/main.rs")),
+            "vendor should be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("/project/swagger-ui/index.html")),
+            "swagger-ui should be generated"
+        );
+    }
+
+    /// Objective: Verify that user-written source files are NOT marked as generated.
+    /// Invariants: Any path that does not match a generated suffix or generated directory
+    ///             pattern must return false.
+    #[test]
+    fn test_is_generated_file_does_not_flag_user_code() {
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("src/main.rs")),
+            "src/main.rs should not be generated"
+        );
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("src/server.go")),
+            "src/server.go (Go source) should not be generated"
+        );
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("app.py")),
+            "app.py should not be generated"
+        );
+    }
+
+    /// Objective: Verify that a file ending in .go but not matching any protobuf pattern
+    ///            is correctly treated as user code, even in a path containing "vendor"
+    ///            as a substring (not the /vendor/ directory).
+    /// Invariants: Only exact /vendor/ path component must match, not partial substring.
+    #[test]
+    fn test_is_generated_file_does_not_false_positive_go_source() {
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("src/vendor_service.go")),
+            "vendor_service.go should not be treated as generated just because 'vendor' appears in the name"
+        );
+    }
+
+    // ── is_test_file ─────────────────────────────────────────────
+
+    /// Objective: Verify that paths containing /tests/, /test/, /examples/, /benches/,
+    ///            /fixtures/, /mocks/, /test-files/ are classified as test files.
+    /// Invariants: Path-based heuristics take precedence over content analysis.
+    #[test]
+    fn test_is_test_file_detects_test_directories() {
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("src/tests/helper.rs"), ""),
+            "path containing /tests/ should be test"
+        );
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("examples/hello.rs"), ""),
+            "examples/ should be test"
+        );
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("benches/perf.rs"), ""),
+            "benches/ should be test"
+        );
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("tests/fixtures/data.rs"), ""),
+            "fixtures/ should be test"
+        );
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("tests/mocks/service.rs"), ""),
+            "mocks/ should be test"
+        );
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("test-files/input.txt"), ""),
+            "test-files/ should be test"
+        );
+    }
+
+    /// Objective: Verify that file names with test suffixes (_test.rs, _tests.rs)
+    ///            or test prefix (test_) are classified as test files.
+    #[test]
+    fn test_is_test_file_detects_test_naming_conventions() {
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("src/foo_test.rs"), ""),
+            "*_test.rs should be test"
+        );
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("test_main.go"), ""),
+            "test_* prefix should be test"
+        );
+    }
+
+    /// Objective: Verify that #[cfg(test)] in file content is detected even when
+    ///            the path does not contain any test indicators.
+    /// Invariants: Content analysis is the fallback when path heuristics fail.
+    #[test]
+    fn test_is_test_file_uses_content_fallback_for_cfg_test() {
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("src/foo.rs"), "#[cfg(test)]\nmod tests {}"),
+            "#[cfg(test)] in content should mark a file as test"
+        );
+    }
+
+    /// Objective: Verify that normal source files (no test dir, no test suffix, no #[cfg(test)])
+    ///            are NOT classified as test files.
+    #[test]
+    fn test_is_test_file_does_not_flag_normal_source() {
+        assert!(
+            !CodeAnalyzer::is_test_file(Path::new("src/main.rs"), "fn main() {}"),
+            "src/main.rs without #[cfg(test)] should not be test"
+        );
+    }
+
+    /// Objective: Verify that leading ./ is stripped before path pattern matching.
+    /// Invariants: "./tests/test.rs" normalizes to "tests/test.rs" => matches /tests/.
+    #[test]
+    fn test_is_test_file_strips_leading_dot_slash() {
+        assert!(
+            CodeAnalyzer::is_test_file(Path::new("./tests/test.rs"), ""),
+            "leading './' should be stripped and path should match /tests/"
+        );
+    }
+
+    // ── should_exclude ───────────────────────────────────────────
+
+    /// Objective: Verify that default exclude patterns (target, node_modules, .git etc.)
+    ///            are applied automatically even without custom patterns.
+    /// Invariants: CodeAnalyzer::new with empty custom patterns still excludes common dirs.
+    #[test]
+    fn test_should_exclude_applies_default_patterns() {
+        let analyzer = CodeAnalyzer::new(&[], "en");
+        assert!(
+            analyzer.should_exclude(Path::new("node_modules/foo")),
+            "node_modules should be excluded by default"
+        );
+        assert!(
+            analyzer.should_exclude(Path::new("target/debug/build")),
+            "target/ should be excluded by default"
+        );
+        assert!(
+            !analyzer.should_exclude(Path::new("src/main.rs")),
+            "src/ should not be excluded"
+        );
+    }
+
+    /// Objective: Verify that custom exclude patterns are added alongside defaults.
+    /// Invariants: Both custom and default patterns are checked.
+    #[test]
+    fn test_should_exclude_combines_custom_and_default_patterns() {
+        let analyzer = CodeAnalyzer::new(&["generated".to_string()], "en");
+        assert!(
+            analyzer.should_exclude(Path::new("build/generated/code.rs")),
+            "custom pattern 'generated' should match"
+        );
+        assert!(
+            analyzer.should_exclude(Path::new("target/release/exe")),
+            "default pattern 'target' should still match"
+        );
+    }
+
+    /// Objective: Verify that a pattern does NOT match unrelated directories.
+    /// Invariants: Glob-to-regex conversion creates "build" => "build.*", which should
+    ///             match "build/..." but not "src/main.rs".
+    #[test]
+    fn test_should_exclude_only_matches_intended_directories() {
+        let analyzer = CodeAnalyzer::new(&["build".to_string()], "en");
+        assert!(
+            analyzer.should_exclude(Path::new("build/foo.o")),
+            "'build' pattern should match build/ path"
+        );
+        assert!(
+            !analyzer.should_exclude(Path::new("src/main.rs")),
+            "'build' pattern should NOT match src/ path"
+        );
+    }
+}

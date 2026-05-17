@@ -52,13 +52,22 @@ macro_rules! run_test {
 
 /// Extract total issue count from output
 fn extract_total_issues(output: &str) -> u32 {
+    // New format: "Anomalies Detected: 1126 anomalies"
+    let re_new = Regex::new(r"Anomalies Detected:\s*(\d+)").unwrap();
+    if let Some(caps) = re_new.captures(output) {
+        if let Some(m) = caps.get(1) {
+            if let Ok(n) = m.as_str().parse() {
+                return n;
+            }
+        }
+    }
+    // Legacy format: "📝 Total" or "Total"
     output
         .lines()
         .find(|line| line.contains("📝 Total") || line.contains("Total"))
         .and_then(|line| line.split_whitespace().next())
         .and_then(|num| num.parse().ok())
         .unwrap_or_else(|| {
-            // Fallback: try to find any number followed by "Total" or "total"
             let re = Regex::new(r"(\d+)\s*(?:📝\s*)?Total").unwrap();
             re.captures(output)
                 .and_then(|caps| caps.get(1).and_then(|m| m.as_str().parse().ok()))

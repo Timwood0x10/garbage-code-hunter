@@ -1,4 +1,5 @@
 use crate::analyzer::{CodeIssue, Severity};
+use crate::signals::{compute_signal_scores, StyleSignal};
 use std::collections::HashMap;
 
 /// Code quality rating system — two-tier log model.
@@ -13,6 +14,7 @@ pub struct CodeQualityScore {
     pub n_score: f64,
     pub d_score: f64,
     pub category_scores: HashMap<String, f64>,
+    pub signal_scores: HashMap<StyleSignal, f64>,
     pub file_count: usize,
     pub total_lines: usize,
     pub issue_density: f64,
@@ -93,6 +95,7 @@ impl CodeScorer {
                 n_score: 0.0,
                 d_score: 0.0,
                 category_scores: HashMap::new(),
+                signal_scores: HashMap::new(),
                 file_count,
                 total_lines,
                 issue_density: 0.0,
@@ -158,11 +161,14 @@ impl CodeScorer {
             0.0
         };
 
+        let signal_scores = compute_signal_scores(issues, total_lines);
+
         CodeQualityScore {
             total_score,
             n_score,
             d_score,
             category_scores,
+            signal_scores,
             file_count,
             total_lines,
             issue_density,
@@ -311,5 +317,369 @@ impl CodeScorer {
 impl Default for CodeScorer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::Severity;
+    use std::path::PathBuf;
+
+    fn issue(rule: &str, sev: Severity) -> CodeIssue {
+        CodeIssue {
+            file_path: PathBuf::from("test.rs"),
+            line: 1,
+            column: 1,
+            rule_name: rule.to_string(),
+            message: String::new(),
+            severity: sev,
+        }
+    }
+
+    // ── QualityLevel ─────────────────────────────────────────────
+
+    /// Objective: Verify from_score returns the correct level for each tier.
+    /// Invariants: Boundaries (20, 40, 60, 80) belong to the lower tier.
+    #[test]
+    fn test_quality_level_tier_boundaries() {
+        assert_eq!(
+            QualityLevel::from_score(0.0),
+            QualityLevel::Excellent,
+            "score 0 should be Excellent"
+        );
+        assert_eq!(
+            QualityLevel::from_score(20.0),
+            QualityLevel::Excellent,
+            "score 20 should still be Excellent (lower bound)"
+        );
+        assert_eq!(
+            QualityLevel::from_score(21.0),
+            QualityLevel::Good,
+            "score 21 transitions to Good"
+        );
+        assert_eq!(
+            QualityLevel::from_score(40.0),
+            QualityLevel::Good,
+            "score 40 should still be Good"
+        );
+        assert_eq!(
+            QualityLevel::from_score(41.0),
+            QualityLevel::Average,
+            "score 41 transitions to Average"
+        );
+        assert_eq!(
+            QualityLevel::from_score(60.0),
+            QualityLevel::Average,
+            "score 60 should still be Average"
+        );
+        assert_eq!(
+            QualityLevel::from_score(61.0),
+            QualityLevel::Poor,
+            "score 61 transitions to Poor"
+        );
+        assert_eq!(
+            QualityLevel::from_score(80.0),
+            QualityLevel::Poor,
+            "score 80 should still be Poor"
+        );
+        assert_eq!(
+            QualityLevel::from_score(81.0),
+            QualityLevel::Terrible,
+            "score 81 transitions to Terrible"
+        );
+        assert_eq!(
+            QualityLevel::from_score(100.0),
+            QualityLevel::Terrible,
+            "score 100 is Terrible"
+        );
+    }
+
+    /// Objective: Verify QualityLevel::description returns correct English strings.
+    #[test]
+    fn test_quality_level_description_english() {
+        assert_eq!(
+            QualityLevel::Excellent.description("en"),
+            "Excellent",
+            "English description for Excellent"
+        );
+        assert_eq!(
+            QualityLevel::Terrible.description("en"),
+            "Terrible",
+            "English description for Terrible"
+        );
+    }
+
+    /// Objective: Verify QualityLevel::description returns correct Chinese strings.
+    #[test]
+    fn test_quality_level_description_chinese() {
+        assert_eq!(
+            QualityLevel::Excellent.description("zh-CN"),
+            "优秀",
+            "Chinese description for Excellent"
+        );
+        assert_eq!(
+            QualityLevel::Terrible.description("zh-CN"),
+            "糟糕",
+            "Chinese description for Terrible"
+        );
+    }
+
+    // ── CodeScorer — empty input ──────────────────────────────────
+
+    /// Objective: Verify that empty issues result in zero score with Excellent level.
+    /// Invariants: total_score, n_score, d_score are all 0 when issues is empty.
+    #[test]
+    fn test_empty_issues_score_zero() {
+        let scorer = CodeScorer::new();
+        let score = scorer.calculate_score(&[], 5, 1000);
+        assert_eq!(
+            score.total_score, 0.0,
+            "empty issues => total_score 0, got {}",
+            score.total_score
+        );
+        assert_eq!(
+            score.quality_level,
+            QualityLevel::Excellent,
+            "empty issues => Excellent quality"
+        );
+        assert_eq!(score.issue_density, 0.0, "empty issues => density 0");
+        assert_eq!(score.n_score, 0.0, "empty issues => n_score 0");
+        assert_eq!(score.d_score, 0.0, "empty issues => d_score 0");
+    }
+
+    // ── CodeScorer — severity distribution ─────────────────────────
+
+    /// Objective: Verify severity distribution counts each severity bucket correctly.
+    /// Invariants: The sum of all counts equals the total number of issues.
+    #[test]
+    fn test_severity_distribution_counts() {
+        let scorer = CodeScorer::new();
+        let issues = vec![
+            issue("a", Severity::Nuclear),
+            issue("b", Severity::Spicy),
+            issue("c", Severity::Mild),
+            issue("d", Severity::Nuclear),
+        ];
+        let dist = scorer.calculate_severity_distribution(&issues);
+        assert_eq!(dist.nuclear, 2, "should count 2 nuclear issues");
+        assert_eq!(dist.spicy, 1, "should count 1 spicy issue");
+        assert_eq!(dist.mild, 1, "should count 1 mild issue");
+        assert_eq!(
+            dist.nuclear + dist.spicy + dist.mild,
+            issues.len(),
+            "severity counts must sum to total issue count"
+        );
+    }
+
+    // ── CodeScorer — two-tier log scoring ──────────────────────────
+
+    /// Objective: Verify n_score grows monotonically with nuclear issue count.
+    /// Invariants: More nuclear issues => strictly larger n_score.
+    #[test]
+    fn test_n_score_monotonic_with_nuclear_count() {
+        let scorer = CodeScorer::new();
+        let one_nuke = scorer.calculate_score(&[issue("n1", Severity::Nuclear)], 1, 1000);
+        let two_nukes = scorer.calculate_score(
+            &[
+                issue("n1", Severity::Nuclear),
+                issue("n2", Severity::Nuclear),
+            ],
+            1,
+            1000,
+        );
+        assert!(
+            two_nukes.n_score > one_nuke.n_score,
+            "n_score should increase from {} to {} with more nuclear issues",
+            one_nuke.n_score,
+            two_nukes.n_score
+        );
+    }
+
+    /// Objective: Verify n_score is capped at 40 (log2 cap).
+    /// Invariants: Even with 100 nuclear issues, n_score never exceeds 40.
+    #[test]
+    fn test_n_score_capped_at_40() {
+        let scorer = CodeScorer::new();
+        let issues: Vec<CodeIssue> = (0..100)
+            .map(|i| issue(&format!("x{i}"), Severity::Nuclear))
+            .collect();
+        let score = scorer.calculate_score(&issues, 1, 1000);
+        assert!(
+            score.n_score <= 40.0,
+            "n_score cap is 40, got {}",
+            score.n_score
+        );
+    }
+
+    /// Objective: Verify d_score increases when issue density is higher
+    ///            (same issues in fewer lines).
+    /// Invariants: Denser project produces strictly higher d_score.
+    #[test]
+    fn test_d_score_higher_with_denser_code() {
+        let scorer = CodeScorer::new();
+        let issues: Vec<CodeIssue> = (0..50)
+            .map(|i| issue(&format!("m{i}"), Severity::Mild))
+            .collect();
+        let sparse = scorer.calculate_score(&issues, 1, 10000);
+        let dense = scorer.calculate_score(&issues, 1, 500);
+        assert!(
+            dense.d_score > sparse.d_score,
+            "dense (50 issues / 500 lines) should score higher d_score than sparse (50 / 10000), got {} vs {}",
+            dense.d_score, sparse.d_score
+        );
+    }
+
+    /// Objective: Verify d_score is capped at 60 (log-scaled density cap).
+    #[test]
+    fn test_d_score_capped_at_60() {
+        let scorer = CodeScorer::new();
+        let issues: Vec<CodeIssue> = (0..5000)
+            .map(|i| issue(&format!("m{i}"), Severity::Mild))
+            .collect();
+        let score = scorer.calculate_score(&issues, 1, 100);
+        assert!(
+            score.d_score <= 60.0,
+            "d_score cap is 60, got {}",
+            score.d_score
+        );
+    }
+
+    /// Objective: Verify total_score = n_score + d_score always.
+    /// Invariants: total_score must equal the sum of its two components.
+    #[test]
+    fn test_total_score_is_n_plus_d() {
+        let scorer = CodeScorer::new();
+        let issues = vec![
+            issue("n", Severity::Nuclear),
+            issue("s", Severity::Spicy),
+            issue("m", Severity::Mild),
+        ];
+        let score = scorer.calculate_score(&issues, 1, 1000);
+        let expected = score.n_score + score.d_score;
+        assert!(
+            (score.total_score - expected).abs() < 1e-6,
+            "total_score ({}) should equal n_score ({}) + d_score ({}) = {}",
+            score.total_score,
+            score.n_score,
+            score.d_score,
+            expected
+        );
+    }
+
+    /// Objective: Verify zero total_lines does not produce NaN or crash.
+    /// Invariants: d_score = log2(1)*6 = 0 when density denominator is 0.
+    ///             n_score is unaffected.
+    #[test]
+    fn test_zero_lines_does_not_produce_nan() {
+        let scorer = CodeScorer::new();
+        let score = scorer.calculate_score(&[issue("x", Severity::Nuclear)], 1, 0);
+        assert!(
+            score.total_score.is_finite(),
+            "total_score must be finite, got {}",
+            score.total_score
+        );
+        assert!(score.n_score.is_finite(), "n_score must be finite");
+        assert!(score.d_score.is_finite(), "d_score must be finite");
+        assert!(
+            score.total_score > 0.0,
+            "with a nuclear issue, total_score should be > 0"
+        );
+    }
+
+    // ── CodeScorer — category scores ───────────────────────────────
+
+    /// Objective: Verify that all five expected category keys exist in the result.
+    /// Invariants: The category map always contains naming/complexity/duplication/code-smells/student-code.
+    #[test]
+    fn test_all_category_keys_present() {
+        let scorer = CodeScorer::new();
+        let score = scorer.calculate_score(&[issue("terrible-naming", Severity::Mild)], 1, 1000);
+        for cat in &[
+            "naming",
+            "complexity",
+            "duplication",
+            "code-smells",
+            "student-code",
+        ] {
+            assert!(
+                score.category_scores.contains_key(*cat),
+                "category '{}' should exist in scores",
+                cat
+            );
+        }
+    }
+
+    /// Objective: Verify category score > 0 when at least one rule in that category matches.
+    #[test]
+    fn test_category_score_positive_when_rule_matches() {
+        let scorer = CodeScorer::new();
+        let score = scorer.calculate_score(
+            &[
+                issue("terrible-naming", Severity::Nuclear),
+                issue("single-letter-variable", Severity::Spicy),
+            ],
+            1,
+            1000,
+        );
+        let naming_score = score
+            .category_scores
+            .get("naming")
+            .expect("naming category should exist");
+        assert!(
+            *naming_score > 0.0,
+            "naming category should have non-zero score when naming rules fire, got {}",
+            naming_score
+        );
+    }
+
+    /// Objective: Verify category score is 0 when no rules in that category fire.
+    #[test]
+    fn test_category_score_zero_when_no_matching_rules() {
+        let scorer = CodeScorer::new();
+        let score = scorer.calculate_score(&[issue("unwrap-abuse", Severity::Mild)], 1, 1000);
+        let naming_score = score
+            .category_scores
+            .get("naming")
+            .expect("naming category should exist");
+        assert_eq!(
+            *naming_score, 0.0,
+            "naming category should be 0 when no naming rules fire"
+        );
+    }
+
+    /// Objective: Verify category scores across different categories are independent.
+    /// Invariants: Rules in category A only affect category A's score, not category B's.
+    #[test]
+    fn test_categories_are_independent() {
+        let scorer = CodeScorer::new();
+        let score = scorer.calculate_score(
+            &[
+                issue("terrible-naming", Severity::Nuclear),
+                issue("deep-nesting", Severity::Spicy),
+            ],
+            1,
+            1000,
+        );
+        let naming = *score
+            .category_scores
+            .get("naming")
+            .expect("naming category");
+        let complexity = *score
+            .category_scores
+            .get("complexity")
+            .expect("complexity category");
+        assert!(
+            naming > 0.0 && complexity > 0.0,
+            "both naming ({naming}) and complexity ({complexity}) should be > 0 when their rules fire"
+        );
+        let duplication = *score
+            .category_scores
+            .get("duplication")
+            .expect("duplication category");
+        assert_eq!(
+            duplication, 0.0,
+            "duplication category should be 0 since no duplication rule fired"
+        );
     }
 }

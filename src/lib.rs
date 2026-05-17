@@ -26,6 +26,7 @@ pub mod radar;
 pub mod reporter;
 pub mod rules;
 pub mod scoring;
+pub mod signals;
 pub mod team_roast;
 pub mod treesitter;
 pub mod trend;

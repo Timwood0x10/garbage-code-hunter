@@ -135,6 +135,7 @@ impl Reporter {
                 self.print_personality(&personality, &combined_score, corruption_pct);
                 self.print_autopsy(&autopsy);
                 self.print_boss_file(&issues);
+                self.print_behavior_distribution(&combined_score);
 
                 if self.verbose {
                     self.print_symptoms(&issues);
@@ -296,5 +297,138 @@ impl Reporter {
         println!();
 
         println!();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Objective: Verify is_test_path returns true for all supported test directory patterns.
+    /// Invariants: /tests/, /test/, /test-files/, /fixtures/, /mocks/, /examples/, /benches/
+    ///             are all recognized as test paths regardless of file extension.
+    #[test]
+    fn test_is_test_path_detects_test_directories() {
+        assert!(
+            Reporter::is_test_path(Path::new("/project/src/tests/helper.rs")),
+            "/tests/ should be detected"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/tests/fixtures/data.json")),
+            "/fixtures/ should be detected"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/tests/mocks/service.rs")),
+            "/mocks/ should be detected"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/examples/demo.rs")),
+            "/examples/ should be detected"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/benches/perf.rs")),
+            "/benches/ should be detected"
+        );
+    }
+
+    /// Objective: Verify is_test_path detects files ending with _test.{rs,go,py,js,ts,java}.
+    /// Invariants: Each supported language suffix must be recognized independently.
+    #[test]
+    fn test_is_test_path_detects_all_language_test_suffixes() {
+        assert!(
+            Reporter::is_test_path(Path::new("/project/src/foo_test.rs")),
+            "_test.rs should be test"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/src/handler_test.go")),
+            "_test.go should be test"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/src/util_test.py")),
+            "_test.py should be test"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/src/app_test.js")),
+            "_test.js should be test"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/src/app_test.ts")),
+            "_test.ts should be test"
+        );
+        assert!(
+            Reporter::is_test_path(Path::new("/project/src/Foo_test.java")),
+            "_test.java should be test"
+        );
+    }
+
+    /// Objective: Verify is_test_path detects files starting with "test_" at the root.
+    /// Invariants: `name.starts_with("test_")` only matches when the filename is the
+    ///             entire path (e.g., "test_main.py"), not when embedded in a directory.
+    #[test]
+    fn test_is_test_path_detects_test_prefix_at_root() {
+        assert!(
+            Reporter::is_test_path(Path::new("test_main.py")),
+            "bare filename starting with test_ should be test"
+        );
+    }
+
+    /// Objective: Verify is_test_path returns false for normal production source files.
+    /// Invariants: Source files in any language under src/ (or similar) should not match.
+    #[test]
+    fn test_is_test_path_does_not_flag_production_code() {
+        assert!(
+            !Reporter::is_test_path(Path::new("/project/src/main.rs")),
+            "src/main.rs should not be test"
+        );
+        assert!(
+            !Reporter::is_test_path(Path::new("/project/src/lib.rs")),
+            "src/lib.rs should not be test"
+        );
+        assert!(
+            !Reporter::is_test_path(Path::new("/project/src/server.go")),
+            "src/server.go should not be test"
+        );
+    }
+
+    /// Objective: Verify Reporter construction normalizes "en" to "en-US" correctly.
+    #[test]
+    fn test_reporter_creates_with_english_i18n() {
+        let reporter = Reporter::new(
+            false,
+            false,
+            false,
+            10,
+            5,
+            false,
+            false,
+            "en",
+            Box::new(crate::llm::LocalRoastProvider),
+        );
+        assert_eq!(
+            reporter.i18n.lang, "en-US",
+            "Reporter::new with 'en' should normalize to 'en-US', got '{}'",
+            reporter.i18n.lang
+        );
+    }
+
+    /// Objective: Verify Reporter construction preserves "zh-CN" correctly.
+    #[test]
+    fn test_reporter_creates_with_chinese_i18n() {
+        let reporter = Reporter::new(
+            false,
+            false,
+            false,
+            10,
+            5,
+            false,
+            false,
+            "zh-CN",
+            Box::new(crate::llm::LocalRoastProvider),
+        );
+        assert_eq!(
+            reporter.i18n.lang, "zh-CN",
+            "Reporter::new with 'zh-CN' should keep 'zh-CN', got '{}'",
+            reporter.i18n.lang
+        );
     }
 }
