@@ -38,6 +38,19 @@ impl StyleSignal {
             StyleSignal::CodeSmells => "Code Smells",
         }
     }
+
+    pub fn display_name_zh(&self) -> String {
+        match self {
+            StyleSignal::Duplication => "重复代码",
+            StyleSignal::PanicAddiction => "恐慌成瘾",
+            StyleSignal::NamingChaos => "命名混乱",
+            StyleSignal::NestedHell => "嵌套地狱",
+            StyleSignal::HotfixCulture => "热修复文化",
+            StyleSignal::OverEngineering => "过度工程",
+            StyleSignal::CodeSmells => "代码异味",
+        }
+        .to_string()
+    }
 }
 
 pub fn classify_rule(rule_name: &str) -> StyleSignal {

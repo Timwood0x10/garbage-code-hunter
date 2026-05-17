@@ -319,43 +319,348 @@ fn display_json(report: &DecayReport) -> String {
 mod tests {
     use super::*;
 
+    // ── is_generic_message ────────────────────────────────────────
+
+    /// Objective: Verify all generic message patterns are detected.
+    /// Invariants: Exact match "fix" or starts with "fix " are generic.
     #[test]
-    fn test_is_generic_message() {
-        assert!(is_generic_message("fix"));
-        assert!(is_generic_message("update"));
-        assert!(is_generic_message("WIP"));
-        assert!(!is_generic_message("fix: resolve auth token refresh bug"));
+    fn test_is_generic_message_exact_match() {
+        assert!(is_generic_message("fix"), "'fix' exact match");
+        assert!(is_generic_message("update"), "'update' exact match");
+        assert!(is_generic_message("change"), "'change' exact match");
+        assert!(is_generic_message("wip"), "'wip' exact match");
+        assert!(is_generic_message("tmp"), "'tmp' exact match");
+        assert!(is_generic_message("temp"), "'temp' exact match");
+        assert!(is_generic_message("asdf"), "'asdf' exact match");
+        assert!(is_generic_message("test"), "'test' exact match");
     }
 
+    /// Objective: Verify case-insensitive matching works.
     #[test]
-    fn test_health_label() {
-        assert_eq!(health_label(95.0), "Thriving");
-        assert_eq!(health_label(75.0), "Healthy");
-        assert_eq!(health_label(55.0), "Declining");
-        assert_eq!(health_label(35.0), "Critical");
-        assert_eq!(health_label(10.0), "Terminal");
+    fn test_is_generic_message_case_insensitive() {
+        assert!(is_generic_message("FIX"), "FIX uppercase");
+        assert!(is_generic_message("WIP"), "WIP uppercase");
+        assert!(is_generic_message("Temp"), "Temp mixed case");
     }
 
+    /// Objective: Verify generic messages followed by content (starts with "fix ") are detected.
     #[test]
-    fn test_find_turning_point() {
+    fn test_is_generic_message_with_trailing() {
+        assert!(is_generic_message("fix stuff"), "'fix ' prefix");
+        assert!(is_generic_message("update the code"), "'update ' prefix");
+        assert!(is_generic_message("wip changes"), "'wip ' prefix");
+        assert!(is_generic_message("tmp notes"), "'tmp ' prefix");
+        assert!(is_generic_message("test the build"), "'test ' prefix");
+    }
+
+    /// Objective: Verify non-generic messages are not flagged.
+    /// Invariants: Descriptive messages with context are not generic.
+    #[test]
+    fn test_is_generic_message_non_generic() {
+        assert!(
+            !is_generic_message("fix: resolve auth token refresh bug"),
+            "fix: prefix is not generic"
+        );
+        assert!(
+            !is_generic_message("fixed the race condition"),
+            "'fixed' is not exact 'fix'"
+        );
+        assert!(
+            !is_generic_message("refactor database layer"),
+            "descriptive message"
+        );
+        assert!(
+            !is_generic_message("testing new feature"),
+            "'testing' does not start with 'test '"
+        );
+        assert!(
+            !is_generic_message("updates the docs"),
+            "'updates' is not 'update'"
+        );
+    }
+
+    // ── health_label ──────────────────────────────────────────────
+
+    /// Objective: Verify health label boundary values.
+    /// Invariants: 90+ = Thriving, 70-89 = Healthy, 50-69 = Declining, 30-49 = Critical, <30 = Terminal.
+    #[test]
+    fn test_health_label_boundaries() {
+        assert_eq!(health_label(100.0), "Thriving", "100 => Thriving");
+        assert_eq!(health_label(90.0), "Thriving", "90 => Thriving");
+        assert_eq!(health_label(89.0), "Healthy", "89 => Healthy");
+        assert_eq!(health_label(70.0), "Healthy", "70 => Healthy");
+        assert_eq!(health_label(69.0), "Declining", "69 => Declining");
+        assert_eq!(health_label(50.0), "Declining", "50 => Declining");
+        assert_eq!(health_label(49.0), "Critical", "49 => Critical");
+        assert_eq!(health_label(30.0), "Critical", "30 => Critical");
+        assert_eq!(health_label(29.0), "Terminal", "29 => Terminal");
+        assert_eq!(health_label(0.0), "Terminal", "0 => Terminal");
+    }
+
+    // ── find_turning_point ────────────────────────────────────────
+
+    /// Objective: Verify find_turning_point returns None when there are fewer than 3 data points.
+    /// Invariants: Need at least 3 points to detect a sustained drop.
+    #[test]
+    fn test_find_turning_point_too_few_points() {
+        assert!(find_turning_point(&[]).is_none(), "empty => None");
+        assert!(
+            find_turning_point(&[DecayPoint {
+                date: "2024-01".into(),
+                score: 90.0,
+                event: None
+            }])
+            .is_none(),
+            "1 point => None"
+        );
+        assert!(
+            find_turning_point(&[
+                DecayPoint {
+                    date: "2024-01".into(),
+                    score: 90.0,
+                    event: None
+                },
+                DecayPoint {
+                    date: "2024-02".into(),
+                    score: 85.0,
+                    event: None
+                },
+            ])
+            .is_none(),
+            "2 points => None"
+        );
+    }
+
+    /// Objective: Verify turning point is detected when score drops >10 over 3+ points.
+    #[test]
+    fn test_find_turning_point_detected() {
         let points = vec![
             DecayPoint {
-                date: "2024-01".to_string(),
+                date: "2024-01".into(),
                 score: 90.0,
                 event: None,
             },
             DecayPoint {
-                date: "2024-02".to_string(),
+                date: "2024-02".into(),
                 score: 85.0,
                 event: None,
             },
             DecayPoint {
-                date: "2024-03".to_string(),
+                date: "2024-03".into(),
                 score: 60.0,
                 event: None,
             },
         ];
         let tp = find_turning_point(&points);
-        assert!(tp.is_some());
+        assert!(
+            tp.is_some(),
+            "drop from 90→60 over 3 points should be detected"
+        );
+        assert_eq!(
+            tp.unwrap().score,
+            60.0,
+            "turning point is the lowest point in the sequence"
+        );
+    }
+
+    /// Objective: Verify turning point is NOT detected when drop is <=10.
+    /// Invariants: Drop must be >10 (strict greater).
+    #[test]
+    fn test_find_turning_point_small_drop_not_detected() {
+        let points = vec![
+            DecayPoint {
+                date: "2024-01".into(),
+                score: 80.0,
+                event: None,
+            },
+            DecayPoint {
+                date: "2024-02".into(),
+                score: 75.0,
+                event: None,
+            },
+            DecayPoint {
+                date: "2024-03".into(),
+                score: 71.0,
+                event: None,
+            },
+        ];
+        let tp = find_turning_point(&points);
+        assert!(tp.is_none(), "9-point drop should not be a turning point");
+    }
+
+    /// Objective: Verify the BIGGEST drop wins when there are multiple drops.
+    #[test]
+    fn test_find_turning_point_biggest_drop_wins() {
+        let points = vec![
+            DecayPoint {
+                date: "2024-01".into(),
+                score: 90.0,
+                event: None,
+            },
+            DecayPoint {
+                date: "2024-02".into(),
+                score: 80.0,
+                event: None,
+            },
+            DecayPoint {
+                date: "2024-03".into(),
+                score: 70.0,
+                event: None,
+            }, // points[0]-points[2] = 20
+            DecayPoint {
+                date: "2024-04".into(),
+                score: 65.0,
+                event: None,
+            },
+            DecayPoint {
+                date: "2024-05".into(),
+                score: 30.0,
+                event: None,
+            }, // points[2]-points[4] = 40 ← biggest
+            DecayPoint {
+                date: "2024-06".into(),
+                score: 25.0,
+                event: None,
+            }, // points[3]-points[5] = 40 (tied, first wins)
+        ];
+        let tp = find_turning_point(&points);
+        assert!(tp.is_some(), "should detect a turning point");
+        assert_eq!(
+            tp.unwrap().score,
+            30.0,
+            "biggest drop (40 pts) ends at score 30.0"
+        );
+    }
+
+    /// Objective: Verify turning point detection with scores that increase (no turning point).
+    #[test]
+    fn test_find_turning_point_increasing_scores() {
+        let points = vec![
+            DecayPoint {
+                date: "2024-01".into(),
+                score: 50.0,
+                event: None,
+            },
+            DecayPoint {
+                date: "2024-02".into(),
+                score: 60.0,
+                event: None,
+            },
+            DecayPoint {
+                date: "2024-03".into(),
+                score: 70.0,
+                event: None,
+            },
+        ];
+        let tp = find_turning_point(&points);
+        assert!(
+            tp.is_none(),
+            "increasing scores should not produce a turning point"
+        );
+    }
+
+    // ── parse_git_log ─────────────────────────────────────────────
+
+    /// Objective: Verify parse_git_log handles standard git log format.
+    #[test]
+    fn test_parse_git_log_standard() {
+        let input = "abc123|2024-01-15 10:00:00 +0800|Alice|fix: resolve bug\n 1 file changed, 2 insertions(+)\n\ndef456|2024-01-16 11:00:00 +0800|Bob|refactor module\n 2 files changed, 10 insertions(+), 3 deletions(-)\n";
+        let commits = parse_git_log(input);
+        assert_eq!(commits.len(), 2, "should parse 2 commits");
+        assert_eq!(commits[0].author, "Alice");
+        assert_eq!(commits[0].message, "fix: resolve bug");
+        assert_eq!(commits[1].author, "Bob");
+        assert_eq!(commits[1].message, "refactor module");
+    }
+
+    /// Objective: Verify parse_git_log handles empty input.
+    #[test]
+    fn test_parse_git_log_empty() {
+        let commits = parse_git_log("");
+        assert!(commits.is_empty(), "empty input => no commits");
+    }
+
+    /// Objective: Verify parse_git_log handles malformed lines gracefully.
+    #[test]
+    fn test_parse_git_log_malformed() {
+        let input = "not-enough-parts\nabc123|2024-01-15|Alice|valid message\n 1 file changed, 1 insertion(+)\n";
+        let commits = parse_git_log(input);
+        assert_eq!(commits.len(), 1, "malformed line should be skipped");
+        assert_eq!(commits[0].author, "Alice");
+    }
+
+    /// Objective: Verify parse_git_log handles single commit.
+    #[test]
+    fn test_parse_git_log_single() {
+        let input = "abc|2024-06-01|Carol|initial commit\n 1 file changed, 1 insertion(+)\n";
+        let commits = parse_git_log(input);
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].date, "2024-06-01");
+        assert_eq!(commits[0].message, "initial commit");
+    }
+
+    // ── JSON output ───────────────────────────────────────────────
+
+    /// Objective: Verify display_json produces valid JSON with all expected fields.
+    #[test]
+    fn test_display_json_structure() {
+        let report = DecayReport {
+            points: vec![DecayPoint {
+                date: "2024-06-01".into(),
+                score: 72.5,
+                event: Some("bad commit".into()),
+            }],
+            turning_point: Some(DecayPoint {
+                date: "2024-06-01".into(),
+                score: 72.5,
+                event: Some("bad commit".into()),
+            }),
+            worst_contributor: Some("Alice".into()),
+            current_health: "Healthy",
+        };
+        let json = display_json(&report);
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+        assert_eq!(parsed["current_health"], "Healthy");
+        assert_eq!(parsed["worst_contributor"], "Alice");
+        assert!(
+            parsed["turning_point"].is_object(),
+            "turning_point should be an object"
+        );
+        assert!(parsed["timeline"].is_array(), "timeline should be an array");
+    }
+
+    /// Objective: Verify display_json handles empty timeline.
+    #[test]
+    fn test_display_json_empty_timeline() {
+        let report = DecayReport {
+            points: vec![],
+            turning_point: None,
+            worst_contributor: None,
+            current_health: "Terminal",
+        };
+        let json = display_json(&report);
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+        assert_eq!(parsed["current_health"], "Terminal");
+        assert!(
+            parsed["turning_point"].is_null(),
+            "no turning point => null"
+        );
+        assert!(
+            parsed["worst_contributor"].is_null(),
+            "no worst author => null"
+        );
+        assert!(
+            parsed["timeline"].as_array().unwrap().is_empty(),
+            "empty timeline"
+        );
+    }
+
+    // ── truncate (delegates to utils) ─────────────────────────────
+
+    /// Objective: Verify truncate delegates to utils::truncate without panicking.
+    #[test]
+    fn test_truncate_delegates() {
+        let result = truncate("hello world", 100);
+        assert_eq!(result, "hello world", "within max length => unchanged");
     }
 }
