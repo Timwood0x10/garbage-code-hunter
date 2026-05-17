@@ -72,6 +72,14 @@ pub trait LanguageAdapter: Send + Sync {
         let _ = file;
         0
     }
+
+    /// Whether the file contains test-specific AST nodes
+    /// (e.g., `#[test]` in Rust, `def test_` in Python).
+    /// Default returns false — override for language-specific detection.
+    fn has_test_nodes(&self, file: &ParsedFile) -> bool {
+        let _ = file;
+        false
+    }
 }
 
 /// Dispatch to the correct LanguageAdapter for a given language.

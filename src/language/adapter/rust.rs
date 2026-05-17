@@ -211,6 +211,16 @@ impl LanguageAdapter for RustAdapter {
             .unwrap_or(0)
     }
 
+    fn has_test_nodes(&self, file: &ParsedFile) -> bool {
+        // Detect `#[test]` attribute on individual functions (outside #[cfg(test)] blocks)
+        collect_captures(
+            file,
+            "(attribute_item (attribute) @attr (#eq? @attr \"test\"))",
+        )
+        .map(|g| !g.is_empty())
+        .unwrap_or(false)
+    }
+
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         let Ok(captures) = collect_captures(file, "(integer_literal) @num") else {
             return 0;

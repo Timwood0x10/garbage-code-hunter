@@ -18,6 +18,10 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub rules: RulesConfig,
 
+    /// Signal detector configuration
+    #[serde(default)]
+    pub signals: SignalsConfig,
+
     /// File and directory-level override configuration
     #[serde(default)]
     pub overrides: Vec<OverrideConfig>,
@@ -212,6 +216,16 @@ impl Default for PrintlnRuleConfig {
             threshold: 3,
         }
     }
+}
+
+/// Signal detector configuration.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct SignalsConfig {
+    /// Whether to skip signal detection in test files (default: true).
+    /// Set to `false` to report signals in test files.
+    #[serde(default = "default_true")]
+    pub skip_tests: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

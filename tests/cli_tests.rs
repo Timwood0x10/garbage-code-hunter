@@ -115,6 +115,66 @@ fn test_cli_chinese_output() {
     assert!(stdout.contains("垃圾代码") || stdout.contains("变量"));
 }
 
+/// Objective: Verify analyze JSON exposes issues and Style IR summary.
+/// Invariants: JSON output must remain parseable and include stable summary fields.
+#[test]
+fn test_cli_json_includes_style_ir_summary() {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let file_path = temp_dir.path().join("test.rs");
+
+    fs::write(
+        &file_path,
+        "fn main() { let result = Some(42).unwrap(); println!(\"debug\"); }",
+    )
+    .expect("Failed to write test file");
+
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--",
+            "analyze",
+            "--format",
+            "json",
+            file_path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        output.status.success(),
+        "analyze JSON command should exit successfully"
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("analyze JSON output should be valid JSON");
+
+    assert!(
+        parsed
+            .get("issues")
+            .and_then(|value| value.as_array())
+            .is_some(),
+        "analyze JSON should include an issues array"
+    );
+    let summary = parsed
+        .get("style_ir_summary")
+        .expect("analyze JSON should include style_ir_summary");
+    assert_eq!(
+        summary.get("language").and_then(|value| value.as_str()),
+        Some("Rust")
+    );
+    assert!(
+        summary.get("thresholds").is_some(),
+        "style_ir_summary should include thresholds"
+    );
+    assert!(
+        summary
+            .get("panic_call_count")
+            .and_then(|value| value.as_u64())
+            .unwrap_or_default()
+            >= 1,
+        "style_ir_summary should expose panic call count"
+    );
+}
+
 #[test]
 fn test_cli_markdown_output() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");

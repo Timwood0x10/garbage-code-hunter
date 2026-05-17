@@ -30,6 +30,32 @@ interface GarbageIssue {
     severity: 'Mild' | 'Spicy' | 'Nuclear';
 }
 
+interface StyleIrJsonSummary {
+    language: string;
+    line_count: number;
+    function_count: number;
+    god_function_count: number;
+    panic_call_count: number;
+    naming_violation_count: number;
+    deeply_nested_block_count: number;
+    debug_call_count: number;
+    excessive_param_count: number;
+    unsafe_block_count: number;
+    magic_number_count: number;
+    over_engineering_count: number;
+    code_smell_count: number;
+    is_clean_signal_baseline: boolean;
+    thresholds: {
+        excessive_param_threshold: number;
+        god_function_line_threshold: number;
+    };
+}
+
+interface AnalyzeJsonReport {
+    issues: GarbageIssue[];
+    style_ir_summary?: StyleIrJsonSummary | null;
+}
+
 let diagnosticCollection: vscode.DiagnosticCollection;
 let outputChannel: vscode.OutputChannel;
 let decorationType: vscode.TextEditorDecorationType;
@@ -244,7 +270,7 @@ async function runGarbageHunterOnPath(filePath: string): Promise<GarbageIssue[]>
         exec(`${cli} ${args.join(' ')}`, { cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath, timeout: 30000 },
             (_error, stdout) => {
                 if (!stdout.trim()) { resolve([]); return; }
-                try { resolve(JSON.parse(stdout)); }
+                try { resolve(normalizeAnalyzeJson(JSON.parse(stdout))); }
                 catch { resolve([]); }
             });
     });
@@ -272,6 +298,19 @@ function groupIssuesByFile(issues: GarbageIssue[]): Map<string, GarbageIssue[]> 
         m.get(i.file_path)!.push(i);
     }
     return m;
+}
+
+function normalizeAnalyzeJson(output: unknown): GarbageIssue[] {
+    if (Array.isArray(output)) {
+        return output as GarbageIssue[];
+    }
+    if (output && typeof output === 'object') {
+        const report = output as AnalyzeJsonReport;
+        if (Array.isArray(report.issues)) {
+            return report.issues;
+        }
+    }
+    return [];
 }
 
 function issuesToDiagnostics(issues: GarbageIssue[]): vscode.Diagnostic[] {

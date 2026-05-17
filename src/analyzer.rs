@@ -7,6 +7,7 @@ use walkdir::WalkDir;
 
 use crate::context::{FileContext, ProjectConfig};
 use crate::finding::StyleFinding;
+use crate::language::adapter::adapter_for;
 use crate::language::{Language, SUPPORTED_EXTENSIONS};
 use crate::rules::generic::GenericRuleEngine;
 use crate::signals::{aggregate_detector_scores, SignalDetector, StyleSignal};
@@ -181,7 +182,7 @@ impl CodeAnalyzer {
 
         // Phase 1: Rule analysis + cache parsed files for Phase 4
         let mut issues: Vec<CodeIssue> = Vec::new();
-        let mut parsed_files: Vec<(ParsedFile, PathBuf)> = Vec::new();
+        let mut parsed_files: Vec<(ParsedFile, PathBuf, bool)> = Vec::new();
 
         for file_path in &files {
             if Self::is_generated_file(file_path) {
@@ -199,14 +200,20 @@ impl CodeAnalyzer {
 
             // Parse once — use for both rule analysis and Phase 4
             if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
+                // AST-level test detection (e.g., #[test] in Rust)
+                let ast_test = adapter_for(lang)
+                    .map(|a| a.has_test_nodes(&parsed))
+                    .unwrap_or(false);
+                let effective_test = is_test_file || ast_test;
+
                 let context = FileContext::from_path(file_path);
                 issues.extend(self.ts_rule_engine.check_file_with_context(
                     &parsed,
-                    is_test_file,
+                    effective_test,
                     &context,
                     &self.project_config,
                 ));
-                parsed_files.push((parsed, file_path.clone()));
+                parsed_files.push((parsed, file_path.clone(), effective_test));
             } else if lang == Language::C || lang == Language::Cpp {
                 issues.extend(
                     self.generic_engine
@@ -247,17 +254,28 @@ impl CodeAnalyzer {
         // Phase 4: Direct signal detection (scores + findings)
         if !self.detectors.is_empty() && !parsed_files.is_empty() {
             let parsed_for_scores: Vec<ParsedFile> =
-                parsed_files.iter().map(|(p, _)| p.clone()).collect();
-            *self.direct_scores.borrow_mut() =
-                aggregate_detector_scores(&self.detectors, &parsed_for_scores);
+                parsed_files.iter().map(|(p, _, _)| p.clone()).collect();
+            let test_flags: Vec<bool> = parsed_files
+                .iter()
+                .map(|(_, _, is_test)| *is_test)
+                .collect();
+            let skip_tests_config = self.project_config.signals.skip_tests;
+            *self.direct_scores.borrow_mut() = aggregate_detector_scores(
+                &self.detectors,
+                &parsed_for_scores,
+                &test_flags,
+                skip_tests_config,
+            );
 
-            for (parsed, file_path) in &parsed_files {
+            for (parsed, file_path, is_test_file) in &parsed_files {
                 let lang = parsed.language;
                 for detector in &self.detectors {
                     if !detector.supported_languages().contains(&lang) {
                         continue;
                     }
-                    for (signal, count) in detector.detect_findings(parsed) {
+                    for (signal, count) in
+                        detector.detect_findings(parsed, *is_test_file, skip_tests_config)
+                    {
                         findings.push(StyleFinding::for_signal(signal, count, file_path.clone()));
                     }
                 }

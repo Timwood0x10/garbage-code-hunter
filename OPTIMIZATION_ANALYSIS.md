@@ -249,8 +249,18 @@ src/friend/
 ### Phase 4：结构化输出稳定
 
 - [ ] 稳定 `StyleFinding` JSON schema
-- [ ] 输出 `StyleIr` 摘要信息
+- [x] 输出 `StyleIr` 摘要信息
 - [ ] 给 VSCode / CI / CodeTribunal 提供稳定 report schema
+
+`StyleIr` 摘要 schema 说明：
+
+- `language`: 以显示名输出，方便 JSON / VSCode / CodeTribunal 直接展示
+- `line_count`, `function_count`, `god_function_count`: 结构与规模摘要
+- `panic_call_count`, `naming_violation_count`, `deeply_nested_block_count`, `debug_call_count`: 核心直连信号摘要
+- `excessive_param_count`, `unsafe_block_count`, `magic_number_count`: 迁移后的事实计数
+- `over_engineering_count`, `code_smell_count`: 稳定派生值，避免前端重复计算
+- `is_clean_signal_baseline`: 快速判断文件是否有基础风格问题
+- `thresholds`: 明确暴露阈值，保证跨消费端口径一致
 
 ### Phase 5：朋友式反馈
 

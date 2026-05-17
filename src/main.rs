@@ -23,7 +23,9 @@ use garbage_code_hunter::{
     llm::{LlmConfig, LlmRoastProvider, LocalRoastProvider, RoastProvider},
     personality, personas, pr_title_hunter, radar,
     reporter::Reporter,
+    style_ir::{StyleIr, StyleIrSummary},
     team_roast,
+    treesitter::engine::TreeSitterEngine,
 };
 
 #[derive(Parser)]
@@ -1299,6 +1301,7 @@ fn run_analyze(args: AnalyzeArgs) {
     let findings = analyzer.analyze_to_findings(&args.path);
     let issues: Vec<CodeIssue> = findings.iter().map(|f| f.to_code_issue()).collect();
     let spread = analyzer.infection_spread();
+    let style_ir_summary = collect_style_ir_summary(&args.path, &args.exclude);
 
     // Calculate metrics for scoring
     let (file_count, total_lines) = calculate_metrics(&args.path, &args.exclude);
@@ -1358,7 +1361,7 @@ fn run_analyze(args: AnalyzeArgs) {
 
     // Handle JSON output format
     if args.format == "json" {
-        output_json(&issues);
+        output_json(&issues, style_ir_summary.as_ref());
         return;
     }
 
@@ -1524,29 +1527,198 @@ fn count_file_lines(file_path: &std::path::Path) -> usize {
         .unwrap_or(0)
 }
 
-fn output_json(issues: &[CodeIssue]) {
-    use serde_json;
+#[derive(serde::Serialize)]
+struct AnalyzeJsonIssue {
+    file_path: String,
+    line: usize,
+    column: usize,
+    rule_name: String,
+    message: String,
+    severity: String,
+}
 
-    let json_issues: Vec<serde_json::Value> = issues
+#[derive(serde::Serialize)]
+struct AnalyzeJsonReport {
+    issues: Vec<AnalyzeJsonIssue>,
+    style_ir_summary: Option<StyleIrSummary>,
+}
+
+fn output_json(issues: &[CodeIssue], style_ir_summary: Option<&StyleIrSummary>) {
+    let json_issues: Vec<AnalyzeJsonIssue> = issues
         .iter()
-        .map(|issue| {
-            serde_json::json!({
-                "file_path": issue.file_path.to_string_lossy(),
-                "line": issue.line,
-                "column": issue.column,
-                "rule_name": issue.rule_name,
-                "message": issue.message,
-                "severity": format!("{:?}", issue.severity)
-            })
+        .map(|issue| AnalyzeJsonIssue {
+            file_path: issue.file_path.to_string_lossy().to_string(),
+            line: issue.line,
+            column: issue.column,
+            rule_name: issue.rule_name.clone(),
+            message: issue.message.clone(),
+            severity: format!("{:?}", issue.severity),
         })
         .collect();
 
-    if let Ok(json_output) = serde_json::to_string_pretty(&json_issues) {
+    let json_report = AnalyzeJsonReport {
+        issues: json_issues,
+        style_ir_summary: style_ir_summary.cloned(),
+    };
+
+    if let Ok(json_output) = serde_json::to_string_pretty(&json_report) {
         println!("{}", json_output);
     } else {
-        eprintln!("Error: Failed to serialize issues to JSON");
+        eprintln!("Error: Failed to serialize analyze report to JSON");
         std::process::exit(1);
     }
+}
+
+fn collect_style_ir_summary(path: &PathBuf, exclude_patterns: &[String]) -> Option<StyleIrSummary> {
+    let supported_files = collect_supported_files(path, exclude_patterns);
+    let mut summaries = Vec::new();
+
+    let tree_sitter_engine = TreeSitterEngine::new();
+    for file_path in supported_files {
+        let content = match fs::read_to_string(&file_path) {
+            Ok(content) => content,
+            Err(_) => continue,
+        };
+        if let Some(parsed) = tree_sitter_engine.parse_file(&file_path, &content) {
+            if let Some(style_ir) = StyleIr::from_parsed(&parsed) {
+                summaries.push(style_ir.summary());
+            }
+        }
+    }
+
+    if summaries.is_empty() {
+        return None;
+    }
+
+    let language = if summaries
+        .iter()
+        .all(|summary| summary.language == summaries[0].language)
+    {
+        summaries[0].language.clone()
+    } else {
+        "Mixed".to_string()
+    };
+
+    let mut line_count = 0usize;
+    let mut function_count = 0usize;
+    let mut god_function_count = 0usize;
+    let mut panic_call_count = 0usize;
+    let mut naming_violation_count = 0usize;
+    let mut deeply_nested_block_count = 0usize;
+    let mut debug_call_count = 0usize;
+    let mut excessive_param_count = 0usize;
+    let mut unsafe_block_count = 0usize;
+    let mut magic_number_count = 0usize;
+    let thresholds = summaries[0].thresholds;
+
+    for summary in &summaries {
+        line_count += summary.line_count;
+        function_count += summary.function_count;
+        god_function_count += summary.god_function_count;
+        panic_call_count += summary.panic_call_count;
+        naming_violation_count += summary.naming_violation_count;
+        deeply_nested_block_count += summary.deeply_nested_block_count;
+        debug_call_count += summary.debug_call_count;
+        excessive_param_count += summary.excessive_param_count;
+        unsafe_block_count += summary.unsafe_block_count;
+        magic_number_count += summary.magic_number_count;
+    }
+    Some(StyleIrSummary {
+        language,
+        line_count,
+        function_count,
+        god_function_count,
+        panic_call_count,
+        naming_violation_count,
+        deeply_nested_block_count,
+        debug_call_count,
+        excessive_param_count,
+        unsafe_block_count,
+        magic_number_count,
+        over_engineering_count: god_function_count + excessive_param_count,
+        code_smell_count: unsafe_block_count * 2 + magic_number_count,
+        is_clean_signal_baseline: panic_call_count == 0
+            && naming_violation_count == 0
+            && deeply_nested_block_count == 0
+            && debug_call_count == 0
+            && excessive_param_count == 0
+            && unsafe_block_count == 0
+            && magic_number_count == 0,
+        thresholds,
+    })
+}
+
+fn collect_supported_files(path: &PathBuf, exclude_patterns: &[String]) -> Vec<PathBuf> {
+    let default_excludes = [
+        "target",
+        "node_modules",
+        ".git",
+        ".svn",
+        ".hg",
+        "build",
+        "dist",
+        "out",
+        "__pycache__",
+        ".DS_Store",
+        ".venv",
+        "venv",
+        "vendor",
+    ];
+    let all_patterns: Vec<String> = default_excludes
+        .iter()
+        .map(|s| s.to_string())
+        .chain(exclude_patterns.iter().cloned())
+        .collect();
+
+    let exclude_regexes: Vec<regex::Regex> = all_patterns
+        .iter()
+        .filter_map(|pattern| {
+            let regex_pattern = pattern
+                .replace('.', r"\.")
+                .replace('*', ".*")
+                .replace('?', ".");
+            regex::Regex::new(&regex_pattern).ok()
+        })
+        .collect();
+
+    let should_exclude = |path: &std::path::Path| -> bool {
+        let path_str = path.to_string_lossy();
+        exclude_regexes
+            .iter()
+            .any(|pattern| pattern.is_match(&path_str))
+    };
+
+    let mut files = Vec::new();
+    if path.is_file() {
+        if !should_exclude(path)
+            && path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext))
+        {
+            files.push(path.clone());
+        }
+        return files;
+    }
+
+    if path.is_dir() {
+        for entry in WalkDir::new(path)
+            .into_iter()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| !should_exclude(entry.path()))
+            .filter(|entry| {
+                entry
+                    .path()
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext))
+            })
+        {
+            files.push(entry.path().to_path_buf());
+        }
+    }
+
+    files
 }
 
 fn run_last_words(args: LastWordsArgs) {

@@ -6,6 +6,34 @@
 use crate::language::adapter::{adapter_for, FunctionNode};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
+use serde::Serialize;
+
+/// Stable threshold facts included in the Style IR summary output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct StyleIrThresholdSummary {
+    pub excessive_param_threshold: usize,
+    pub god_function_line_threshold: usize,
+}
+
+/// Stable JSON-ready summary of a Style IR snapshot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StyleIrSummary {
+    pub language: String,
+    pub line_count: usize,
+    pub function_count: usize,
+    pub god_function_count: usize,
+    pub panic_call_count: usize,
+    pub naming_violation_count: usize,
+    pub deeply_nested_block_count: usize,
+    pub debug_call_count: usize,
+    pub excessive_param_count: usize,
+    pub unsafe_block_count: usize,
+    pub magic_number_count: usize,
+    pub over_engineering_count: usize,
+    pub code_smell_count: usize,
+    pub is_clean_signal_baseline: bool,
+    pub thresholds: StyleIrThresholdSummary,
+}
 
 /// Language-neutral style facts for one parsed source file.
 ///
@@ -89,6 +117,30 @@ impl StyleIr {
     /// Count the combined code-smell signal violations.
     pub fn code_smell_count(&self) -> usize {
         self.unsafe_block_count * 2 + self.magic_number_count
+    }
+
+    /// Build a stable, JSON-ready summary for downstream consumers.
+    pub fn summary(&self) -> StyleIrSummary {
+        StyleIrSummary {
+            language: self.language.display_name().to_string(),
+            line_count: self.line_count,
+            function_count: self.functions.len(),
+            god_function_count: self.god_function_count(),
+            panic_call_count: self.panic_call_count,
+            naming_violation_count: self.naming_violation_count,
+            deeply_nested_block_count: self.deeply_nested_block_count,
+            debug_call_count: self.debug_call_count,
+            excessive_param_count: self.excessive_param_count,
+            unsafe_block_count: self.unsafe_block_count,
+            magic_number_count: self.magic_number_count,
+            over_engineering_count: self.over_engineering_count(),
+            code_smell_count: self.code_smell_count(),
+            is_clean_signal_baseline: self.is_clean_signal_baseline(),
+            thresholds: StyleIrThresholdSummary {
+                excessive_param_threshold: Self::EXCESSIVE_PARAM_THRESHOLD,
+                god_function_line_threshold: Self::GOD_FUNCTION_LINE_THRESHOLD,
+            },
+        }
     }
 
     /// Return true when the IR has no extracted style signals.
@@ -235,6 +287,45 @@ fn main() {
         assert_eq!(
             ir.code_smell_count(),
             ir.unsafe_block_count * 2 + ir.magic_number_count
+        );
+    }
+
+    /// Objective: Verify the Style IR summary exposes stable JSON-ready fields.
+    /// Invariants: Summary counts must mirror the underlying Style IR snapshot.
+    #[test]
+    fn test_style_ir_summary_schema() {
+        let file = parse_rust(
+            r#"
+fn process(a: i32, b: i32, c: i32, d: i32, e: i32, f: i32) -> i32 {
+    unsafe {
+        let value = 42;
+        value + a + b + c + d + e + f
+    }
+}
+"#,
+        );
+        let ir = StyleIr::from_parsed(&file).expect("Rust should have a style adapter");
+        let summary = ir.summary();
+
+        assert_eq!(summary.language, "Rust");
+        assert_eq!(summary.line_count, ir.line_count);
+        assert_eq!(summary.function_count, ir.functions.len());
+        assert_eq!(summary.god_function_count, ir.god_function_count());
+        assert_eq!(summary.excessive_param_count, ir.excessive_param_count);
+        assert_eq!(summary.unsafe_block_count, ir.unsafe_block_count);
+        assert_eq!(summary.code_smell_count, ir.code_smell_count());
+        assert_eq!(summary.over_engineering_count, ir.over_engineering_count());
+        assert_eq!(summary.thresholds.excessive_param_threshold, 5);
+        assert_eq!(summary.thresholds.god_function_line_threshold, 50);
+
+        let json = serde_json::to_value(&summary).expect("summary should serialize");
+        assert!(
+            json.get("language").is_some(),
+            "summary JSON should include language"
+        );
+        assert!(
+            json.get("thresholds").is_some(),
+            "summary JSON should include thresholds"
         );
     }
 }

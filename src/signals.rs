@@ -16,14 +16,32 @@ use std::collections::HashMap;
 pub trait SignalDetector: Send + Sync {
     fn signal(&self) -> StyleSignal;
     fn supported_languages(&self) -> &'static [Language];
+
     /// Run detection on a parsed file. Returns the number of signal violations found.
     fn count_violations(&self, file: &ParsedFile) -> usize;
 
+    /// Whether this detector should be skipped for test files.
+    /// Override to `false` for signals that apply to test code too.
+    fn skips_test_files(&self) -> bool {
+        true
+    }
+
     /// Produce per-file signal findings with violation counts.
-    /// Default implementation wraps `count_violations` into a single `(signal, count)` pair.
-    /// Override for more granular findings (e.g., one per call-site).
-    fn detect_findings(&self, file: &ParsedFile) -> Vec<(StyleSignal, usize)> {
-        let count = self.count_violations(file);
+    ///
+    /// `is_test_file`: whether the file is identified as test code.
+    /// `skip_tests_config`: user config flag to skip tests (from config.toml).
+    ///
+    /// Default implementation: if the file is a test file AND the detector
+    /// skips tests AND the user config agrees, returns empty.
+    /// Otherwise wraps `count_violations` into a `(signal, count)` pair.
+    fn detect_findings(
+        &self,
+        file: &ParsedFile,
+        is_test_file: bool,
+        skip_tests_config: bool,
+    ) -> Vec<(StyleSignal, usize)> {
+        let skip = is_test_file && self.skips_test_files() && skip_tests_config;
+        let count = if skip { 0 } else { self.count_violations(file) };
         if count > 0 {
             vec![(self.signal(), count)]
         } else {
@@ -43,18 +61,26 @@ pub fn violations_to_score(count: usize, total_lines: usize) -> f64 {
 pub fn aggregate_detector_scores(
     detectors: &[Box<dyn SignalDetector>],
     files: &[ParsedFile],
+    is_test_files: &[bool],
+    skip_tests_config: bool,
 ) -> HashMap<StyleSignal, f64> {
     let mut total_counts: HashMap<StyleSignal, usize> = HashMap::new();
     let mut total_lines: HashMap<StyleSignal, usize> = HashMap::new();
 
-    for file in files {
+    for (i, file) in files.iter().enumerate() {
+        let is_test = is_test_files.get(i).copied().unwrap_or(false);
         let lang = file.language;
         for detector in detectors {
             if !detector.supported_languages().contains(&lang) {
                 continue;
             }
             let signal = detector.signal();
-            let count = detector.count_violations(file);
+            let skip = is_test && detector.skips_test_files() && skip_tests_config;
+            let count = if skip {
+                0
+            } else {
+                detector.count_violations(file)
+            };
             *total_counts.entry(signal).or_insert(0) += count;
             *total_lines.entry(signal).or_insert(0) += file.content.lines().count();
         }
@@ -951,8 +977,9 @@ mod tests {
     #[test]
     fn test_aggregate_detector_scores() {
         let files = vec![parse_rust("fn a() { let x = v.unwrap(); }")];
+        let test_flags = vec![false];
         let detectors: Vec<Box<dyn SignalDetector>> = vec![Box::new(PanicAddictionDetector::new())];
-        let scores = aggregate_detector_scores(&detectors, &files);
+        let scores = aggregate_detector_scores(&detectors, &files, &test_flags, true);
         let panic_score = scores
             .get(&StyleSignal::PanicAddiction)
             .copied()
