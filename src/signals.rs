@@ -343,6 +343,15 @@ impl StyleProfile {
         }
     }
 
+    /// Build a StyleProfile from raw signal counts (e.g. from classify_rule).
+    /// Scores are set directly from counts so dominant_signal reflects the
+    /// most frequent signal, matching the behavior of personality/profiles.rs.
+    pub fn from_signal_counts(counts: HashMap<StyleSignal, u32>) -> Self {
+        let signal_scores: HashMap<StyleSignal, f64> =
+            counts.iter().map(|(s, &c)| (*s, c as f64)).collect();
+        Self::from_signal_scores(signal_scores)
+    }
+
     pub fn score(&self, signal: StyleSignal) -> f64 {
         self.signal_scores.get(&signal).copied().unwrap_or(0.0)
     }

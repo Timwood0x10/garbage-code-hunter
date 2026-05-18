@@ -2,7 +2,7 @@
 
 use super::Personality;
 use crate::analyzer::CodeIssue;
-use crate::signals::{classify_rule, StyleSignal};
+use crate::signals::{classify_rule, StyleProfile, StyleSignal};
 use std::collections::HashMap;
 
 /// Analyze issues and determine a personality profile.
@@ -34,29 +34,20 @@ pub fn analyze(issues: &[CodeIssue]) -> Personality {
         *counts.entry(signal).or_insert(0) += 1;
     }
 
-    let get = |s| counts.get(&s).copied().unwrap_or(0);
+    let profile = StyleProfile::from_signal_counts(counts);
+    let get = |s| profile.score(s) as u32;
 
-    let candidates = [
-        (get(StyleSignal::PanicAddiction), "unwrap"),
-        (get(StyleSignal::NamingChaos), "naming"),
-        (get(StyleSignal::NestedHell), "nesting"),
-        (get(StyleSignal::OverEngineering), "long_fn"),
-        (get(StyleSignal::CodeSmells), "magic"),
-        (get(StyleSignal::Duplication), "dup"),
-    ];
-
-    let dominant = candidates
-        .iter()
-        .max_by_key(|(c, _)| *c)
-        .unwrap_or(&(0, "none"));
-
-    match dominant.1 {
-        "unwrap" => panic_personality(get(StyleSignal::PanicAddiction), total),
-        "naming" => naming_personality(get(StyleSignal::NamingChaos), total),
-        "nesting" => nesting_personality(get(StyleSignal::NestedHell), total),
-        "long_fn" => long_fn_personality(get(StyleSignal::OverEngineering), total),
-        "magic" => magic_personality(get(StyleSignal::CodeSmells), total),
-        "dup" => dup_personality(get(StyleSignal::Duplication), total),
+    match profile.dominant_signal {
+        Some(StyleSignal::PanicAddiction) => {
+            panic_personality(get(StyleSignal::PanicAddiction), total)
+        }
+        Some(StyleSignal::NamingChaos) => naming_personality(get(StyleSignal::NamingChaos), total),
+        Some(StyleSignal::NestedHell) => nesting_personality(get(StyleSignal::NestedHell), total),
+        Some(StyleSignal::OverEngineering) => {
+            long_fn_personality(get(StyleSignal::OverEngineering), total)
+        }
+        Some(StyleSignal::CodeSmells) => magic_personality(get(StyleSignal::CodeSmells), total),
+        Some(StyleSignal::Duplication) => dup_personality(get(StyleSignal::Duplication), total),
         _ => balanced_personality(total),
     }
 }
