@@ -1,6 +1,8 @@
 //! SwiftAdapter — Swift language adapter.
 
-use super::{is_inside_declaration, FunctionNode, LanguageAdapter};
+use super::{
+    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
@@ -94,7 +96,12 @@ impl LanguageAdapter for SwiftAdapter {
                     if let Some(ref re) = terrible_re {
                         if re.is_match(&name.to_lowercase()) {
                             count += 1;
+                            continue;
                         }
+                    }
+                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
+                        count += 1;
+                        continue;
                     }
                 }
             }

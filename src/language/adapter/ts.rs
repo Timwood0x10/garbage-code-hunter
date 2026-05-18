@@ -1,6 +1,9 @@
 //! TSAdapter — TypeScript language adapter.
 
-use super::{count_nested_blocks, is_inside_declaration, FunctionNode, LanguageAdapter};
+use super::{
+    count_nested_blocks, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
+    MEANINGLESS_NAMES,
+};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
@@ -91,7 +94,12 @@ impl LanguageAdapter for TSAdapter {
                     if let Some(ref re) = terrible_re {
                         if re.is_match(&name.to_lowercase()) {
                             count += 1;
+                            continue;
                         }
+                    }
+                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
+                        count += 1;
+                        continue;
                     }
                 }
             }
@@ -160,6 +168,33 @@ impl LanguageAdapter for TSAdapter {
                 }
             }
         }
+        count
+    }
+
+    fn count_ts_issues(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+
+        // any-type: predefined_type "any"
+        if let Ok(groups) = collect_captures(file, "(predefined_type) @t") {
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    if cap.text.trim() == "any" {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // prefer-interface: type_alias_declaration
+        if let Ok(groups) = collect_captures(file, "(type_alias_declaration) @alias") {
+            count += groups.len();
+        }
+
+        // ts-no-enum: enum_declaration
+        if let Ok(groups) = collect_captures(file, "(enum_declaration) @enum") {
+            count += groups.len();
+        }
+
         count
     }
 }

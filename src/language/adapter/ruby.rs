@@ -113,6 +113,26 @@ impl LanguageAdapter for RubyAdapter {
             }
         }
 
+        // ruby-predicate-method: boolean methods should end with ?
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if let Some(name) = trimmed
+                .strip_prefix("def ")
+                .and_then(|s| s.split(&['(', ' ', '\t'][..]).next())
+            {
+                let is_predicate = name.starts_with("is_")
+                    || name.starts_with("has_")
+                    || name.starts_with("can_")
+                    || name.starts_with("should_");
+                if is_predicate && !name.ends_with('?') {
+                    count += 1;
+                }
+            }
+        }
+
         count
     }
 
@@ -184,6 +204,106 @@ impl LanguageAdapter for RubyAdapter {
                 }
             }
         }
+        count
+    }
+
+    fn count_ruby_issues(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+
+        // global-variable: non-built-in global variables ($xxx)
+        let acceptable: &[&str] = &[
+            "$stdout",
+            "$stderr",
+            "$stdin",
+            "$VERBOSE",
+            "$DEBUG",
+            "$SAFE",
+            "$LOAD_PATH",
+            "$LOADED_FEATURES",
+            "$PROGRAM_NAME",
+            "$FILENAME",
+            "$.",
+            "$,",
+            "$;",
+            "$/",
+            "$\\",
+            "$&",
+            "$`",
+            "$'",
+            "$+",
+            "$~",
+            "$=",
+            "$<",
+            "$>",
+            "$!",
+            "$?",
+            "$0",
+            "$*",
+            "$_",
+            "$-d",
+            "$-v",
+            "$-w",
+            "$-W",
+        ];
+        if let Ok(groups) = collect_captures(file, "(global_variable) @gv") {
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    if !acceptable.contains(&cap.text.trim()) {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // bare-rescue: rescue without exception class
+        fn walk_rescue(node: tree_sitter::Node, count: &mut usize) {
+            if node.kind() == "rescue" && node.is_named() {
+                let has_exceptions = (0..node.child_count())
+                    .filter_map(|i| node.child(i as u32))
+                    .any(|c| c.kind() == "exceptions");
+                if !has_exceptions {
+                    *count += 1;
+                }
+            }
+            for i in 0..node.child_count() {
+                if let Some(child) = node.child(i as u32) {
+                    walk_rescue(child, count);
+                }
+            }
+        }
+        walk_rescue(file.root_node(), &mut count);
+
+        // frozen-string: missing # frozen_string_literal: true
+        let first_line = file.content.lines().next().unwrap_or("");
+        if !first_line.contains("frozen_string_literal: true") {
+            count += 1;
+        }
+
+        // negated-if: if !x → should use unless x
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if (trimmed.starts_with("if !") || trimmed.starts_with("if("))
+                && trimmed.contains('!')
+                && !trimmed.contains("!= ")
+            {
+                count += 1;
+            }
+        }
+
+        // ruby-two-space-indent: indentation must be multiple of 2
+        for line in file.content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let indent = line.len() - line.trim_start().len();
+            if indent > 0 && indent % 2 != 0 {
+                count += 1;
+            }
+        }
+
         count
     }
 }

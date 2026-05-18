@@ -1,6 +1,8 @@
 //! CAdapter — C language adapter.
 
-use super::{is_inside_declaration, FunctionNode, LanguageAdapter};
+use super::{
+    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
@@ -95,7 +97,12 @@ impl LanguageAdapter for CAdapter {
                     if let Some(ref re) = terrible_re {
                         if re.is_match(&name.to_lowercase()) {
                             count += 1;
+                            continue;
                         }
+                    }
+                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
+                        count += 1;
+                        continue;
                     }
                 }
             }
@@ -174,6 +181,83 @@ impl LanguageAdapter for CAdapter {
                 }
             }
         }
+        count
+    }
+
+    fn count_c_issues(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+
+        // c-goto-abuse
+        if let Ok(groups) = collect_captures(file, "(goto_statement) @goto") {
+            count += groups.len();
+        }
+
+        // c-sizeof-type: sizeof(type) should be sizeof(expr)
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
+                continue;
+            }
+            if trimmed.contains("sizeof(") {
+                let start = trimmed.find("sizeof(").unwrap() + 7;
+                let rest = &trimmed[start..];
+                let mut depth = 1u32;
+                let mut inner = String::new();
+                for ch in rest.chars() {
+                    if ch == '(' {
+                        depth += 1;
+                    } else if ch == ')' {
+                        depth -= 1;
+                    }
+                    if depth == 0 {
+                        break;
+                    }
+                    inner.push(ch);
+                }
+                let inner = inner.trim().trim_end_matches(')');
+                if inner.starts_with(|c: char| c.is_alphabetic() || c == '_')
+                    && !inner.contains(|c: char| {
+                        c == '+' || c == '-' || c == '*' || c == '/' || c == '('
+                    })
+                {
+                    let type_keywords = [
+                        "int", "char", "float", "double", "long", "short", "unsigned", "signed",
+                        "void", "size_t", "bool", "struct", "union", "enum",
+                    ];
+                    if type_keywords.iter().any(|t| inner.starts_with(t)) {
+                        count += 1;
+                    }
+                    if inner.ends_with("_t") && inner.len() > 2 {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // c-malloc-check: malloc without NULL check
+        let lines: Vec<&str> = file.content.lines().collect();
+        for i in 0..lines.len() {
+            let trimmed = lines[i].trim();
+            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
+                continue;
+            }
+            if trimmed.contains("malloc(") && trimmed.ends_with(';') {
+                let check_range = (i + 1).min(lines.len())..(i + 4).min(lines.len());
+                let has_null_check = lines[check_range].iter().any(|l| {
+                    let l = l.trim();
+                    l.contains("== NULL")
+                        || l.contains("!= NULL")
+                        || l.contains("== 0")
+                        || l.contains("!= 0")
+                        || l.contains("if (!")
+                        || l.contains("if (NULL")
+                });
+                if !has_null_check {
+                    count += 1;
+                }
+            }
+        }
+
         count
     }
 }

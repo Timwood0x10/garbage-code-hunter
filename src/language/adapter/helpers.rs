@@ -68,6 +68,12 @@ pub(crate) fn count_block_ancestors(group: &[crate::treesitter::query::QueryCapt
     }
 }
 
+/// Common meaningless/placeholder names to flag as naming violations.
+pub(crate) const MEANINGLESS_NAMES: &[&str] = &[
+    "foo", "bar", "baz", "qux", "quux", "quuz", "aaa", "bbb", "ccc", "ddd", "eee", "xxx", "yyy",
+    "zzz", "test1", "test2", "test3",
+];
+
 pub(crate) fn is_inside_declaration(node: tree_sitter::Node) -> bool {
     let mut current = Some(node);
     while let Some(n) = current {

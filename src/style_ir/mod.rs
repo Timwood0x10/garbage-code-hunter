@@ -30,6 +30,10 @@ pub struct StyleIrSummary {
     pub defer_in_loop_count: usize,
     pub go_convention_count: usize,
     pub python_issue_count: usize,
+    pub java_issue_count: usize,
+    pub ruby_issue_count: usize,
+    pub c_issue_count: usize,
+    pub ts_issue_count: usize,
     pub excessive_param_count: usize,
     pub unsafe_block_count: usize,
     pub magic_number_count: usize,
@@ -96,6 +100,20 @@ pub struct StyleIr {
     /// Count of Python-specific code issues (wildcard imports, bool comparisons,
     /// identity violations, type:ignore, legacy formatting, custom dunders, import order).
     pub python_issue_count: usize,
+
+    /// Count of Java-specific code issues (empty catch, missing javadoc,
+    /// try-finally close, string concat in loop, wildcard imports).
+    pub java_issue_count: usize,
+
+    /// Count of Ruby-specific code issues (global variables, bare rescue,
+    /// frozen_string_literal, negated if, predicate naming, indent).
+    pub ruby_issue_count: usize,
+
+    /// Count of C/C++ code issues (goto, new-expression, sizeof-type, etc.).
+    pub c_issue_count: usize,
+
+    /// Count of TypeScript code issues (any-type, prefer-interface, no-enum).
+    pub ts_issue_count: usize,
 }
 
 impl StyleIr {
@@ -126,6 +144,10 @@ impl StyleIr {
             defer_in_loop_count: adapter.count_defer_in_loop(file),
             go_convention_count: adapter.count_go_convention_violations(file),
             python_issue_count: adapter.count_python_issues(file),
+            java_issue_count: adapter.count_java_issues(file),
+            ruby_issue_count: adapter.count_ruby_issues(file),
+            c_issue_count: adapter.count_c_issues(file),
+            ts_issue_count: adapter.count_ts_issues(file),
         })
     }
 
@@ -151,6 +173,10 @@ impl StyleIr {
             + self.magic_number_count
             + self.go_convention_count
             + self.python_issue_count
+            + self.java_issue_count
+            + self.ruby_issue_count
+            + self.c_issue_count
+            + self.ts_issue_count
     }
 
     /// Build a stable, JSON-ready summary for downstream consumers.
@@ -173,6 +199,10 @@ impl StyleIr {
             defer_in_loop_count: self.defer_in_loop_count,
             go_convention_count: self.go_convention_count,
             python_issue_count: self.python_issue_count,
+            java_issue_count: self.java_issue_count,
+            ruby_issue_count: self.ruby_issue_count,
+            c_issue_count: self.c_issue_count,
+            ts_issue_count: self.ts_issue_count,
             over_engineering_count: self.over_engineering_count(),
             code_smell_count: self.code_smell_count(),
             is_clean_signal_baseline: self.is_clean_signal_baseline(),
@@ -198,6 +228,10 @@ impl StyleIr {
             && self.defer_in_loop_count == 0
             && self.go_convention_count == 0
             && self.python_issue_count == 0
+            && self.java_issue_count == 0
+            && self.ruby_issue_count == 0
+            && self.c_issue_count == 0
+            && self.ts_issue_count == 0
     }
 }
 

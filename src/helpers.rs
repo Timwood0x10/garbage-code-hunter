@@ -472,6 +472,10 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
     let mut defer_in_loop_count = 0usize;
     let mut go_convention_count = 0usize;
     let mut python_issue_count = 0usize;
+    let mut java_issue_count = 0usize;
+    let mut ruby_issue_count = 0usize;
+    let mut c_issue_count = 0usize;
+    let mut ts_issue_count = 0usize;
     let thresholds = files[0].style_ir_summary.thresholds;
 
     for file in files {
@@ -492,6 +496,10 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         defer_in_loop_count += summary.defer_in_loop_count;
         go_convention_count += summary.go_convention_count;
         python_issue_count += summary.python_issue_count;
+        java_issue_count += summary.java_issue_count;
+        ruby_issue_count += summary.ruby_issue_count;
+        c_issue_count += summary.c_issue_count;
+        ts_issue_count += summary.ts_issue_count;
     }
     Some(StyleIrSummary {
         language,
@@ -511,6 +519,10 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         defer_in_loop_count,
         go_convention_count,
         python_issue_count,
+        java_issue_count,
+        ruby_issue_count,
+        c_issue_count,
+        ts_issue_count,
         over_engineering_count: god_function_count + excessive_param_count,
         code_smell_count: unsafe_block_count * 2 + magic_number_count,
         is_clean_signal_baseline: panic_call_count == 0
@@ -525,7 +537,11 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
             && goroutine_spawn_count == 0
             && defer_in_loop_count == 0
             && go_convention_count == 0
-            && python_issue_count == 0,
+            && python_issue_count == 0
+            && java_issue_count == 0
+            && ruby_issue_count == 0
+            && c_issue_count == 0
+            && ts_issue_count == 0,
         thresholds,
     })
 }

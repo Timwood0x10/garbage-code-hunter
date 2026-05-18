@@ -108,6 +108,32 @@ pub trait LanguageAdapter: Send + Sync {
         0
     }
 
+    /// Count Java-specific code issues: empty catch, missing javadoc,
+    /// try-finally close, string concat in loop, wildcard imports.
+    fn count_java_issues(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count Ruby-specific code issues: global variables, bare rescue,
+    /// missing frozen_string_literal, negated if, predicate naming, indent.
+    fn count_ruby_issues(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count C/C++ code issues: goto, new-expression, sizeof-type, free-mismatch, malloc-check.
+    fn count_c_issues(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count TypeScript code issues: any-type, prefer-interface, no-enum.
+    fn count_ts_issues(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
     /// Count commented-out code blocks in the file.
     /// Default implementation uses content-based detection.
     fn count_commented_out_code(&self, file: &ParsedFile) -> usize {
@@ -200,7 +226,7 @@ pub fn adapter_for(lang: Language) -> Option<&'static dyn LanguageAdapter> {
 /// Re-export helpers for use by sibling adapters.
 pub(crate) use helpers::{
     count_block_ancestors, count_nested_blocks, get_node_text, is_inside_declaration,
-    is_repeating_chars, max_scope_depth,
+    is_repeating_chars, max_scope_depth, MEANINGLESS_NAMES,
 };
 
 #[cfg(test)]

@@ -1,10 +1,28 @@
 //! JavaAdapter — Java language adapter.
 
-use super::{count_nested_blocks, is_inside_declaration, FunctionNode, LanguageAdapter};
+use super::{
+    count_nested_blocks, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
+    MEANINGLESS_NAMES,
+};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
 use regex::Regex;
+
+fn find_empty_catch(node: tree_sitter::Node, count: &mut usize) {
+    if node.kind() == "catch_clause" {
+        if let Some(body) = node.child_by_field_name("body") {
+            if body.named_child_count() == 0 {
+                *count += 1;
+            }
+        }
+    }
+    for i in 0..node.child_count() {
+        if let Some(child) = node.child(i as u32) {
+            find_empty_catch(child, count);
+        }
+    }
+}
 
 pub struct JavaAdapter;
 
@@ -89,11 +107,45 @@ impl LanguageAdapter for JavaAdapter {
                     if let Some(ref re) = terrible_re {
                         if re.is_match(&name.to_lowercase()) {
                             count += 1;
+                            continue;
                         }
+                    }
+                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
+                        count += 1;
+                        continue;
                     }
                 }
             }
         }
+
+        // constant-name: static final fields should be UPPER_SNAKE_CASE
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.contains("static final") && !trimmed.contains("final static") {
+                continue;
+            }
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let name = parts
+                .iter()
+                .position(|p| *p == "=" || p.ends_with('=') || p.ends_with(';'))
+                .and_then(|idx| {
+                    if idx > 0 {
+                        parts
+                            .get(idx - 1)
+                            .map(|s| s.trim_end_matches('=').trim_end_matches(';'))
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or("");
+            if !name.is_empty()
+                && name != name.to_uppercase()
+                && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+            {
+                count += 1;
+            }
+        }
+
         count
     }
 
@@ -154,6 +206,83 @@ impl LanguageAdapter for JavaAdapter {
                 }
             }
         }
+        count
+    }
+
+    fn count_java_issues(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+
+        // empty-catch: catch blocks with no named children in body
+        find_empty_catch(file.root_node(), &mut count);
+
+        let lines: Vec<&str> = file.content.lines().collect();
+
+        // java-javadoc-missing: public/protected methods without Javadoc
+        let mut i = 0;
+        while i < lines.len() {
+            let trimmed = lines[i].trim();
+            if (trimmed.starts_with("public ") || trimmed.starts_with("protected "))
+                && trimmed.contains("(")
+                && (trimmed.contains(")")
+                    || lines.get(i + 1).is_some_and(|l| l.trim().contains(")")))
+            {
+                let mut j = i as i32 - 1;
+                while j >= 0 && lines[j as usize].trim().is_empty() {
+                    j -= 1;
+                }
+                let has_javadoc = j >= 0
+                    && (lines[j as usize].trim().starts_with("/**")
+                        || lines[j as usize].trim().ends_with("*/"));
+                let has_annotation =
+                    trimmed.starts_with("@Override") || trimmed.starts_with("@Suppress");
+                if !has_javadoc && !has_annotation {
+                    count += 1;
+                }
+            }
+            i += 1;
+        }
+
+        // java-try-resource: finally with .close() within 3 lines
+        for (line_num, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.contains("finally") {
+                for k in 1..=3 {
+                    if lines
+                        .get(line_num + k)
+                        .is_some_and(|n| n.trim().contains(".close()"))
+                    {
+                        count += 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // java-string-concat: += within 10 lines of for/while
+        let has_loop = file.content.contains("for ") || file.content.contains("while ");
+        if has_loop {
+            for (line_num, line) in file.content.lines().enumerate() {
+                let trimmed = line.trim();
+                if trimmed.contains(" += ") {
+                    let start = line_num.saturating_sub(10);
+                    for k in (start..line_num).rev() {
+                        let prev = lines[k].trim();
+                        if prev.starts_with("for ") || prev.starts_with("while ") {
+                            count += 1;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // java-wildcard-import: import ...*;
+        for line in &lines {
+            if line.trim().starts_with("import ") && line.trim().ends_with(".*;") {
+                count += 1;
+            }
+        }
+
         count
     }
 }
