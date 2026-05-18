@@ -682,11 +682,18 @@ fn run_analyze(args: AnalyzeArgs) {
         roast_provider,
     )
     .with_direct_scores(direct_scores)
-    .with_style_ir_summary(style_ir_summary.clone());
+    .with_style_ir_summary(style_ir_summary.clone())
+    .with_friend_feedback(true);
 
     // Handle JSON output format
     if args.format == "json" {
         output_json(&issues, &style_ir_files, style_ir_summary.as_ref());
+        return;
+    }
+
+    // Handle GitHub Actions output format
+    if args.format == "github-actions" || args.format == "github" {
+        output_github_actions(&issues);
         return;
     }
 

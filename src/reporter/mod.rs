@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use crate::analyzer::{CodeIssue, Severity};
+use crate::friend::FriendFeedback;
 use crate::i18n::I18n;
 use crate::llm::{RoastMap, RoastProvider};
 use crate::reporter::autopsy::SpreadTarget;
@@ -29,6 +30,7 @@ pub struct Reporter {
     roast_provider: Box<dyn RoastProvider>,
     direct_scores: HashMap<StyleSignal, f64>,
     style_ir_summary: Option<StyleIrSummary>,
+    show_friend_feedback: bool,
 }
 
 impl Reporter {
@@ -58,7 +60,13 @@ impl Reporter {
             roast_provider,
             direct_scores: HashMap::new(),
             style_ir_summary: None,
+            show_friend_feedback: false,
         }
+    }
+
+    pub fn with_friend_feedback(mut self, show: bool) -> Self {
+        self.show_friend_feedback = show;
+        self
     }
 
     pub fn with_direct_scores(mut self, scores: HashMap<StyleSignal, f64>) -> Self {
@@ -152,8 +160,13 @@ impl Reporter {
             .generate_roasts(&issues, &self.i18n.lang);
 
         if self.markdown {
-            self.print_markdown_report(&issues, &roasts);
+            self.print_markdown_report(&issues, &roasts, &combined_score, spread);
         } else {
+            if self.show_friend_feedback && !issues.is_empty() {
+                let feedback = FriendFeedback::new(&issues, &combined_score, &self.direct_scores);
+                feedback.print();
+            }
+
             let (personality, autopsy) =
                 autopsy::analyze(&issues, &combined_score, file_count, spread);
             let corruption_pct = combined_score.total_score;
@@ -217,7 +230,13 @@ impl Reporter {
         }
     }
 
-    fn print_markdown_report(&self, issues: &[CodeIssue], roasts: &RoastMap) {
+    fn print_markdown_report(
+        &self,
+        issues: &[CodeIssue],
+        roasts: &RoastMap,
+        combined_score: &CodeQualityScore,
+        spread: &HashMap<String, Vec<SpreadTarget>>,
+    ) {
         let total = issues.len();
         let nuclear = issues
             .iter()
@@ -234,46 +253,113 @@ impl Reporter {
 
         println!("# {}", self.i18n.get("title"));
         println!();
-        println!("## {}", self.i18n.get("statistics"));
-        println!();
-        println!("| Severity | Count | Description |");
-        println!("| --- | --- | --- |");
         println!(
-            "| 🔥 Nuclear | {} | {} |",
-            nuclear,
-            self.i18n.get("nuclear_issues")
-        );
-        println!(
-            "| 🌶️ Spicy | {} | {} |",
-            spicy,
-            self.i18n.get("spicy_issues")
-        );
-        println!("| 😐 Mild | {} | {} |", mild, self.i18n.get("mild_issues"));
-        println!(
-            "| **Total** | **{}** | **{}** |",
-            total,
-            self.i18n.get("total")
+            "**Score:** {:.1}/100 **{}**",
+            combined_score.total_score,
+            combined_score.quality_level.description(&self.i18n.lang)
         );
         println!();
 
+        // ── Friend Feedback ──
+        if self.show_friend_feedback {
+            let feedback = FriendFeedback::new(issues, combined_score, &self.direct_scores);
+            println!("## 💬 Friend's Take");
+            println!();
+            println!(
+                "**Mood:** {} {}",
+                feedback.mood.emoji(),
+                feedback.mood.vibe()
+            );
+            if !feedback.patterns.is_empty() {
+                println!();
+                println!("**Patterns I noticed:**");
+                for p in &feedback.patterns {
+                    let sev = match p.severity {
+                        "major" => "🔴",
+                        "moderate" => "🟡",
+                        _ => "🔵",
+                    };
+                    println!("- {} {} — {}", sev, p.description, p.suggestion);
+                }
+            }
+            if !feedback.next_actions.is_empty() {
+                println!();
+                println!("**Quick wins (top 3):**");
+                for a in &feedback.next_actions {
+                    println!(
+                        "- `{}:{}` — {} _( {} )_",
+                        a.file, a.line, a.action, a.reason
+                    );
+                }
+            }
+            println!();
+        }
+
+        // ── Personality ──
+        let (personality, autopsy) = autopsy::analyze(issues, combined_score, issues.len(), spread);
+        println!("## {} Personality", personality.emoji);
+        println!();
+        println!("**Type:** {}", personality.project_type);
+        println!("**Threat Level:** {}", personality.threat_level);
+        println!();
+        println!("**Signature traits:**");
+        for trait_text in &personality.core_traits {
+            println!("- {}", trait_text);
+        }
+        println!();
+        println!("**Diagnosis:** {}", autopsy.cause_of_death);
+        println!("**Condition:** {}", autopsy.patient_condition);
+        println!();
+
+        // ── Statistics ──
+        println!("## {}", self.i18n.get("statistics"));
+        println!();
+        println!("| Severity | Count |");
+        println!("| --- | --- |");
+        println!("| 🔥 Nuclear | {} |", nuclear);
+        println!("| 🌶️ Spicy | {} |", spicy);
+        println!("| 😐 Mild | {} |", mild);
+        println!("| **Total** | **{}** |", total);
+        println!();
+
+        // ── Behavior Distribution ──
+        if !combined_score.signal_scores.is_empty() {
+            println!("## Signal Distribution");
+            println!();
+            let mut signals: Vec<_> = combined_score.signal_scores.iter().collect();
+            signals.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+            println!("| Signal | Score | Severity |");
+            println!("| --- | --- | --- |");
+            for (signal, &score) in signals {
+                let label = if score >= 12.0 {
+                    "🔴 High"
+                } else if score >= 6.0 {
+                    "🟡 Medium"
+                } else {
+                    "🟢 Low"
+                };
+                println!("| {} | {:.1} | {} |", signal.display_name(), score, label);
+            }
+            println!();
+        }
+
+        // ── Detailed Analysis ──
         if self.verbose {
             println!("## {}", self.i18n.get("detailed_analysis"));
             println!();
-
             let mut rule_stats: HashMap<String, usize> = HashMap::new();
             for issue in issues {
                 *rule_stats.entry(issue.rule_name.clone()).or_insert(0) += 1;
             }
-
             for (rule_name, count) in rule_stats {
                 println!("- **{}**: {} issues", rule_name, count);
             }
             println!();
         }
 
+        // ── Issues by File ──
         println!("## Issues by File");
         println!();
-
         let mut file_groups: BTreeMap<String, Vec<&CodeIssue>> = BTreeMap::new();
         for issue in issues {
             let file_name = issue
@@ -284,11 +370,9 @@ impl Reporter {
                 .to_string();
             file_groups.entry(file_name).or_default().push(issue);
         }
-
         for (file_name, file_issues) in file_groups {
             println!("### 📁 {}", file_name);
             println!();
-
             let issues_to_show = if self.max_issues_per_file > 0 {
                 file_issues
                     .into_iter()
@@ -297,14 +381,12 @@ impl Reporter {
             } else {
                 file_issues
             };
-
             for issue in issues_to_show {
                 let severity_icon = match issue.severity {
                     Severity::Nuclear => "💥",
                     Severity::Spicy => "🌶️",
                     Severity::Mild => "😐",
                 };
-
                 let key = format!(
                     "{}:{}:{}",
                     issue.file_path.display(),
@@ -315,7 +397,6 @@ impl Reporter {
                     .get(&key)
                     .cloned()
                     .unwrap_or_else(|| issue.message.clone());
-
                 println!(
                     "- {} **Line {}:{}** - {}",
                     severity_icon, issue.line, issue.column, message
@@ -324,9 +405,25 @@ impl Reporter {
             println!();
         }
 
+        // ── StyleIr Summary ──
+        if let Some(ref sir) = self.style_ir_summary {
+            println!("## Code Metrics");
+            println!();
+            println!("| Metric | Value |");
+            println!("| --- | --- |");
+            println!("| Lines | {} |", sir.line_count);
+            println!("| Panic Calls | {} |", sir.panic_call_count);
+            println!("| Naming Violations | {} |", sir.naming_violation_count);
+            println!("| Deep Nesting | {} |", sir.deeply_nested_block_count);
+            println!("| Debug Calls | {} |", sir.debug_call_count);
+            println!("| God Functions | {} |", sir.god_function_count);
+            println!("| Unsafe Blocks | {} |", sir.unsafe_block_count);
+            println!("| Magic Numbers | {} |", sir.magic_number_count);
+            println!();
+        }
+
         println!("## {}", self.i18n.get("suggestions"));
         println!();
-
         println!();
     }
 }

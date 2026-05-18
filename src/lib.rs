@@ -16,6 +16,7 @@ pub mod deps_shamer;
 pub mod detectors;
 pub mod educational;
 pub mod finding;
+pub mod friend;
 pub mod hall_of_shame;
 pub mod i18n;
 pub mod language;
