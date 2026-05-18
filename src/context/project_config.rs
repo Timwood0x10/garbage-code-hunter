@@ -213,7 +213,7 @@ impl Default for PrintlnRuleConfig {
         Self {
             enabled: true,
             allow_in_main_files: true,
-            threshold: 3,
+            threshold: 1,
         }
     }
 }
@@ -287,7 +287,7 @@ fn default_true() -> bool {
     true
 }
 fn default_println_threshold() -> usize {
-    3
+    1
 }
 fn default_one() -> f64 {
     1.0

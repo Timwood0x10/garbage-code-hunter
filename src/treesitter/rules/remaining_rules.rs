@@ -1,10 +1,12 @@
 use crate::analyzer::{CodeIssue, Severity};
+use crate::context::project_config::ProjectConfig;
+use crate::context::FileContext;
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
 use crate::treesitter::rule::TreeSitterRule;
 
-use super::complex_rules::variable_name_query;
+use super::complex_rules::{apply_naming_config, variable_name_query};
 
 /// Meaningless naming: detects placeholder names like foo, bar, aaa, data, temp.
 pub(crate) struct MeaninglessRule;
@@ -76,6 +78,17 @@ impl TreeSitterRule for MeaninglessRule {
             }
         }
         issues
+    }
+
+    fn check_with_context(
+        &self,
+        file: &ParsedFile,
+        _is_test_file: bool,
+        _context: &FileContext,
+        config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        let issues = self.check(file);
+        apply_naming_config(issues, &config.rules.naming)
     }
 }
 

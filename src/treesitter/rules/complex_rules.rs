@@ -460,6 +460,17 @@ impl TreeSitterRule for TerribleNamingRule {
 
         issues
     }
+
+    fn check_with_context(
+        &self,
+        file: &ParsedFile,
+        _is_test_file: bool,
+        _context: &FileContext,
+        config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        let issues = self.check(file);
+        apply_naming_config(issues, &config.rules.naming)
+    }
 }
 
 // ============================================================================
@@ -548,6 +559,29 @@ fn is_template_param(node: tree_sitter::Node) -> bool {
         parent = p.parent();
     }
     false
+}
+
+/// Apply naming config overrides to issues from a naming rule.
+pub(crate) fn apply_naming_config(
+    issues: Vec<CodeIssue>,
+    config: &crate::context::project_config::NamingRuleConfig,
+) -> Vec<CodeIssue> {
+    let severity = match config.severity {
+        crate::context::project_config::SeverityOverride::Mild => Severity::Mild,
+        crate::context::project_config::SeverityOverride::Spicy => Severity::Spicy,
+        crate::context::project_config::SeverityOverride::Nuclear => Severity::Nuclear,
+    };
+    issues
+        .into_iter()
+        .filter(|i| {
+            let name = i.message.split('\'').nth(1).unwrap_or("");
+            !config.allowed_names.iter().any(|a| a == name)
+        })
+        .map(|mut i| {
+            i.severity = severity.clone();
+            i
+        })
+        .collect()
 }
 
 pub(crate) struct SingleLetterTsRule;
@@ -644,6 +678,17 @@ impl TreeSitterRule for SingleLetterTsRule {
 
         issues
     }
+
+    fn check_with_context(
+        &self,
+        file: &ParsedFile,
+        _is_test_file: bool,
+        _context: &FileContext,
+        config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        let issues = self.check(file);
+        apply_naming_config(issues, &config.rules.naming)
+    }
 }
 
 // ============================================================================
@@ -732,6 +777,17 @@ impl TreeSitterRule for HungarianNotationTsRule {
         }
 
         issues
+    }
+
+    fn check_with_context(
+        &self,
+        file: &ParsedFile,
+        _is_test_file: bool,
+        _context: &FileContext,
+        config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        let issues = self.check(file);
+        apply_naming_config(issues, &config.rules.naming)
     }
 }
 
@@ -830,6 +886,17 @@ impl TreeSitterRule for AbbreviationAbuseTsRule {
 
         issues
     }
+
+    fn check_with_context(
+        &self,
+        file: &ParsedFile,
+        _is_test_file: bool,
+        _context: &FileContext,
+        config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        let issues = self.check(file);
+        apply_naming_config(issues, &config.rules.naming)
+    }
 }
 
 fn print_debug_query(lang: Language) -> &'static str {
@@ -858,16 +925,8 @@ fn print_debug_query(lang: Language) -> &'static str {
 
 pub(crate) struct PrintlnDebuggingRule;
 
-impl TreeSitterRule for PrintlnDebuggingRule {
-    fn name(&self) -> &'static str {
-        "println-debugging"
-    }
-
-    fn supported_languages(&self) -> &'static [Language] {
-        crate::language::LANGUAGES_WITH_GRAMMAR
-    }
-
-    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+impl PrintlnDebuggingRule {
+    fn check_inner(&self, file: &ParsedFile, threshold: usize) -> Vec<CodeIssue> {
         let query = print_debug_query(file.language);
         if query.is_empty() {
             return vec![];
@@ -876,6 +935,9 @@ impl TreeSitterRule for PrintlnDebuggingRule {
             Ok(c) => c,
             Err(_) => return vec![],
         };
+        if captures.len() < threshold {
+            return vec![];
+        }
         let mut issues = Vec::new();
         for group in &captures {
             if let Some(cap) = group.first() {
@@ -891,6 +953,31 @@ impl TreeSitterRule for PrintlnDebuggingRule {
             }
         }
         issues
+    }
+}
+
+impl TreeSitterRule for PrintlnDebuggingRule {
+    fn name(&self) -> &'static str {
+        "println-debugging"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        crate::language::LANGUAGES_WITH_GRAMMAR
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        self.check_inner(file, 1)
+    }
+
+    fn check_with_context(
+        &self,
+        file: &ParsedFile,
+        _is_test_file: bool,
+        _context: &FileContext,
+        config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        let cfg = &config.rules.println;
+        self.check_inner(file, cfg.threshold)
     }
 }
 

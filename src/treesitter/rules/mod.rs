@@ -1,5 +1,6 @@
 pub mod base_rules;
 pub mod c_rules;
+pub mod common_rules;
 pub mod complex_rules;
 pub mod go_rules;
 pub mod java_rules;

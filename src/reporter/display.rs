@@ -312,12 +312,14 @@ impl Reporter {
     }
 
     pub(super) fn print_boss_file(&self, issues: &[CodeIssue]) {
-        if issues.is_empty() {
+        // Skip signal-level findings (line=0) — only actionable per-line issues
+        let real: Vec<&CodeIssue> = issues.iter().filter(|i| i.line > 0).collect();
+        if real.is_empty() {
             return;
         }
         // Find file with most issues
         let mut file_counts: HashMap<String, Vec<&CodeIssue>> = HashMap::new();
-        for issue in issues {
+        for issue in real {
             let name = issue.file_path.to_string_lossy().to_string();
             file_counts.entry(name).or_default().push(issue);
         }
@@ -479,7 +481,7 @@ impl Reporter {
         let mut smells: Vec<&CodeIssue> = Vec::new();
         let mut student: Vec<&CodeIssue> = Vec::new();
 
-        for issue in issues {
+        for issue in issues.iter().filter(|i| i.line > 0) {
             let r = issue.rule_name.as_str();
             if r.contains("duplicat") {
                 dup.push(issue);

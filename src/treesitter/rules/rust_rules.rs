@@ -1,8 +1,8 @@
 use super::base_rules::{CountRule, MacroRule, MethodCallRule};
 use super::complex_rules::{
     AbbreviationAbuseTsRule, ComplexClosureRule, DeepNestingRule, GodFunctionRule,
-    HungarianNotationTsRule, LongFunctionRule, MagicNumberRule, PrintlnDebuggingRule,
-    SingleLetterTsRule, TerribleNamingRule,
+    HungarianNotationTsRule, LongFunctionRule, PrintlnDebuggingRule, SingleLetterTsRule,
+    TerribleNamingRule,
 };
 use super::remaining_rules::{
     DuplicateImportsRule, FileTooLongRule, MeaninglessRule, TodoCommentRule,
@@ -227,9 +227,6 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
 
     // Println debugging
     engine.add(Box::new(PrintlnDebuggingRule));
-
-    // Magic number
-    engine.add(Box::new(MagicNumberRule));
 
     // Meaningless naming
     engine.add(Box::new(MeaninglessRule));

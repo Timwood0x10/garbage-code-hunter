@@ -1,0 +1,14 @@
+# Minimal example — relaxes magic-number for UI-heavy projects
+[rules.magic-number]
+allowed-numbers = [300, 400, 500, 800, 1000]
+
+[rules.naming]
+severity = "spicy"
+
+[rules.println]
+allow-in-main-files = true
+threshold = 5
+
+[[overrides]]
+paths = ["tests/*"]
+relax-sensitivity = true

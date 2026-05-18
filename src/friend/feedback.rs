@@ -125,8 +125,9 @@ pub struct NextAction {
 
 impl NextAction {
     pub fn from_issues(issues: &[CodeIssue]) -> Vec<Self> {
-        let mut sorted: Vec<&CodeIssue> = issues.iter().collect();
-        sorted.sort_by(|a, b| {
+        // Skip signal-level findings (line=0) — only show actionable per-line issues
+        let mut actionable: Vec<&CodeIssue> = issues.iter().filter(|i| i.line > 0).collect();
+        actionable.sort_by(|a, b| {
             let order = |s: &Severity| match s {
                 Severity::Nuclear => 3,
                 Severity::Spicy => 2,
@@ -135,7 +136,7 @@ impl NextAction {
             order(&b.severity).cmp(&order(&a.severity))
         });
 
-        sorted
+        actionable
             .into_iter()
             .take(3)
             .enumerate()
