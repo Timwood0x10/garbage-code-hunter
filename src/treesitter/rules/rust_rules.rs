@@ -557,7 +557,7 @@ impl TreeSitterRule for RustMustUseRule {
         let lines: Vec<&str> = file.content.lines().collect();
         for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            if !trimmed.starts_with("pub fn ") || trimmed.contains("#[must_use]") {
+            if !trimmed.starts_with("pub fn ") {
                 continue;
             }
             let has_return_type = Self::signature_contains_result(&lines, line_num);

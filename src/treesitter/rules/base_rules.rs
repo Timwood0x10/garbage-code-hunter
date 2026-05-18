@@ -13,27 +13,20 @@ pub(crate) const BLOCK_PARENT_TYPES: &[&str] = &[
     "loop_expression",
     "match_expression",
     "match_arm",
-    // Python
+    // Python / JavaScript / C / C++ (shared names)
     "if_statement",
     "for_statement",
     "while_statement",
+    "do_statement",
     "try_statement",
+    // Python
     "with_statement",
     "function_definition",
     "class_definition",
     // JavaScript
-    "if_statement",
-    "for_statement",
-    "while_statement",
-    "do_statement",
-    "try_statement",
     "switch_case",
     "function_declaration",
-    // C/C++
-    "if_statement",
-    "for_statement",
-    "while_statement",
-    "do_statement",
+    // C / C++
     "switch_statement",
     "case_statement",
     // Go
@@ -43,7 +36,7 @@ pub(crate) const BLOCK_PARENT_TYPES: &[&str] = &[
     // Ruby
     "begin_block",
     // Swift
-    "switch_statement",
+    // switch_statement already listed above
     // Zig
     "switch_expression",
 ];

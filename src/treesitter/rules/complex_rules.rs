@@ -106,7 +106,7 @@ fn function_query(lang: Language) -> &'static str {
         Language::JavaScript | Language::TypeScript => "(function_declaration) @fn",
         Language::C | Language::Cpp => "(function_definition) @fn",
         Language::Go => "(function_declaration) @fn",
-        Language::Java => "(method_declaration) @fn",
+        Language::Java => "[(method_declaration) (constructor_declaration)] @fn",
         Language::Ruby => "(method) @fn",
         Language::Swift | Language::Zig => "(function_declaration) @fn",
         Language::Unknown => "",
@@ -154,9 +154,9 @@ impl TreeSitterRule for LongFunctionRule {
                 if line_count > threshold {
                     let func_name = find_function_name(node, content_bytes);
                     let messages = [
-                        "Function '{}' has {n} lines? This isn't a function, it's a novel!",
-                        "'{}' function is {n} lines long, consider splitting into smaller functions",
-                        "Function '{}' is longer than my patience ({n} lines), consider refactoring",
+                        "Function '{}' has {n} lines — this isn't a function, it's a novel!",
+                        "'{}' is {n} lines long — consider splitting into smaller functions",
+                        "Function '{}' is longer than my patience at {n} lines — consider refactoring",
                     ];
                     let severity = if line_count > threshold * 2 {
                         Severity::Nuclear
@@ -171,13 +171,9 @@ impl TreeSitterRule for LongFunctionRule {
                         line: pos.row + 1,
                         column: pos.column + 1,
                         rule_name: "long-function".to_string(),
-                        message: format!(
-                            "{} ({} lines)",
-                            messages[issues.len() % messages.len()]
-                                .replace("'{}'", &func_name)
-                                .replace("{n}", &line_count.to_string()),
-                            line_count
-                        ),
+                        message: messages[issues.len() % messages.len()]
+                            .replace("'{}'", &func_name)
+                            .replace("{n}", &line_count.to_string()),
                         severity,
                     });
                 }
@@ -912,6 +908,14 @@ fn print_debug_query(lang: Language) -> &'static str {
         }
         Language::Ruby => {
             r#"(call method: (identifier) @method (#match? @method "^(puts|p|pp|print)$"))"#
+        }
+        Language::C => {
+            r#"(call_expression function: (identifier) @f (#match? @f "^(printf|puts|putchar|perror)$"))"#
+        }
+        Language::Cpp => {
+            r#"[  (call_expression function: (identifier) @f (#match? @f "^(printf|puts|putchar|perror|cout|cerr|clog)$"))
+                  (call_expression function: (field_expression field: (field_identifier) @f (#match? @f "^(cout|cerr|clog)$")))
+                ]"#
         }
         Language::Swift => r#"(call_expression function: (identifier) @f (#eq? @f "print"))"#,
         Language::Zig => {
