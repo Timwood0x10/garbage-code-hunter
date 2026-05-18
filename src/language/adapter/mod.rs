@@ -134,6 +134,18 @@ pub trait LanguageAdapter: Send + Sync {
         0
     }
 
+    /// Count dead code blocks — unreachable code after return/break/continue/panic.
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count duplicate import statements in a file (language-specific).
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
     /// Count commented-out code blocks in the file.
     /// Default implementation uses content-based detection.
     fn count_commented_out_code(&self, file: &ParsedFile) -> usize {

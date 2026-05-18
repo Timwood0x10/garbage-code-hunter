@@ -94,10 +94,6 @@ impl CodeAnalyzer {
         let mut ts_rule_engine = TreeSitterRuleEngine::new();
         crate::treesitter::rules::common_rules::register_common_rules(&mut ts_rule_engine);
         crate::treesitter::rules::rust_rules::register_rust_rules(&mut ts_rule_engine);
-        crate::treesitter::rules::c_rules::register_c_rules(&mut ts_rule_engine);
-        crate::treesitter::rules::ts_rules::register_ts_rules(&mut ts_rule_engine);
-        crate::treesitter::rules::java_rules::register_java_rules(&mut ts_rule_engine);
-        crate::treesitter::rules::ruby_rules::register_ruby_rules(&mut ts_rule_engine);
 
         Self {
             generic_engine: GenericRuleEngine::new(),

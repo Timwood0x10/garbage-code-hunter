@@ -4,7 +4,6 @@ use super::complex_rules::{
     HungarianNotationTsRule, LongFunctionRule, PrintlnDebuggingRule, SingleLetterTsRule,
     TerribleNamingRule,
 };
-use super::remaining_rules::{DuplicateImportsRule, MeaninglessRule};
 use crate::analyzer::{CodeIssue, Severity};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -225,12 +224,6 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
 
     // Println debugging
     engine.add(Box::new(PrintlnDebuggingRule));
-
-    // Meaningless naming
-    engine.add(Box::new(MeaninglessRule));
-
-    // Duplicate imports
-    engine.add(Box::new(DuplicateImportsRule));
 
     // String abuse (String::from, .to_string)
     engine.add(Box::new(MethodCallRule {

@@ -243,6 +243,53 @@ impl LanguageAdapter for RustAdapter {
         }
         count
     }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+        let mut dead_start: Option<usize> = None;
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if matches!(
+                trimmed,
+                "return;" | "break;" | "continue;" | "unreachable!()" | "unreachable!();"
+            ) || (trimmed.starts_with("return ") && trimmed.ends_with(';'))
+                || (trimmed.starts_with("panic!(") && trimmed.ends_with(';'))
+                || (trimmed.starts_with("unreachable!(") && trimmed.ends_with(')'))
+            {
+                dead_start = Some(line_num + 2);
+                continue;
+            }
+            if let Some(start) = dead_start {
+                if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") {
+                    continue;
+                }
+                if trimmed == "}"
+                    || trimmed.starts_with("} else")
+                    || trimmed.starts_with("} else if")
+                {
+                    dead_start = None;
+                    continue;
+                }
+                if line_num + 1 >= start {
+                    count += 1;
+                    dead_start = None;
+                }
+            }
+        }
+        count
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        let mut seen = std::collections::HashSet::new();
+        let mut count = 0;
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("use ") && !seen.insert(trimmed.to_string()) {
+                count += 1;
+            }
+        }
+        count
+    }
 }
 
 #[cfg(test)]

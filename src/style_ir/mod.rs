@@ -34,6 +34,8 @@ pub struct StyleIrSummary {
     pub ruby_issue_count: usize,
     pub c_issue_count: usize,
     pub ts_issue_count: usize,
+    pub dead_code_count: usize,
+    pub duplicate_import_count: usize,
     pub excessive_param_count: usize,
     pub unsafe_block_count: usize,
     pub magic_number_count: usize,
@@ -114,6 +116,12 @@ pub struct StyleIr {
 
     /// Count of TypeScript code issues (any-type, prefer-interface, no-enum).
     pub ts_issue_count: usize,
+
+    /// Count of dead code blocks — unreachable code after return/break/continue/panic.
+    pub dead_code_count: usize,
+
+    /// Count of duplicate import statements.
+    pub duplicate_import_count: usize,
 }
 
 impl StyleIr {
@@ -148,6 +156,8 @@ impl StyleIr {
             ruby_issue_count: adapter.count_ruby_issues(file),
             c_issue_count: adapter.count_c_issues(file),
             ts_issue_count: adapter.count_ts_issues(file),
+            dead_code_count: adapter.count_dead_code(file),
+            duplicate_import_count: adapter.count_duplicate_imports(file),
         })
     }
 
@@ -177,6 +187,8 @@ impl StyleIr {
             + self.ruby_issue_count
             + self.c_issue_count
             + self.ts_issue_count
+            + self.dead_code_count
+            + self.duplicate_import_count
     }
 
     /// Build a stable, JSON-ready summary for downstream consumers.
@@ -203,6 +215,8 @@ impl StyleIr {
             ruby_issue_count: self.ruby_issue_count,
             c_issue_count: self.c_issue_count,
             ts_issue_count: self.ts_issue_count,
+            dead_code_count: self.dead_code_count,
+            duplicate_import_count: self.duplicate_import_count,
             over_engineering_count: self.over_engineering_count(),
             code_smell_count: self.code_smell_count(),
             is_clean_signal_baseline: self.is_clean_signal_baseline(),
@@ -232,6 +246,8 @@ impl StyleIr {
             && self.ruby_issue_count == 0
             && self.c_issue_count == 0
             && self.ts_issue_count == 0
+            && self.dead_code_count == 0
+            && self.duplicate_import_count == 0
     }
 }
 

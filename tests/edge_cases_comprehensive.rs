@@ -442,13 +442,13 @@ fn test_cross_file_duplication_thresholds() {
 
     let similar_code = r#"
 fn helper_function(data: &str) -> String {
-    let xxx = data.to_uppercase();
-    xxx
+    let result = data.to_uppercase();
+    result
 }
 
 fn process_item(item: i32) -> i32 {
-    let foo = item * 2 + 1;
-    foo
+    let tmp = item * 2 + 1;
+    tmp
 }
 "#;
 

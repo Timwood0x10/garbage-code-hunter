@@ -363,6 +363,45 @@ impl LanguageAdapter for GoAdapter {
 
         count
     }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+        let mut dead_start: Option<usize> = None;
+        for (line_num, line) in file.content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed == "return"
+                || trimmed == "return;"
+                || trimmed == "break"
+                || trimmed == "break;"
+                || trimmed == "continue"
+                || trimmed == "continue;"
+                || (trimmed.starts_with("return ")
+                    && (trimmed.ends_with(';') || !trimmed.ends_with('}')))
+                || trimmed.starts_with("panic(")
+                || trimmed.starts_with("goto ")
+            {
+                dead_start = Some(line_num + 2);
+                continue;
+            }
+            if let Some(start) = dead_start {
+                if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") {
+                    continue;
+                }
+                if trimmed == "}"
+                    || trimmed.starts_with("} else")
+                    || trimmed.starts_with("} else if")
+                {
+                    dead_start = None;
+                    continue;
+                }
+                if line_num + 1 >= start {
+                    count += 1;
+                    dead_start = None;
+                }
+            }
+        }
+        count
+    }
 }
 
 #[cfg(test)]
