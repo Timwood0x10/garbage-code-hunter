@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::sync::LazyLock;
 
 use crate::analyzer::{CodeIssue, Severity};
 use crate::context::project_config::ProjectConfig;
@@ -7,6 +8,10 @@ use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
 use crate::treesitter::rule::TreeSitterRule;
+
+static TERRIBLE_NAMING_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").unwrap()
+});
 
 use super::base_rules::{
     closure_depth, count_descendants_of_types, count_parameters, find_function_name, BLOCK_KINDS,
@@ -149,9 +154,9 @@ impl TreeSitterRule for LongFunctionRule {
                 if line_count > threshold {
                     let func_name = find_function_name(node, content_bytes);
                     let messages = [
-                        "Function '{}' has {} lines? This isn't a function, it's a novel!",
-                        "'{}' function is {} lines long, consider splitting into smaller functions",
-                        "Function '{}' is longer than my patience ({} lines), consider refactoring",
+                        "Function '{}' has {n} lines? This isn't a function, it's a novel!",
+                        "'{}' function is {n} lines long, consider splitting into smaller functions",
+                        "Function '{}' is longer than my patience ({n} lines), consider refactoring",
                     ];
                     let severity = if line_count > threshold * 2 {
                         Severity::Nuclear
@@ -168,7 +173,9 @@ impl TreeSitterRule for LongFunctionRule {
                         rule_name: "long-function".to_string(),
                         message: format!(
                             "{} ({} lines)",
-                            messages[issues.len() % messages.len()].replace("'{}'", &func_name),
+                            messages[issues.len() % messages.len()]
+                                .replace("'{}'", &func_name)
+                                .replace("{n}", &line_count.to_string()),
                             line_count
                         ),
                         severity,
@@ -410,19 +417,12 @@ impl TreeSitterRule for TerribleNamingRule {
             Err(_) => return vec![],
         };
 
-        let Ok(terrible_re) = Regex::new(
-            r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$",
-        ) else {
-            tracing::error!("Failed to compile terrible naming regex");
-            return vec![];
-        };
-
         let mut issues = Vec::new();
 
         for group in &captures {
             if let Some(cap) = group.first() {
                 let name = cap.text;
-                if terrible_re.is_match(&name.to_lowercase()) {
+                if TERRIBLE_NAMING_RE.is_match(&name.to_lowercase()) {
                     let msgs = [
                         format!(
                             "Variable '{}' - more abstract than my programming skills",
@@ -626,10 +626,8 @@ impl TreeSitterRule for SingleLetterTsRule {
                 }
 
                 // Skip Go idiomatic single-letter identifiers
-                // g/e = got/expected in test assertions, tt = test table
-                if file.language == Language::Go
-                    && ["err", "ok", "ctx", "mu", "wg", "ch", "fn", "g", "e"].contains(&name)
-                {
+                // g/e = got/expected in test assertions
+                if file.language == Language::Go && ["g", "e"].contains(&name) {
                     continue;
                 }
 
@@ -1072,7 +1070,8 @@ impl MagicNumberRule {
                 if parent.is_some_and(|p| case_label_kinds.contains(&p.kind())) {
                     continue;
                 }
-                if !allow.iter().any(|a| a == text) && text.parse::<f64>().is_ok() {
+                if !allow.iter().any(|a| a == text) && text.replace('_', "").parse::<f64>().is_ok()
+                {
                     let pos = cap.node.start_position();
                     issues.push(CodeIssue {
                         file_path: file.path.clone(),

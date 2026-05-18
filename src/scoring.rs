@@ -40,6 +40,9 @@ pub enum QualityLevel {
 
 impl QualityLevel {
     pub fn from_score(score: f64) -> Self {
+        if !score.is_finite() || score < 0.0 {
+            return QualityLevel::Terrible;
+        }
         match score as u32 {
             0..=20 => QualityLevel::Excellent,
             21..=40 => QualityLevel::Good,

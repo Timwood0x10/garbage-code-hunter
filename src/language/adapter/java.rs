@@ -1,8 +1,8 @@
 //! JavaAdapter — Java language adapter.
 
 use super::{
-    count_nested_blocks, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
-    MEANINGLESS_NAMES,
+    count_nested_blocks, count_params, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -177,7 +177,7 @@ impl LanguageAdapter for JavaAdapter {
         for group in &groups {
             for cap in group {
                 if cap.name == "params" {
-                    let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                    let param_count = count_params(cap.text);
                     if param_count > threshold {
                         count += 1;
                     }
@@ -233,8 +233,10 @@ impl LanguageAdapter for JavaAdapter {
                 let has_javadoc = j >= 0
                     && (lines[j as usize].trim().starts_with("/**")
                         || lines[j as usize].trim().ends_with("*/"));
-                let has_annotation =
-                    trimmed.starts_with("@Override") || trimmed.starts_with("@Suppress");
+                let has_annotation = j >= 0
+                    && (lines[j as usize].trim().starts_with("@Override")
+                        || lines[j as usize].trim().starts_with("@Suppress")
+                        || lines[j as usize].trim().starts_with("@"));
                 if !has_javadoc && !has_annotation {
                     count += 1;
                 }

@@ -107,6 +107,7 @@ impl TreeSitterRule for CountRule {
 
 /// Macro-count rule: finds `name!()` calls by querying macro_invocation
 /// with identifier capture, then filters by macro name in Rust code.
+#[allow(dead_code)]
 pub(crate) struct MacroRule {
     pub(crate) name: &'static str,
     pub(crate) macro_name: &'static str,

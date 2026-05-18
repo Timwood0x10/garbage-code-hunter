@@ -1,7 +1,7 @@
 //! PythonAdapter — Python language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, get_node_text, is_inside_declaration,
+    count_block_ancestors, count_nested_blocks, count_params, get_node_text, is_inside_declaration,
     is_repeating_chars, max_scope_depth, FunctionNode, LanguageAdapter,
 };
 use crate::language::Language;
@@ -369,7 +369,7 @@ impl LanguageAdapter for PythonAdapter {
             for group in &groups {
                 for cap in group {
                     if cap.name == "params" {
-                        let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                        let param_count = count_params(cap.text);
                         if param_count > threshold {
                             count += 1;
                         }
@@ -389,7 +389,7 @@ impl LanguageAdapter for PythonAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" {
+                    if text != "0" && text != "1" {
                         count += 1;
                     }
                 }
@@ -439,7 +439,12 @@ impl LanguageAdapter for PythonAdapter {
             if trimmed.contains("# type: ignore") {
                 count += 1;
             }
-            if trimmed.contains(".format(") && !trimmed.contains("f-string") {
+            if !trimmed.starts_with('#')
+                && !trimmed.starts_with("\"")
+                && !trimmed.starts_with("'")
+                && trimmed.contains(".format(")
+                && !trimmed.contains("f-string")
+            {
                 count += 1;
             }
             if trimmed.matches('%').count() >= 2

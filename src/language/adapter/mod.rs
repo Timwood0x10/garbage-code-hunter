@@ -237,7 +237,7 @@ pub fn adapter_for(lang: Language) -> Option<&'static dyn LanguageAdapter> {
 
 /// Re-export helpers for use by sibling adapters.
 pub(crate) use helpers::{
-    count_block_ancestors, count_nested_blocks, get_node_text, is_inside_declaration,
+    count_block_ancestors, count_nested_blocks, count_params, get_node_text, is_inside_declaration,
     is_repeating_chars, max_scope_depth, MEANINGLESS_NAMES,
 };
 

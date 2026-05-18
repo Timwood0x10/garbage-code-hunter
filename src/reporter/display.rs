@@ -696,8 +696,9 @@ impl Reporter {
             }
 
             if let Some(first) = cat_issues.first() {
-                let preview = if first.message.len() > 60 {
-                    format!("{}...", &first.message[..57])
+                let preview: String = first.message.chars().take(57).collect();
+                let preview = if preview.len() < first.message.len() {
+                    format!("{}...", preview)
                 } else {
                     first.message.clone()
                 };

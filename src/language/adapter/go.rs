@@ -1,8 +1,8 @@
 //! GoAdapter — Go language adapter.
 
 use super::{
-    count_nested_blocks, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
-    MEANINGLESS_NAMES,
+    count_nested_blocks, count_params, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -180,12 +180,6 @@ impl LanguageAdapter for GoAdapter {
         ) {
             count += groups.len();
         }
-        if let Ok(groups) = collect_captures(
-            file,
-            "(call_expression function: (identifier) @f (#eq? @f \"panic\"))",
-        ) {
-            count += groups.len();
-        }
         count
     }
 
@@ -201,7 +195,7 @@ impl LanguageAdapter for GoAdapter {
         for group in &groups {
             for cap in group {
                 if cap.name == "params" {
-                    let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                    let param_count = count_params(cap.text);
                     if param_count > threshold {
                         count += 1;
                     }

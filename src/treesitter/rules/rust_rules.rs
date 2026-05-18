@@ -1,9 +1,5 @@
-use super::base_rules::{CountRule, MacroRule, MethodCallRule};
-use super::complex_rules::{
-    AbbreviationAbuseTsRule, ComplexClosureRule, DeepNestingRule, GodFunctionRule,
-    HungarianNotationTsRule, LongFunctionRule, PrintlnDebuggingRule, SingleLetterTsRule,
-    TerribleNamingRule,
-};
+use super::base_rules::{CountRule, MethodCallRule};
+use super::complex_rules::{ComplexClosureRule, GodFunctionRule, LongFunctionRule};
 use crate::analyzer::{CodeIssue, Severity};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -12,7 +8,21 @@ use crate::treesitter::rule::TreeSitterRule;
 
 /// Register all tree-sitter based Rust rules.
 pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleEngine) {
-    // Unwrap abuse (escalating severity)
+    // Unnecessary clone
+    engine.add(Box::new(MethodCallRule {
+        name: "unnecessary-clone",
+        method_name: "clone",
+        threshold: 24,
+        severity_fn: |_| Severity::Spicy,
+        message_fn: |count| {
+            format!(
+                "Found {} .clone() calls — consider using references instead",
+                count
+            )
+        },
+    }));
+
+    // Unwrap abuse
     engine.add(Box::new(MethodCallRule {
         name: "unwrap-abuse",
         method_name: "unwrap",
@@ -26,26 +36,7 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
                 Severity::Mild
             }
         },
-        message_fn: |count| {
-            format!(
-                "Found {} .unwrap() calls — use proper error handling",
-                count
-            )
-        },
-    }));
-
-    // Unnecessary clone
-    engine.add(Box::new(MethodCallRule {
-        name: "unnecessary-clone",
-        method_name: "clone",
-        threshold: 24,
-        severity_fn: |_| Severity::Spicy,
-        message_fn: |count| {
-            format!(
-                "Found {} .clone() calls — consider using references instead",
-                count
-            )
-        },
+        message_fn: |count| format!("Found {} .unwrap() calls — handle errors properly", count),
     }));
 
     // Async abuse (>10 async blocks)
@@ -186,22 +177,6 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         },
     }));
 
-    // Panic abuse (count panic! invocations)
-    engine.add(Box::new(MacroRule {
-        name: "panic-abuse",
-        macro_name: "panic",
-        threshold: 2,
-        severity: Severity::Nuclear,
-        message_fn: |count| {
-            format!(
-                "Found {} panic! calls — use proper error handling with Result",
-                count
-            )
-        },
-    }));
-
-    // Deep nesting
-    engine.add(Box::new(DeepNestingRule));
     // Long function
     engine.add(Box::new(LongFunctionRule));
 
@@ -210,20 +185,9 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
 
     // Complex closure
     engine.add(Box::new(ComplexClosureRule));
-    // Terrible naming
-    engine.add(Box::new(TerribleNamingRule));
 
-    // Single letter variable
-    engine.add(Box::new(SingleLetterTsRule));
-
-    // Hungarian notation
-    engine.add(Box::new(HungarianNotationTsRule));
-
-    // Abbreviation abuse
-    engine.add(Box::new(AbbreviationAbuseTsRule));
-
-    // Println debugging
-    engine.add(Box::new(PrintlnDebuggingRule));
+    // Too many params
+    engine.add(Box::new(TooManyParamsRule));
 
     // String abuse (String::from, .to_string)
     engine.add(Box::new(MethodCallRule {
@@ -243,9 +207,6 @@ pub fn register_rust_rules(engine: &mut crate::treesitter::rule::TreeSitterRuleE
         languages: &[Language::Rust],
         message_fn: |count| format!("Found {} vec![] calls — consider using arrays", count),
     }));
-
-    // too-many-params: warn if function has > 6 parameters
-    engine.add(Box::new(TooManyParamsRule));
 
     // rust-doc-example: doc comments should contain example code blocks
     engine.add(Box::new(RustDocExampleRule));
@@ -434,24 +395,31 @@ impl TreeSitterRule for RustDeriveOrderRule {
             "Deserialize",
         ];
         let mut issues = Vec::new();
-        // Simple text-based checking
-        for (line_num, line) in file.content.lines().enumerate() {
-            let trimmed = line.trim();
+        let lines: Vec<&str> = file.content.lines().collect();
+        let mut i = 0;
+        while i < lines.len() {
+            let trimmed = lines[i].trim();
             if !trimmed.starts_with("#[derive(") {
+                i += 1;
                 continue;
             }
-            let inner = trimmed
-                .trim_start_matches("#[derive(")
-                .trim_end_matches(")]");
+            let start_line = i + 1;
+            let mut derive_text = trimmed.trim_start_matches("#[derive(").to_string();
+            // Collect multi-line derives
+            while !derive_text.contains(")]") && i + 1 < lines.len() {
+                i += 1;
+                derive_text.push_str(lines[i]);
+            }
+            let inner = derive_text.trim_end_matches(")]").trim_end_matches(')');
             let derives: Vec<&str> = inner
                 .split(',')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .collect();
             if derives.len() < 2 {
+                i += 1;
                 continue;
             }
-            // Check if derives follow the standard order
             let mut last_pos = -1i32;
             let order_ok = derives.iter().all(|d| {
                 if let Some(pos) = standard_order.iter().position(|s| *s == *d) {
@@ -463,20 +431,20 @@ impl TreeSitterRule for RustDeriveOrderRule {
                         false
                     }
                 } else {
-                    // Unknown derive, skip it for ordering
                     true
                 }
             });
             if !order_ok {
                 issues.push(CodeIssue {
                     file_path: file.path.clone(),
-                    line: line_num + 1,
-                    column: trimmed.find("#[derive(").unwrap_or(0) + 1,
+                    line: start_line,
+                    column: 1,
                     rule_name: "rust-derive-order".to_string(),
                     message: format!("Derive order should follow: {}", standard_order.join(", ")),
                     severity: Severity::Mild,
                 });
             }
+            i += 1;
         }
         issues
     }
@@ -485,6 +453,16 @@ impl TreeSitterRule for RustDeriveOrderRule {
 // ─── Rust: Error type implements Debug but not Display ────────────
 
 struct RustErrorDisplayRule;
+
+impl RustErrorDisplayRule {
+    fn extract_type_name(rest: &str) -> String {
+        let cleaned = rest.trim_end_matches('{').trim();
+        match cleaned.find('<') {
+            Some(pos) => cleaned[..pos].trim().to_string(),
+            None => cleaned.to_string(),
+        }
+    }
+}
 
 impl TreeSitterRule for RustErrorDisplayRule {
     fn name(&self) -> &'static str {
@@ -497,32 +475,31 @@ impl TreeSitterRule for RustErrorDisplayRule {
 
     fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
-        // Find types that have impl Debug for X but no impl Display for X
-        let mut debug_types: Vec<String> = Vec::new();
+        let mut debug_types: Vec<(String, usize)> = Vec::new();
         let mut display_types: Vec<String> = Vec::new();
 
-        for line in file.content.lines() {
+        for (line_num, line) in file.content.lines().enumerate() {
             let trimmed = line.trim();
             if let Some(rest) = trimmed.strip_prefix("impl fmt::Debug for ") {
-                let type_name = rest.trim_end_matches('{').trim();
-                debug_types.push(type_name.to_string());
+                let type_name = Self::extract_type_name(rest);
+                debug_types.push((type_name, line_num + 1));
             } else if let Some(rest) = trimmed.strip_prefix("impl Debug for ") {
-                let type_name = rest.trim_end_matches('{').trim();
-                debug_types.push(type_name.to_string());
+                let type_name = Self::extract_type_name(rest);
+                debug_types.push((type_name, line_num + 1));
             } else if let Some(rest) = trimmed.strip_prefix("impl fmt::Display for ") {
-                let type_name = rest.trim_end_matches('{').trim();
-                display_types.push(type_name.to_string());
+                let type_name = Self::extract_type_name(rest);
+                display_types.push(type_name);
             } else if let Some(rest) = trimmed.strip_prefix("impl Display for ") {
-                let type_name = rest.trim_end_matches('{').trim();
-                display_types.push(type_name.to_string());
+                let type_name = Self::extract_type_name(rest);
+                display_types.push(type_name);
             }
         }
 
-        for t in &debug_types {
+        for (t, line_num) in &debug_types {
             if !display_types.iter().any(|d| d == t) {
                 issues.push(CodeIssue {
                     file_path: file.path.clone(),
-                    line: 1,
+                    line: *line_num,
                     column: 1,
                     rule_name: "rust-error-display".to_string(),
                     message: format!(
@@ -541,6 +518,31 @@ impl TreeSitterRule for RustErrorDisplayRule {
 
 struct RustMustUseRule;
 
+impl RustMustUseRule {
+    fn signature_contains_result(lines: &[&str], fn_line: usize) -> bool {
+        for line in &lines[fn_line..] {
+            if line.contains(" -> Result<") || line.contains(" -> Option<") {
+                return true;
+            }
+            if line.contains('{') {
+                return false;
+            }
+        }
+        false
+    }
+
+    fn has_must_use_above(lines: &[&str], fn_line: usize) -> bool {
+        lines[..fn_line]
+            .iter()
+            .rev()
+            .take_while(|l| {
+                let t = l.trim();
+                t.starts_with('#') || t.starts_with("//") || t.is_empty()
+            })
+            .any(|l| l.trim().contains("#[must_use]"))
+    }
+}
+
 impl TreeSitterRule for RustMustUseRule {
     fn name(&self) -> &'static str {
         "rust-must-use"
@@ -552,37 +554,33 @@ impl TreeSitterRule for RustMustUseRule {
 
     fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
         let mut issues = Vec::new();
-        for (line_num, line) in file.content.lines().enumerate() {
+        let lines: Vec<&str> = file.content.lines().collect();
+        for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            // Check for pub fn returning Result or Option
-            if trimmed.starts_with("pub fn ") && !trimmed.contains("#[must_use]") {
-                let has_result = trimmed.contains(" -> Result<") || trimmed.contains(" -> Result<");
-                let has_option = trimmed.contains(" -> Option<") || trimmed.contains(" -> Option<");
-                if has_result || has_option {
-                    // Check previous line doesn't have #[must_use]
-                    let prev_line = if line_num > 0 {
-                        file.content.lines().nth(line_num - 1).unwrap_or("")
-                    } else {
-                        ""
-                    };
-                    if !prev_line.trim().contains("#[must_use]") {
-                        let fn_name = trimmed
-                            .strip_prefix("pub fn ")
-                            .and_then(|s| s.split('(').next())
-                            .unwrap_or("<unknown>");
-                        issues.push(CodeIssue {
-                            file_path: file.path.clone(),
-                            line: line_num + 1,
-                            column: 1,
-                            rule_name: "rust-must-use".to_string(),
-                            message: format!(
-                                "pub fn '{}' returns Result/Option but is missing #[must_use]",
-                                fn_name
-                            ),
-                            severity: Severity::Mild,
-                        });
-                    }
-                }
+            if !trimmed.starts_with("pub fn ") || trimmed.contains("#[must_use]") {
+                continue;
+            }
+            let has_return_type = Self::signature_contains_result(&lines, line_num);
+            if !has_return_type {
+                continue;
+            }
+            let has_must_use = Self::has_must_use_above(&lines, line_num);
+            if !has_must_use {
+                let fn_name = trimmed
+                    .strip_prefix("pub fn ")
+                    .and_then(|s| s.split('(').next())
+                    .unwrap_or("<unknown>");
+                issues.push(CodeIssue {
+                    file_path: file.path.clone(),
+                    line: line_num + 1,
+                    column: 1,
+                    rule_name: "rust-must-use".to_string(),
+                    message: format!(
+                        "pub fn '{}' returns Result/Option but is missing #[must_use]",
+                        fn_name
+                    ),
+                    severity: Severity::Mild,
+                });
             }
         }
         issues

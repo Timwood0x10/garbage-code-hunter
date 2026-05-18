@@ -1,6 +1,18 @@
 use super::super::test_helpers::{parse_rust, parse_rust_as};
 use super::*;
-use crate::treesitter::query::collect_captures;
+use crate::treesitter::{
+    query::collect_captures,
+    rules::base_rules::{CountRule, MacroRule, MethodCallRule},
+    rules::rust_rules::{
+        RustDeriveOrderRule, RustDocExampleRule, RustErrorDisplayRule, RustMustUseRule,
+        TooManyParamsRule,
+    },
+};
+
+use crate::treesitter::rules::complex_rules::{
+    AbbreviationAbuseTsRule, DeepNestingRule, HungarianNotationTsRule, SingleLetterTsRule,
+    TerribleNamingRule,
+};
 
 /// Objective: Verify unwrap-abuse detects .unwrap() calls
 /// Invariants: Multiple unwrap calls should trigger with correct severity
@@ -499,8 +511,8 @@ fn test_engine_runs_without_panic() {
     let names = ts_engine.rule_names();
     assert!(!names.is_empty(), "Engine should have registered rules");
     assert!(
-        names.contains(&"unwrap-abuse"),
-        "unwrap-abuse should be registered"
+        names.contains(&"rust-must-use"),
+        "rust-must-use should be registered"
     );
 }
 

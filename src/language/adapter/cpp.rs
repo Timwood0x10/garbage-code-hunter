@@ -1,7 +1,8 @@
 //! CppAdapter — C++ language adapter.
 
 use super::{
-    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    count_params, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
+    MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -155,7 +156,7 @@ impl LanguageAdapter for CppAdapter {
             for group in &groups {
                 for cap in group {
                     if cap.name == "params" {
-                        let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                        let param_count = count_params(cap.text);
                         if param_count > threshold {
                             count += 1;
                         }

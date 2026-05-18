@@ -4,6 +4,7 @@ mod translations;
 
 use colored::*;
 use std::collections::{BTreeMap, HashMap};
+#[cfg(test)]
 use std::path::Path;
 
 use crate::analyzer::{CodeIssue, Severity};
@@ -79,6 +80,7 @@ impl Reporter {
         self
     }
 
+    #[cfg(test)]
     fn is_test_path(path: &Path) -> bool {
         let name = path.to_string_lossy();
         name.contains("/tests/")
@@ -114,13 +116,6 @@ impl Reporter {
         total_lines: usize,
         spread: &HashMap<String, Vec<SpreadTarget>>,
     ) {
-        // Split into production and test code issues
-        let _prod_issues: Vec<CodeIssue> = issues
-            .iter()
-            .filter(|i| !Self::is_test_path(&i.file_path))
-            .cloned()
-            .collect();
-
         // Calculate separate scores (merge issue-derived + direct signal scores)
         let scorer = CodeScorer::new();
         let combined_score = if self.direct_scores.is_empty() {

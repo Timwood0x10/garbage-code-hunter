@@ -726,7 +726,7 @@ mod tests {
                 signal.display_name()
             );
         }
-        assert_eq!(sigs.len(), 10, "Rust has all 7 direct signals");
+        assert_eq!(sigs.len(), 10, "Rust has all 10 direct signals");
     }
 
     /// Objective: Verify direct_signals returns all 10 signals for Go.
@@ -740,7 +740,7 @@ mod tests {
                 signal.display_name()
             );
         }
-        assert_eq!(sigs.len(), 10, "Go has all 7 direct signals");
+        assert_eq!(sigs.len(), 10, "Go has all 10 direct signals");
     }
 
     /// Objective: Verify direct_signals returns all 10 signals for Python.
@@ -754,7 +754,7 @@ mod tests {
                 signal.display_name()
             );
         }
-        assert_eq!(sigs.len(), 10, "Python has all 7 direct signals");
+        assert_eq!(sigs.len(), 10, "Python has all 10 direct signals");
     }
 
     /// Objective: Verify has_direct_detector matches direct_signals.

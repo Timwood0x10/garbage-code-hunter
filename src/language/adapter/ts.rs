@@ -1,8 +1,8 @@
 //! TSAdapter — TypeScript language adapter.
 
 use super::{
-    count_nested_blocks, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
-    MEANINGLESS_NAMES,
+    count_nested_blocks, count_params, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -143,7 +143,7 @@ impl LanguageAdapter for TSAdapter {
         for group in &groups {
             for cap in group {
                 if cap.name == "params" {
-                    let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                    let param_count = count_params(cap.text);
                     if param_count > threshold {
                         count += 1;
                     }
@@ -185,8 +185,10 @@ impl LanguageAdapter for TSAdapter {
             }
         }
 
-        // prefer-interface: type_alias_declaration
-        if let Ok(groups) = collect_captures(file, "(type_alias_declaration) @alias") {
+        // prefer-interface: type_alias_declaration with object type (not unions/primitives/functions)
+        if let Ok(groups) =
+            collect_captures(file, "(type_alias_declaration value: (object_type) @alias)")
+        {
             count += groups.len();
         }
 

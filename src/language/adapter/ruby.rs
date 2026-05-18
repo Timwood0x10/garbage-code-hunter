@@ -1,6 +1,8 @@
 //! RubyAdapter — Ruby language adapter.
 
-use super::{is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter};
+use super::{
+    count_params, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
+};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
@@ -179,7 +181,7 @@ impl LanguageAdapter for RubyAdapter {
         for group in &groups {
             for cap in group {
                 if cap.name == "params" {
-                    let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                    let param_count = count_params(cap.text);
                     if param_count > threshold {
                         count += 1;
                     }

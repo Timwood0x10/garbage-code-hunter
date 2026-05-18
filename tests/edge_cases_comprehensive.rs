@@ -442,13 +442,17 @@ fn test_cross_file_duplication_thresholds() {
 
     let similar_code = r#"
 fn helper_function(data: &str) -> String {
-    let result = data.to_uppercase();
-    result
+    let trimmed = data.trim();
+    let result = trimmed.to_uppercase();
+    let formatted = format!("processed: {}", result);
+    formatted
 }
 
 fn process_item(item: i32) -> i32 {
-    let tmp = item * 2 + 1;
-    tmp
+    let adjusted = item + 10;
+    let doubled = adjusted * 2;
+    let final_value = doubled - 5;
+    final_value
 }
 "#;
 
@@ -457,16 +461,12 @@ fn process_item(item: i32) -> i32 {
 
     let analyzer = CodeAnalyzer::new(&[], "en-US");
 
-    // Analyze both files
-    let issues1 = analyzer.analyze_file(&file1);
-    let issues2 = analyzer.analyze_file(&file2);
-
-    // Both files should have some issues (even if not cross-file)
-    let total_issues = issues1.len() + issues2.len();
+    // Analyze directory to trigger cross-file duplication detection
+    let issues = analyzer.analyze_path(temp_dir.path());
 
     assert!(
-        total_issues > 0,
-        "Similar code should generate at least some issues in both files combined, got {}",
-        total_issues
+        !issues.is_empty(),
+        "Similar code across files should trigger duplication detection, got {} issues",
+        issues.len()
     );
 }

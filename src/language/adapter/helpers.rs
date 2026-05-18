@@ -98,6 +98,19 @@ pub(crate) fn is_inside_declaration(node: tree_sitter::Node) -> bool {
     false
 }
 
+pub(crate) fn count_params(text: &str) -> usize {
+    let inner = text.trim();
+    if inner.len() < 2 {
+        return 0;
+    }
+    let inner = &inner[1..inner.len() - 1];
+    if inner.trim().is_empty() {
+        0
+    } else {
+        inner.bytes().filter(|&b| b == b',').count() + 1
+    }
+}
+
 /// Parse source code for a given language, returning the ParsedFile.
 #[cfg(test)]
 pub(crate) fn parse_code(

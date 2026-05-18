@@ -1,8 +1,8 @@
 //! RustAdapter — Rust language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, is_inside_declaration, is_repeating_chars,
-    max_scope_depth, FunctionNode, LanguageAdapter,
+    count_block_ancestors, count_nested_blocks, count_params, is_inside_declaration,
+    is_repeating_chars, max_scope_depth, FunctionNode, LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -193,7 +193,7 @@ impl LanguageAdapter for RustAdapter {
             for group in &groups {
                 for cap in group {
                     if cap.name == "params" {
-                        let param_count = cap.text.bytes().filter(|&b| b == b',').count() + 1;
+                        let param_count = count_params(cap.text);
                         if param_count > threshold {
                             count += 1;
                         }
@@ -230,12 +230,7 @@ impl LanguageAdapter for RustAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0"
-                        && text != "1"
-                        && text != "-1"
-                        && text != "true"
-                        && text != "false"
-                    {
+                    if text != "0" && text != "1" && text != "-1" {
                         count += 1;
                     }
                 }
