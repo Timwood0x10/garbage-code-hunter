@@ -1,6 +1,8 @@
 use regex::Regex;
 
 use crate::analyzer::{CodeIssue, Severity};
+use crate::context::project_config::ProjectConfig;
+use crate::context::FileContext;
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
@@ -909,16 +911,13 @@ fn number_literal_query(lang: Language) -> &'static str {
 
 pub(crate) struct MagicNumberRule;
 
-impl TreeSitterRule for MagicNumberRule {
-    fn name(&self) -> &'static str {
-        "magic-number"
-    }
-
-    fn supported_languages(&self) -> &'static [Language] {
-        crate::language::LANGUAGES_WITH_GRAMMAR
-    }
-
-    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+impl MagicNumberRule {
+    /// Shared core logic — builds allowlist from ([common], per-language defaults, [config_overrides]).
+    fn check_inner(
+        &self,
+        file: &ParsedFile,
+        config_overrides: Option<&[String]>,
+    ) -> Vec<CodeIssue> {
         let query = number_literal_query(file.language);
         if query.is_empty() {
             return vec![];
@@ -927,30 +926,66 @@ impl TreeSitterRule for MagicNumberRule {
             Ok(c) => c,
             Err(_) => return vec![],
         };
-        // Named-constant parent kinds: skip literals directly assigned to const/let
+
+        // Build allowlist
+        let mut allow: Vec<String> = Vec::new();
+        // Common across all languages
+        for s in &["0", "1", "-1", "2", "100", "0.0", "1.0", "10", "60", "24"] {
+            allow.push(s.to_string());
+        }
+        // Per-language additional allowlists
+        match file.language {
+            Language::JavaScript | Language::TypeScript => {
+                allow.extend(
+                    [
+                        "200", "201", "204", "300", "301", "302", "304", "400", "401", "403",
+                        "404", "500", "503",
+                    ]
+                    .map(String::from),
+                );
+            }
+            Language::Python => {
+                allow.extend(["255", "127", "128", "256"].map(String::from));
+            }
+            Language::C | Language::Cpp => {
+                allow.extend(["1024", "2048", "4096", "8192", "65535"].map(String::from));
+            }
+            Language::Go => {
+                allow.extend(["1024", "2048", "4096"].map(String::from));
+            }
+            Language::Rust => {
+                allow.extend(["1024", "2048", "4096"].map(String::from));
+            }
+            _ => {}
+        }
+        // Config overrides
+        if let Some(overrides) = config_overrides {
+            for n in overrides {
+                allow.push(n.to_string());
+            }
+        }
+
+        // Named-constant parent kinds
         let named_parents: &[&str] = &[
             "const_item",
             "let_declaration",
             "assignment",
             "variable_declarator",
         ];
-        // Switch case labels: skip literals that are case values
+        // Switch case labels
         let case_label_kinds: &[&str] = &["case", "switch_case", "case_statement"];
-        let common: &[&str] = &["0", "1", "-1", "2", "100", "0.0", "1.0", "10", "60", "24"];
         let mut issues = Vec::new();
         for group in &captures {
             if let Some(cap) = group.first() {
                 let text = cap.text.trim();
-                // Skip literals assigned to named constants
                 let parent = cap.node.parent();
                 if parent.is_some_and(|p| named_parents.contains(&p.kind())) {
                     continue;
                 }
-                // Skip literals that are switch case labels (not magic numbers)
                 if parent.is_some_and(|p| case_label_kinds.contains(&p.kind())) {
                     continue;
                 }
-                if !common.contains(&text) && text.parse::<f64>().is_ok() {
+                if !allow.iter().any(|a| a == text) && text.parse::<f64>().is_ok() {
                     let pos = cap.node.start_position();
                     issues.push(CodeIssue {
                         file_path: file.path.clone(),
@@ -964,6 +999,37 @@ impl TreeSitterRule for MagicNumberRule {
             }
         }
         issues
+    }
+}
+
+impl TreeSitterRule for MagicNumberRule {
+    fn name(&self) -> &'static str {
+        "magic-number"
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        crate::language::LANGUAGES_WITH_GRAMMAR
+    }
+
+    fn check(&self, file: &ParsedFile) -> Vec<CodeIssue> {
+        self.check_inner(file, None)
+    }
+
+    fn check_with_context(
+        &self,
+        file: &ParsedFile,
+        _is_test_file: bool,
+        _context: &FileContext,
+        config: &ProjectConfig,
+    ) -> Vec<CodeIssue> {
+        let cfg = &config.rules.magic_number;
+        let overrides: Vec<String> = cfg
+            .allowed_numbers
+            .iter()
+            .chain(cfg.ui_layout_numbers.iter())
+            .map(|n| n.to_string())
+            .collect();
+        self.check_inner(file, Some(&overrides))
     }
 }
 

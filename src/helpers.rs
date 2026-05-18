@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use garbage_code_hunter::analyzer::{CodeAnalyzer, CodeIssue};
+use garbage_code_hunter::analyzer::{CodeAnalyzer, CodeIssue, Severity};
 use garbage_code_hunter::common::OutputFormat;
 use garbage_code_hunter::context::ProjectConfig;
 use garbage_code_hunter::language::SUPPORTED_EXTENSIONS;
@@ -306,6 +306,14 @@ struct AnalyzeJsonIssue {
     severity: String,
 }
 
+#[derive(serde::Serialize)]
+struct AnalyzeJsonSignal {
+    signal: String,
+    file_path: String,
+    severity: String,
+    violation_count: usize,
+}
+
 #[derive(Clone, serde::Serialize)]
 pub struct AnalyzeJsonFile {
     pub file_path: String,
@@ -316,6 +324,8 @@ pub struct AnalyzeJsonFile {
 struct AnalyzeJsonSummary {
     file_count: usize,
     issue_count: usize,
+    signal_count: usize,
+    total_score: f64,
     style_ir_summary: Option<StyleIrSummary>,
 }
 
@@ -323,9 +333,26 @@ struct AnalyzeJsonSummary {
 struct AnalyzeJsonReport {
     schema_version: &'static str,
     issues: Vec<AnalyzeJsonIssue>,
+    signals: Vec<AnalyzeJsonSignal>,
     files: Vec<AnalyzeJsonFile>,
     summary: AnalyzeJsonSummary,
     style_ir_summary: Option<StyleIrSummary>,
+}
+
+fn compute_json_score(issues: &[AnalyzeJsonIssue], total_lines: usize) -> f64 {
+    let (nuclear, spicy, mild) =
+        issues
+            .iter()
+            .fold((0, 0, 0), |(n, s, m), i| match i.severity.as_str() {
+                "Nuclear" => (n + 1, s, m),
+                "Spicy" => (n, s + 1, m),
+                _ => (n, s, m + 1),
+            });
+    let k_lines = (total_lines as f64 / 1000.0).max(0.001);
+    let n_score = ((nuclear as f64 + 1.0).log2() * 8.0).min(40.0);
+    let density = (spicy as f64 * 1.5 + mild as f64) / k_lines;
+    let d_score = ((density + 1.0).log2() * 6.0).min(60.0);
+    ((n_score + d_score) * 100.0).round() / 100.0
 }
 
 pub fn output_json(
@@ -333,27 +360,52 @@ pub fn output_json(
     files: &[AnalyzeJsonFile],
     style_ir_summary: Option<&StyleIrSummary>,
 ) {
-    let json_issues: Vec<AnalyzeJsonIssue> = issues
-        .iter()
-        .map(|issue| AnalyzeJsonIssue {
+    // Separate signal findings (line=0) from per-line rule issues
+    let mut json_issues = Vec::new();
+    let mut json_signals = Vec::new();
+    for issue in issues {
+        let json = AnalyzeJsonIssue {
             file_path: issue.file_path.to_string_lossy().to_string(),
             line: issue.line,
             column: issue.column,
             rule_name: issue.rule_name.clone(),
             message: issue.message.clone(),
             severity: format!("{:?}", issue.severity),
-        })
-        .collect();
+        };
+        if issue.line == 0 {
+            // Extract violation count from message for signal display
+            let count = issue
+                .message
+                .split_whitespace()
+                .next()
+                .and_then(|w| w.parse::<usize>().ok())
+                .unwrap_or(0);
+            json_signals.push(AnalyzeJsonSignal {
+                signal: issue.rule_name.clone(),
+                file_path: issue.file_path.to_string_lossy().to_string(),
+                severity: format!("{:?}", issue.severity),
+                violation_count: count,
+            });
+        } else {
+            json_issues.push(json);
+        }
+    }
+
+    let total_lines = style_ir_summary.map(|s| s.line_count).unwrap_or(1);
+    let total_score = compute_json_score(&json_issues, total_lines);
 
     let summary = AnalyzeJsonSummary {
         file_count: files.len(),
         issue_count: json_issues.len(),
+        signal_count: json_signals.len(),
+        total_score,
         style_ir_summary: style_ir_summary.cloned(),
     };
 
     let json_report = AnalyzeJsonReport {
         schema_version: "1.0",
         issues: json_issues,
+        signals: json_signals,
         files: files.to_vec(),
         summary,
         style_ir_summary: style_ir_summary.cloned(),
@@ -525,4 +577,24 @@ pub fn collect_supported_files(path: &PathBuf, exclude_patterns: &[String]) -> V
     }
 
     files
+}
+
+/// Output GitHub Actions workflow commands as annotations.
+pub fn output_github_actions(issues: &[CodeIssue]) {
+    for issue in issues {
+        let sev = match issue.severity {
+            Severity::Nuclear => "error",
+            Severity::Spicy => "warning",
+            Severity::Mild => "notice",
+        };
+        let file = issue
+            .file_path
+            .file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or_else(|| issue.file_path.to_string_lossy().to_string());
+        println!(
+            "::{} file={},line={},title={}::{}",
+            sev, file, issue.line, issue.rule_name, issue.message
+        );
+    }
 }

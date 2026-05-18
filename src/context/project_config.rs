@@ -112,7 +112,7 @@ pub struct RulesConfig {
     pub unwrap: UnwrapRuleConfig,
 
     /// Magic Number rule configuration
-    #[serde(default)]
+    #[serde(default, rename = "magic_number")]
     pub magic_number: MagicNumberRuleConfig,
 
     /// Println rule configuration
@@ -349,5 +349,25 @@ threshold = 5
         assert_eq!(config.rules.unwrap.nuclear_threshold, 20);
         assert_eq!(config.rules.println.threshold, 5);
         // Note: overrides parsing tested separately to isolate potential issues
+    }
+
+    #[test]
+    fn test_magic_number_config_parse() {
+        let toml_content = r#"
+[rules.magic_number]
+allowed-numbers = [3000, 1500, 86400]
+ui-layout-numbers = [100, 200, 300]
+"#;
+        let config: ProjectConfig =
+            toml::from_str(toml_content).expect("Failed to parse magic number config");
+        assert_eq!(
+            config.rules.magic_number.allowed_numbers,
+            vec![3000, 1500, 86400]
+        );
+        assert_eq!(
+            config.rules.magic_number.ui_layout_numbers,
+            vec![100, 200, 300]
+        );
+        assert!(config.rules.magic_number.enabled);
     }
 }
