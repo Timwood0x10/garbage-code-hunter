@@ -81,6 +81,25 @@ pub trait LanguageAdapter: Send + Sync {
         false
     }
 
+    /// Count goroutine spawns (Go-specific).
+    fn count_goroutine_spawns(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count `defer` statements inside `for` loops (Go-specific).
+    fn count_defer_in_loop(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count Go convention violations: uppercase error strings,
+    /// context.Context not first param, if-else with return.
+    fn count_go_convention_violations(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
     /// Count commented-out code blocks in the file.
     /// Default implementation uses content-based detection.
     fn count_commented_out_code(&self, file: &ParsedFile) -> usize {

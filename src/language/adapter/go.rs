@@ -81,6 +81,7 @@ impl LanguageAdapter for GoAdapter {
         )
         .ok();
 
+        // Single-letter & terrible naming in variables
         if let Ok(groups) = collect_captures(
             file,
             "[(short_var_declaration left: (expression_list (identifier) @var))
@@ -101,6 +102,54 @@ impl LanguageAdapter for GoAdapter {
                 }
             }
         }
+
+        // go-receiver-name: method receivers longer than 2 chars
+        if let Ok(groups) = collect_captures(
+            file,
+            "(method_declaration receiver: (parameter_list (parameter_declaration name: (identifier) @rec)))",
+        ) {
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    if cap.text.len() > 2 {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // go-mixed-caps: snake_case or ALL_CAPS variable names
+        let go_idioms = [
+            "err", "ok", "ctx", "mu", "wg", "ch", "db", "id", "ip", "tx", "rx", "fd", "fs", "ns",
+            "fn", "hp", "os", "rc",
+        ];
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
+                continue;
+            }
+            let name = if let Some(rest) = trimmed.strip_prefix("var ") {
+                rest.split_whitespace().next().unwrap_or("")
+            } else if let Some(idx) = trimmed.find(":=") {
+                trimmed[..idx].split_whitespace().last().unwrap_or("")
+            } else {
+                ""
+            };
+            if name.is_empty() || name.len() < 2 || go_idioms.contains(&name) || name == "_" {
+                continue;
+            }
+            if name.chars().next().is_some_and(|c| c.is_uppercase()) {
+                continue;
+            }
+            let has_underscore = name.contains('_') && name != "_";
+            let is_all_caps = name
+                .chars()
+                .all(|c| c.is_uppercase() || c == '_' || c.is_numeric())
+                && name.chars().any(|c| c.is_uppercase());
+            if has_underscore || is_all_caps {
+                count += 1;
+            }
+        }
+
         count
     }
 
@@ -170,6 +219,140 @@ impl LanguageAdapter for GoAdapter {
                 }
             }
         }
+        count
+    }
+
+    fn count_goroutine_spawns(&self, file: &ParsedFile) -> usize {
+        let Ok(groups) = collect_captures(file, "(go_statement) @go") else {
+            return 0;
+        };
+        groups.len()
+    }
+
+    fn count_defer_in_loop(&self, file: &ParsedFile) -> usize {
+        fn has_defer_child(node: tree_sitter::Node) -> bool {
+            let mut cursor = node.walk();
+            let mut found = cursor.goto_first_child();
+            while found {
+                if cursor.node().kind() == "defer_statement" {
+                    return true;
+                }
+                found = cursor.goto_next_sibling();
+            }
+            false
+        }
+
+        fn walk_for_loops(_file: &ParsedFile, node: tree_sitter::Node, count: &mut usize) {
+            if node.kind() == "for_statement" && has_defer_child(node) {
+                *count += 1;
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                walk_for_loops(_file, child, count);
+            }
+        }
+
+        let mut count = 0;
+        walk_for_loops(file, file.root_node(), &mut count);
+        count
+    }
+
+    fn count_go_convention_violations(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+
+        // go-error-string: fmt.Errorf / fmt.New with uppercase first letter
+        if let Ok(groups) = collect_captures(
+            file,
+            r#"(call_expression function: (selector_expression operand: (identifier) @pkg field: (field_identifier) @method) (#eq? @pkg "fmt") (#match? @method "^(Errorf|New)$"))"#,
+        ) {
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    let call = cap.node.parent().and_then(|p| p.parent());
+                    if let Some(call_node) = call {
+                        for child in call_node.children(&mut call_node.walk()) {
+                            if child.kind() == "argument_list" {
+                                let text = file.node_text(child);
+                                let trimmed = text.trim();
+                                let start = trimmed.find('"');
+                                let content = start
+                                    .map(|s| {
+                                        let from = &trimmed[s + 1..];
+                                        from.find('"').map(|e| &from[..e]).unwrap_or("")
+                                    })
+                                    .unwrap_or("");
+                                if let Some(first) = content.chars().next() {
+                                    if first.is_uppercase() {
+                                        count += 1;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // go-context-first: context.Context not the first parameter
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("func ") {
+                continue;
+            }
+            let params_start = trimmed.find('(');
+            let params_end = trimmed.rfind(')');
+            if let (Some(ps), Some(pe)) = (params_start, params_end) {
+                let params_str = &trimmed[ps + 1..pe];
+                if params_str.contains("context.Context") {
+                    let first = params_str.split(',').next().unwrap_or("").trim();
+                    if !first.contains("context.Context") {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // go-else-return: if-else with return in if-block
+        fn has_return_statement(n: tree_sitter::Node) -> bool {
+            if n.kind() == "return_statement" {
+                return true;
+            }
+            let mut cursor = n.walk();
+            let mut inner = cursor.goto_first_child();
+            while inner {
+                if cursor.node().kind() == "return_statement" {
+                    return true;
+                }
+                inner = cursor.goto_next_sibling();
+            }
+            false
+        }
+
+        fn check_else_return(_file: &ParsedFile, node: tree_sitter::Node, count: &mut usize) {
+            if node.kind() == "if_statement" {
+                let mut cx = node.walk();
+                let has_else = node.children(&mut cx).any(|c| c.kind() == "else");
+                if has_else {
+                    let mut cx2 = node.walk();
+                    for child in node.children(&mut cx2) {
+                        if child.kind() == "block" || child.kind() == "compound_statement" {
+                            let mut cx3 = child.walk();
+                            let has_return = child.children(&mut cx3).any(has_return_statement);
+                            if has_return {
+                                *count += 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            let mut cx4 = node.walk();
+            for child in node.children(&mut cx4) {
+                check_else_return(_file, child, count);
+            }
+        }
+        check_else_return(file, file.root_node(), &mut count);
+
         count
     }
 }

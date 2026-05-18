@@ -468,6 +468,9 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
     let mut magic_number_count = 0usize;
     let mut commented_out_lines = 0usize;
     let mut todo_count = 0usize;
+    let mut goroutine_spawn_count = 0usize;
+    let mut defer_in_loop_count = 0usize;
+    let mut go_convention_count = 0usize;
     let thresholds = files[0].style_ir_summary.thresholds;
 
     for file in files {
@@ -484,6 +487,9 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         magic_number_count += summary.magic_number_count;
         commented_out_lines += summary.commented_out_lines;
         todo_count += summary.todo_count;
+        goroutine_spawn_count += summary.goroutine_spawn_count;
+        defer_in_loop_count += summary.defer_in_loop_count;
+        go_convention_count += summary.go_convention_count;
     }
     Some(StyleIrSummary {
         language,
@@ -499,6 +505,9 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         magic_number_count,
         commented_out_lines,
         todo_count,
+        goroutine_spawn_count,
+        defer_in_loop_count,
+        go_convention_count,
         over_engineering_count: god_function_count + excessive_param_count,
         code_smell_count: unsafe_block_count * 2 + magic_number_count,
         is_clean_signal_baseline: panic_call_count == 0
@@ -509,7 +518,10 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
             && unsafe_block_count == 0
             && magic_number_count == 0
             && commented_out_lines == 0
-            && todo_count == 0,
+            && todo_count == 0
+            && goroutine_spawn_count == 0
+            && defer_in_loop_count == 0
+            && go_convention_count == 0,
         thresholds,
     })
 }

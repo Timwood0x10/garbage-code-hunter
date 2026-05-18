@@ -26,6 +26,9 @@ pub struct StyleIrSummary {
     pub naming_violation_count: usize,
     pub deeply_nested_block_count: usize,
     pub debug_call_count: usize,
+    pub goroutine_spawn_count: usize,
+    pub defer_in_loop_count: usize,
+    pub go_convention_count: usize,
     pub excessive_param_count: usize,
     pub unsafe_block_count: usize,
     pub magic_number_count: usize,
@@ -79,6 +82,15 @@ pub struct StyleIr {
 
     /// Count of TODO/FIXME/BUG/HACK markers in comments.
     pub todo_count: usize,
+
+    /// Count of goroutine `go` statement spawns (Go-specific).
+    pub goroutine_spawn_count: usize,
+
+    /// Count of `defer` statements inside `for` loops (Go-specific).
+    pub defer_in_loop_count: usize,
+
+    /// Count of Go convention violations (error string case, context order, else-return).
+    pub go_convention_count: usize,
 }
 
 impl StyleIr {
@@ -105,6 +117,9 @@ impl StyleIr {
             magic_number_count: adapter.count_magic_numbers(file),
             commented_out_lines: adapter.count_commented_out_code(file),
             todo_count: adapter.count_todo_markers(file),
+            goroutine_spawn_count: adapter.count_goroutine_spawns(file),
+            defer_in_loop_count: adapter.count_defer_in_loop(file),
+            go_convention_count: adapter.count_go_convention_violations(file),
         })
     }
 
@@ -121,12 +136,12 @@ impl StyleIr {
 
     /// Count the combined over-engineering signal violations.
     pub fn over_engineering_count(&self) -> usize {
-        self.god_function_count() + self.excessive_param_count
+        self.god_function_count() + self.excessive_param_count + self.goroutine_spawn_count
     }
 
     /// Count the combined code-smell signal violations.
     pub fn code_smell_count(&self) -> usize {
-        self.unsafe_block_count * 2 + self.magic_number_count
+        self.unsafe_block_count * 2 + self.magic_number_count + self.go_convention_count
     }
 
     /// Build a stable, JSON-ready summary for downstream consumers.
@@ -145,6 +160,9 @@ impl StyleIr {
             magic_number_count: self.magic_number_count,
             commented_out_lines: self.commented_out_lines,
             todo_count: self.todo_count,
+            goroutine_spawn_count: self.goroutine_spawn_count,
+            defer_in_loop_count: self.defer_in_loop_count,
+            go_convention_count: self.go_convention_count,
             over_engineering_count: self.over_engineering_count(),
             code_smell_count: self.code_smell_count(),
             is_clean_signal_baseline: self.is_clean_signal_baseline(),
@@ -166,6 +184,9 @@ impl StyleIr {
             && self.magic_number_count == 0
             && self.commented_out_lines == 0
             && self.todo_count == 0
+            && self.goroutine_spawn_count == 0
+            && self.defer_in_loop_count == 0
+            && self.go_convention_count == 0
     }
 }
 

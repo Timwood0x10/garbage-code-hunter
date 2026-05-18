@@ -119,7 +119,7 @@ impl SignalDetector for NestedHellDetector {
 
     fn count_violations(&self, file: &ParsedFile) -> usize {
         StyleIr::from_parsed(file)
-            .map(|ir| ir.deeply_nested_block_count)
+            .map(|ir| ir.deeply_nested_block_count + ir.defer_in_loop_count)
             .unwrap_or(0)
     }
 }
