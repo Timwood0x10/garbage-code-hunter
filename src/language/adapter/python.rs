@@ -9,6 +9,203 @@ use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
 use regex::Regex;
 
+const STANDARD_DUNDERS: &[&str] = &[
+    "__init__",
+    "__new__",
+    "__del__",
+    "__repr__",
+    "__str__",
+    "__bytes__",
+    "__format__",
+    "__lt__",
+    "__le__",
+    "__eq__",
+    "__ne__",
+    "__gt__",
+    "__ge__",
+    "__hash__",
+    "__bool__",
+    "__getattr__",
+    "__getattribute__",
+    "__setattr__",
+    "__delattr__",
+    "__call__",
+    "__len__",
+    "__getitem__",
+    "__setitem__",
+    "__delitem__",
+    "__iter__",
+    "__next__",
+    "__reversed__",
+    "__contains__",
+    "__enter__",
+    "__exit__",
+    "__aenter__",
+    "__aexit__",
+    "__await__",
+    "__aiter__",
+    "__anext__",
+    "__add__",
+    "__sub__",
+    "__mul__",
+    "__truediv__",
+    "__floordiv__",
+    "__mod__",
+    "__divmod__",
+    "__pow__",
+    "__lshift__",
+    "__rshift__",
+    "__and__",
+    "__xor__",
+    "__or__",
+    "__radd__",
+    "__rsub__",
+    "__rmul__",
+    "__rtruediv__",
+    "__rfloordiv__",
+    "__rmod__",
+    "__rdivmod__",
+    "__rpow__",
+    "__rlshift__",
+    "__rrshift__",
+    "__rand__",
+    "__rxor__",
+    "__ror__",
+    "__iadd__",
+    "__isub__",
+    "__imul__",
+    "__itruediv__",
+    "__ifloordiv__",
+    "__imod__",
+    "__ipow__",
+    "__ilshift__",
+    "__irshift__",
+    "__iand__",
+    "__ixor__",
+    "__ior__",
+    "__neg__",
+    "__pos__",
+    "__abs__",
+    "__invert__",
+    "__complex__",
+    "__int__",
+    "__float__",
+    "__round__",
+    "__index__",
+    "__copy__",
+    "__deepcopy__",
+    "__sizeof__",
+    "__reduce__",
+    "__reduce_ex__",
+    "__getnewargs__",
+    "__getstate__",
+    "__setstate__",
+    "__dir__",
+    "__class__",
+    "__subclasshook__",
+    "__init_subclass__",
+    "__instancecheck__",
+    "__subclasscheck__",
+    "__fspath__",
+    "__prepare__",
+    "__slots__",
+];
+
+const PYTHON_STDLIB_MODULES: &[&str] = &[
+    "os",
+    "sys",
+    "re",
+    "json",
+    "math",
+    "datetime",
+    "time",
+    "collections",
+    "functools",
+    "itertools",
+    "typing",
+    "pathlib",
+    "io",
+    "abc",
+    "copy",
+    "enum",
+    "dataclasses",
+    "logging",
+    "unittest",
+    "argparse",
+    "subprocess",
+    "threading",
+    "multiprocessing",
+    "socket",
+    "http",
+    "urllib",
+    "email",
+    "html",
+    "xml",
+    "csv",
+    "hashlib",
+    "hmac",
+    "secrets",
+    "base64",
+    "struct",
+    "pickle",
+    "shelve",
+    "sqlite3",
+    "gzip",
+    "zipfile",
+    "tarfile",
+    "shutil",
+    "tempfile",
+    "glob",
+    "fnmatch",
+    "contextlib",
+    "textwrap",
+    "string",
+    "operator",
+    "bisect",
+    "heapq",
+    "array",
+    "weakref",
+    "types",
+    "pprint",
+    "warnings",
+    "traceback",
+    "inspect",
+    "importlib",
+    "pkgutil",
+    "pdb",
+    "profile",
+    "timeit",
+    "dis",
+    "ast",
+    "token",
+    "tokenize",
+    "keyword",
+    "platform",
+    "ctypes",
+    "concurrent",
+    "asyncio",
+    "signal",
+    "mmap",
+    "codecs",
+    "locale",
+    "gettext",
+    "unicodedata",
+    "difflib",
+];
+
+const ACCEPTABLE_WILDCARD_MODULES: &[&str] = &[
+    "manim",
+    "numpy",
+    "matplotlib",
+    "pytest",
+    "tensorflow",
+    "torch",
+    "tkinter",
+    "PyQt5",
+    "PySide6",
+    "gi.repository",
+];
+
 pub struct PythonAdapter;
 
 impl LanguageAdapter for PythonAdapter {
@@ -131,6 +328,17 @@ impl LanguageAdapter for PythonAdapter {
             }
         }
 
+        // snake_case class names → not PascalCase
+        if let Ok(groups) = collect_captures(file, "(class_definition name: (identifier) @cls)") {
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    if cap.text.chars().next().is_some_and(|c| c.is_lowercase()) {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
         count
     }
 
@@ -187,6 +395,116 @@ impl LanguageAdapter for PythonAdapter {
                 }
             }
         }
+        count
+    }
+
+    fn count_python_issues(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+
+        // wildcard-import: from module import * (excluding idiomatic libraries)
+        if let Ok(groups) = collect_captures(file, "(wildcard_import) @wi") {
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    let line = cap.node.start_position().row;
+                    let acceptable = file.content.lines().nth(line).is_some_and(|src_line| {
+                        ACCEPTABLE_WILDCARD_MODULES
+                            .iter()
+                            .any(|m| src_line.contains(&format!("from {} import *", m)))
+                    });
+                    if !acceptable {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // compared-to-bool, not-is-none, type-ignore, fstring
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if (trimmed.contains("== True") || trimmed.contains("== False"))
+                && !trimmed.contains("is True")
+                && !trimmed.contains("is False")
+            {
+                count += 1;
+            }
+            if trimmed.contains("== None") && !trimmed.contains("is None") {
+                count += 1;
+            }
+            if trimmed.contains("!= None") && !trimmed.contains("is not None") {
+                count += 1;
+            }
+            if trimmed.contains("# type: ignore") {
+                count += 1;
+            }
+            if trimmed.contains(".format(") && !trimmed.contains("f-string") {
+                count += 1;
+            }
+            if trimmed.matches('%').count() >= 2
+                && !trimmed.contains("'%")
+                && !trimmed.contains("\"%")
+                && (trimmed.contains("%s") || trimmed.contains("%d") || trimmed.contains("%r"))
+            {
+                count += 1;
+            }
+        }
+
+        // python-magic-method: non-standard __dunder__ methods
+        if let Ok(groups) = collect_captures(file, "(function_definition name: (identifier) @fn)") {
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    let name = &cap.text;
+                    if name.starts_with("__")
+                        && name.ends_with("__")
+                        && !STANDARD_DUNDERS.contains(name)
+                    {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // python-import-order: stdlib after third-party
+        let mut seen_third_party = false;
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            if !trimmed.starts_with("import ") && !trimmed.starts_with("from ") {
+                if !trimmed.is_empty() {
+                    seen_third_party = false;
+                }
+                continue;
+            }
+            let module = if trimmed.starts_with("from ") {
+                trimmed
+                    .strip_prefix("from ")
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+            } else {
+                trimmed
+                    .strip_prefix("import ")
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+            };
+            if module.starts_with('.') {
+                continue;
+            }
+            let top_module = module.split('.').next().unwrap_or(module);
+            if !PYTHON_STDLIB_MODULES.contains(&top_module) {
+                seen_third_party = true;
+            } else if seen_third_party {
+                count += 1;
+            }
+        }
+
         count
     }
 }

@@ -29,6 +29,7 @@ pub struct StyleIrSummary {
     pub goroutine_spawn_count: usize,
     pub defer_in_loop_count: usize,
     pub go_convention_count: usize,
+    pub python_issue_count: usize,
     pub excessive_param_count: usize,
     pub unsafe_block_count: usize,
     pub magic_number_count: usize,
@@ -91,6 +92,10 @@ pub struct StyleIr {
 
     /// Count of Go convention violations (error string case, context order, else-return).
     pub go_convention_count: usize,
+
+    /// Count of Python-specific code issues (wildcard imports, bool comparisons,
+    /// identity violations, type:ignore, legacy formatting, custom dunders, import order).
+    pub python_issue_count: usize,
 }
 
 impl StyleIr {
@@ -120,6 +125,7 @@ impl StyleIr {
             goroutine_spawn_count: adapter.count_goroutine_spawns(file),
             defer_in_loop_count: adapter.count_defer_in_loop(file),
             go_convention_count: adapter.count_go_convention_violations(file),
+            python_issue_count: adapter.count_python_issues(file),
         })
     }
 
@@ -141,7 +147,10 @@ impl StyleIr {
 
     /// Count the combined code-smell signal violations.
     pub fn code_smell_count(&self) -> usize {
-        self.unsafe_block_count * 2 + self.magic_number_count + self.go_convention_count
+        self.unsafe_block_count * 2
+            + self.magic_number_count
+            + self.go_convention_count
+            + self.python_issue_count
     }
 
     /// Build a stable, JSON-ready summary for downstream consumers.
@@ -163,6 +172,7 @@ impl StyleIr {
             goroutine_spawn_count: self.goroutine_spawn_count,
             defer_in_loop_count: self.defer_in_loop_count,
             go_convention_count: self.go_convention_count,
+            python_issue_count: self.python_issue_count,
             over_engineering_count: self.over_engineering_count(),
             code_smell_count: self.code_smell_count(),
             is_clean_signal_baseline: self.is_clean_signal_baseline(),
@@ -187,6 +197,7 @@ impl StyleIr {
             && self.goroutine_spawn_count == 0
             && self.defer_in_loop_count == 0
             && self.go_convention_count == 0
+            && self.python_issue_count == 0
     }
 }
 
