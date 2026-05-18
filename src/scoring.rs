@@ -225,6 +225,9 @@ fn legacy_category_name(signal: StyleSignal) -> &'static str {
         StyleSignal::Duplication => "duplication",
         StyleSignal::PanicAddiction | StyleSignal::HotfixCulture => "student-code",
         StyleSignal::OverEngineering | StyleSignal::CodeSmells => "code-smells",
+        StyleSignal::LegacyCode => "code-smells",
+        StyleSignal::TodoMountain => "student-code",
+        StyleSignal::LineCountSmell => "complexity",
     }
 }
 

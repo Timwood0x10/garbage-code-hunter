@@ -163,6 +163,9 @@ fn categorize(rule_name: &str) -> &'static str {
         StyleSignal::CodeSmells => "Magic Number Syndrome",
         StyleSignal::OverEngineering => "Function Obesity",
         StyleSignal::HotfixCulture => "Chronic Code Smell",
+        StyleSignal::LegacyCode => "Cemetary of Dead Code",
+        StyleSignal::TodoMountain => "Unfinished Symphony",
+        StyleSignal::LineCountSmell => "File Bloat",
     }
 }
 

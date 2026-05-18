@@ -95,8 +95,8 @@ pub fn aggregate_detector_scores(
 }
 
 pub use crate::detectors::{
-    CodeSmellsDetector, DuplicationDetector, NamingChaosDetector, NestedHellDetector,
-    PanicAddictionDetector,
+    CodeSmellsDetector, DuplicationDetector, LegacyCodeDetector, LineCountSmellDetector,
+    NamingChaosDetector, NestedHellDetector, PanicAddictionDetector, TodoMountainDetector,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -108,6 +108,9 @@ pub enum StyleSignal {
     HotfixCulture,
     OverEngineering,
     CodeSmells,
+    LegacyCode,
+    TodoMountain,
+    LineCountSmell,
 }
 
 impl StyleSignal {
@@ -120,6 +123,9 @@ impl StyleSignal {
             StyleSignal::HotfixCulture,
             StyleSignal::OverEngineering,
             StyleSignal::CodeSmells,
+            StyleSignal::LegacyCode,
+            StyleSignal::TodoMountain,
+            StyleSignal::LineCountSmell,
         ]
     }
 
@@ -132,6 +138,9 @@ impl StyleSignal {
             StyleSignal::HotfixCulture => "Hotfix Culture",
             StyleSignal::OverEngineering => "Over-Engineering",
             StyleSignal::CodeSmells => "Code Smells",
+            StyleSignal::LegacyCode => "Legacy Code",
+            StyleSignal::TodoMountain => "Todo Mountain",
+            StyleSignal::LineCountSmell => "Line Count Smell",
         }
     }
 
@@ -144,6 +153,9 @@ impl StyleSignal {
             StyleSignal::HotfixCulture => "热修复文化",
             StyleSignal::OverEngineering => "过度工程",
             StyleSignal::CodeSmells => "代码异味",
+            StyleSignal::LegacyCode => "遗留代码",
+            StyleSignal::TodoMountain => "待办堆积",
+            StyleSignal::LineCountSmell => "文件过长",
         }
         .to_string()
     }
@@ -187,6 +199,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::Python => &[
                 StyleSignal::Duplication,
@@ -196,6 +211,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::Go => &[
                 StyleSignal::Duplication,
@@ -205,6 +223,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::JavaScript => &[
                 StyleSignal::Duplication,
@@ -214,6 +235,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::TypeScript => &[
                 StyleSignal::Duplication,
@@ -223,6 +247,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::Java => &[
                 StyleSignal::Duplication,
@@ -232,6 +259,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::Ruby => &[
                 StyleSignal::Duplication,
@@ -241,6 +271,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::C => &[
                 StyleSignal::Duplication,
@@ -250,6 +283,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::Cpp => &[
                 StyleSignal::Duplication,
@@ -259,6 +295,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             Language::Swift | Language::Zig => &[
                 StyleSignal::Duplication,
@@ -268,6 +307,9 @@ impl LanguageCapabilityMatrix {
                 StyleSignal::NestedHell,
                 StyleSignal::HotfixCulture,
                 StyleSignal::OverEngineering,
+                StyleSignal::LegacyCode,
+                StyleSignal::TodoMountain,
+                StyleSignal::LineCountSmell,
             ],
             _ => &[],
         }
@@ -306,11 +348,15 @@ pub fn classify_rule(rule_name: &str) -> StyleSignal {
         | "complex-closure"
         | "go-else-return"
         | "negated-if" => StyleSignal::NestedHell,
-        "todo-comment" | "todo-fixme" | "todo-bug" | "todo-hack" | "commented-code"
-        | "dead-code" | "c-commented-code" | "c-dead-code" => StyleSignal::HotfixCulture,
+        "commented-code" | "c-commented-code" | "dead-code" | "c-dead-code" => {
+            StyleSignal::LegacyCode
+        }
+        "todo-comment" | "todo-fixme" | "todo-bug" | "todo-hack" => StyleSignal::TodoMountain,
         "too-many-params" | "god-function" | "long-function" | "c-long-function"
-        | "c-god-function" | "file-too-long" | "module-complexity" | "trait-complexity"
-        | "generic-abuse" => StyleSignal::OverEngineering,
+        | "c-god-function" | "module-complexity" | "trait-complexity" | "generic-abuse" => {
+            StyleSignal::OverEngineering
+        }
+        "file-too-long" => StyleSignal::LineCountSmell,
         _ => StyleSignal::CodeSmells,
     }
 }
@@ -562,23 +608,31 @@ mod tests {
         }
     }
 
-    /// Objective: Verify all HotfixCulture rule names map correctly.
+    /// Objective: Verify all LegacyCode rule names map correctly.
     #[test]
-    fn test_classify_hotfix_all() {
+    fn test_classify_legacy_code() {
         for name in &[
-            "todo-comment",
-            "todo-fixme",
-            "todo-bug",
-            "todo-hack",
             "commented-code",
-            "dead-code",
             "c-commented-code",
+            "dead-code",
             "c-dead-code",
         ] {
             assert_eq!(
                 classify_rule(name),
-                StyleSignal::HotfixCulture,
-                "{name} should map to HotfixCulture"
+                StyleSignal::LegacyCode,
+                "{name} should map to LegacyCode"
+            );
+        }
+    }
+
+    /// Objective: Verify all TodoMountain rule names map correctly.
+    #[test]
+    fn test_classify_todo_mountain() {
+        for name in &["todo-comment", "todo-fixme", "todo-bug", "todo-hack"] {
+            assert_eq!(
+                classify_rule(name),
+                StyleSignal::TodoMountain,
+                "{name} should map to TodoMountain"
             );
         }
     }
@@ -592,7 +646,6 @@ mod tests {
             "long-function",
             "c-long-function",
             "c-god-function",
-            "file-too-long",
             "module-complexity",
             "trait-complexity",
             "generic-abuse",
@@ -603,6 +656,12 @@ mod tests {
                 "{name} should map to OverEngineering"
             );
         }
+    }
+
+    /// Objective: Verify LineCountSmell rule names map correctly.
+    #[test]
+    fn test_classify_line_count_smell() {
+        assert_eq!(classify_rule("file-too-long"), StyleSignal::LineCountSmell);
     }
 
     /// Objective: Verify CodeSmells fallback for unknown and known non-mapped rules.
@@ -616,7 +675,7 @@ mod tests {
 
     // ── LanguageCapabilityMatrix ──────────────────────────────────
 
-    /// Objective: Verify all grammar languages support all 7 signals.
+    /// Objective: Verify all grammar languages support all 10 signals.
     /// Invariants: supported_signals returns StyleSignal::all() for grammar languages.
     #[test]
     fn test_matrix_supported_all_grammar_languages() {
@@ -624,8 +683,8 @@ mod tests {
             let sigs = LanguageCapabilityMatrix::supported_signals(*lang);
             assert_eq!(
                 sigs.len(),
-                7,
-                "{} should support 7 signals",
+                10,
+                "{} should support 10 signals",
                 lang.display_name()
             );
         }
@@ -656,7 +715,7 @@ mod tests {
         ));
     }
 
-    /// Objective: Verify direct_signals returns all 7 signals for Rust.
+    /// Objective: Verify direct_signals returns all 10 signals for Rust.
     #[test]
     fn test_matrix_direct_signals_rust() {
         let sigs = LanguageCapabilityMatrix::direct_signals(Language::Rust);
@@ -667,10 +726,10 @@ mod tests {
                 signal.display_name()
             );
         }
-        assert_eq!(sigs.len(), 7, "Rust has all 7 direct signals");
+        assert_eq!(sigs.len(), 10, "Rust has all 7 direct signals");
     }
 
-    /// Objective: Verify direct_signals returns all 7 signals for Go.
+    /// Objective: Verify direct_signals returns all 10 signals for Go.
     #[test]
     fn test_matrix_direct_signals_go() {
         let sigs = LanguageCapabilityMatrix::direct_signals(Language::Go);
@@ -681,10 +740,10 @@ mod tests {
                 signal.display_name()
             );
         }
-        assert_eq!(sigs.len(), 7, "Go has all 7 direct signals");
+        assert_eq!(sigs.len(), 10, "Go has all 7 direct signals");
     }
 
-    /// Objective: Verify direct_signals returns all 7 signals for Python.
+    /// Objective: Verify direct_signals returns all 10 signals for Python.
     #[test]
     fn test_matrix_direct_signals_python() {
         let sigs = LanguageCapabilityMatrix::direct_signals(Language::Python);
@@ -695,7 +754,7 @@ mod tests {
                 signal.display_name()
             );
         }
-        assert_eq!(sigs.len(), 7, "Python has all 7 direct signals");
+        assert_eq!(sigs.len(), 10, "Python has all 7 direct signals");
     }
 
     /// Objective: Verify has_direct_detector matches direct_signals.
@@ -722,11 +781,11 @@ mod tests {
     // ── compute_signal_scores ─────────────────────────────────────
 
     /// Objective: Verify empty issues produce all zeros.
-    /// Invariants: All 7 signals present, each exactly 0.0.
+    /// Invariants: All 10 signals present, each exactly 0.0.
     #[test]
     fn test_compute_signal_scores_empty() {
         let scores = compute_signal_scores(&[], 1000);
-        assert_eq!(scores.len(), 7, "all 7 signals present");
+        assert_eq!(scores.len(), 10, "all 10 signals present");
         for s in StyleSignal::all() {
             assert!(
                 (scores[s] - 0.0).abs() < f64::EPSILON,
@@ -831,11 +890,11 @@ mod tests {
     }
 
     /// Objective: Verify empty signal_scores produce default-0 scores.
-    /// Invariants: When all scores are equal (all 0), max_by returns the last variant (CodeSmells).
+    /// Invariants: When all scores are equal (all 0), max_by returns the last variant (LineCountSmell).
     #[test]
     fn test_style_profile_empty() {
         let p = StyleProfile::from_signal_scores(HashMap::new());
-        assert_eq!(p.dominant_signal, Some(StyleSignal::CodeSmells));
+        assert_eq!(p.dominant_signal, Some(StyleSignal::LineCountSmell));
         assert_eq!(p.score(StyleSignal::Duplication), 0.0);
         assert_eq!(p.infer_personality_type(), "The Enterprise Bureaucrat");
     }
@@ -937,9 +996,12 @@ mod tests {
             (StyleSignal::HotfixCulture, 0.0),
             (StyleSignal::OverEngineering, 0.0),
             (StyleSignal::CodeSmells, 0.0),
+            (StyleSignal::LegacyCode, 0.0),
+            (StyleSignal::TodoMountain, 0.0),
+            (StyleSignal::LineCountSmell, 0.0),
         ]);
-        // All equal at 0, the last in `all()` (CodeSmells) wins as dominant
-        assert_eq!(p.dominant_signal, Some(StyleSignal::CodeSmells));
+        // All equal at 0, the last in `all()` (LineCountSmell) wins as dominant
+        assert_eq!(p.dominant_signal, Some(StyleSignal::LineCountSmell));
         assert_eq!(p.infer_personality_type(), "The Enterprise Bureaucrat");
     }
 

@@ -29,6 +29,8 @@ pub struct StyleIrSummary {
     pub excessive_param_count: usize,
     pub unsafe_block_count: usize,
     pub magic_number_count: usize,
+    pub commented_out_lines: usize,
+    pub todo_count: usize,
     pub over_engineering_count: usize,
     pub code_smell_count: usize,
     pub is_clean_signal_baseline: bool,
@@ -71,6 +73,12 @@ pub struct StyleIr {
 
     /// Count of literal numbers that adapters classify as magic numbers.
     pub magic_number_count: usize,
+
+    /// Count of commented-out code lines (blocks of 3+ consecutive comment lines).
+    pub commented_out_lines: usize,
+
+    /// Count of TODO/FIXME/BUG/HACK markers in comments.
+    pub todo_count: usize,
 }
 
 impl StyleIr {
@@ -95,6 +103,8 @@ impl StyleIr {
                 .count_excessive_params(file, Self::EXCESSIVE_PARAM_THRESHOLD),
             unsafe_block_count: adapter.count_unsafe_blocks(file),
             magic_number_count: adapter.count_magic_numbers(file),
+            commented_out_lines: adapter.count_commented_out_code(file),
+            todo_count: adapter.count_todo_markers(file),
         })
     }
 
@@ -133,6 +143,8 @@ impl StyleIr {
             excessive_param_count: self.excessive_param_count,
             unsafe_block_count: self.unsafe_block_count,
             magic_number_count: self.magic_number_count,
+            commented_out_lines: self.commented_out_lines,
+            todo_count: self.todo_count,
             over_engineering_count: self.over_engineering_count(),
             code_smell_count: self.code_smell_count(),
             is_clean_signal_baseline: self.is_clean_signal_baseline(),
@@ -152,6 +164,8 @@ impl StyleIr {
             && self.excessive_param_count == 0
             && self.unsafe_block_count == 0
             && self.magic_number_count == 0
+            && self.commented_out_lines == 0
+            && self.todo_count == 0
     }
 }
 

@@ -466,6 +466,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
     let mut excessive_param_count = 0usize;
     let mut unsafe_block_count = 0usize;
     let mut magic_number_count = 0usize;
+    let mut commented_out_lines = 0usize;
+    let mut todo_count = 0usize;
     let thresholds = files[0].style_ir_summary.thresholds;
 
     for file in files {
@@ -480,6 +482,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         excessive_param_count += summary.excessive_param_count;
         unsafe_block_count += summary.unsafe_block_count;
         magic_number_count += summary.magic_number_count;
+        commented_out_lines += summary.commented_out_lines;
+        todo_count += summary.todo_count;
     }
     Some(StyleIrSummary {
         language,
@@ -493,6 +497,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         excessive_param_count,
         unsafe_block_count,
         magic_number_count,
+        commented_out_lines,
+        todo_count,
         over_engineering_count: god_function_count + excessive_param_count,
         code_smell_count: unsafe_block_count * 2 + magic_number_count,
         is_clean_signal_baseline: panic_call_count == 0
@@ -501,7 +507,9 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
             && debug_call_count == 0
             && excessive_param_count == 0
             && unsafe_block_count == 0
-            && magic_number_count == 0,
+            && magic_number_count == 0
+            && commented_out_lines == 0
+            && todo_count == 0,
         thresholds,
     })
 }

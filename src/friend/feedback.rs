@@ -102,6 +102,18 @@ impl BehaviorPattern {
                         "Unsafe blocks, magic numbers, and questionable patterns".into(),
                         "Prefer safe abstractions; name constants clearly".into(),
                     ),
+                    StyleSignal::LegacyCode => (
+                        "Commented-out code left in source files".into(),
+                        "Delete dead code instead of commenting it out; git has history".into(),
+                    ),
+                    StyleSignal::TodoMountain => (
+                        "Accumulated TODO/FIXME/BUG/HACK markers".into(),
+                        "Track todos in an issue tracker, not in source code".into(),
+                    ),
+                    StyleSignal::LineCountSmell => (
+                        "Files that exceed reasonable line count thresholds".into(),
+                        "Split large files into smaller focused modules".into(),
+                    ),
                 };
                 BehaviorPattern {
                     signal: *signal,

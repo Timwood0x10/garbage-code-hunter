@@ -9,8 +9,9 @@ use garbage_code_hunter::{
     context::ProjectConfig,
     danger_zone, debt_invoice, decay, deps_shamer,
     detectors::{
-        CodeSmellsDetector, DuplicationDetector, HotfixCultureDetector, NamingChaosDetector,
-        NestedHellDetector, OverEngineeringDetector, PanicAddictionDetector,
+        CodeSmellsDetector, DuplicationDetector, HotfixCultureDetector, LegacyCodeDetector,
+        LineCountSmellDetector, NamingChaosDetector, NestedHellDetector, OverEngineeringDetector,
+        PanicAddictionDetector, TodoMountainDetector,
     },
     educational::EducationalAdvisor,
     hall_of_shame::HallOfShame,
@@ -620,8 +621,12 @@ fn run_analyze(args: AnalyzeArgs) {
             Box::new(OverEngineeringDetector::new()),
             Box::new(CodeSmellsDetector::new()),
             Box::new(DuplicationDetector::new()),
+            Box::new(LegacyCodeDetector::new()),
+            Box::new(TodoMountainDetector::new()),
+            Box::new(LineCountSmellDetector::new()),
         ]);
     let findings = analyzer.analyze_to_findings(&args.path);
+
     let issues: Vec<CodeIssue> = findings.iter().map(|f| f.to_code_issue()).collect();
     let spread = analyzer.infection_spread();
     let style_ir_files = collect_style_ir_files(&args.path, &args.exclude);

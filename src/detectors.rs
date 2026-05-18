@@ -257,6 +257,122 @@ impl SignalDetector for DuplicationDetector {
     }
 }
 
+// ── LegacyCode Detector ─────────────────────────────────────────────
+
+/// Detects LegacyCode signal: blocks of commented-out code left in source.
+pub struct LegacyCodeDetector;
+
+impl LegacyCodeDetector {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for LegacyCodeDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SignalDetector for LegacyCodeDetector {
+    fn signal(&self) -> StyleSignal {
+        StyleSignal::LegacyCode
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        ADAPTER_LANGUAGES
+    }
+
+    fn skips_test_files(&self) -> bool {
+        false
+    }
+
+    fn count_violations(&self, file: &ParsedFile) -> usize {
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.commented_out_lines)
+            .unwrap_or(0)
+    }
+}
+
+// ── TodoMountain Detector ────────────────────────────────────────────
+
+/// Detects TodoMountain signal: TODO/FIXME/BUG/HACK markers in comments.
+pub struct TodoMountainDetector;
+
+impl TodoMountainDetector {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for TodoMountainDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SignalDetector for TodoMountainDetector {
+    fn signal(&self) -> StyleSignal {
+        StyleSignal::TodoMountain
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        ADAPTER_LANGUAGES
+    }
+
+    fn skips_test_files(&self) -> bool {
+        false
+    }
+
+    fn count_violations(&self, file: &ParsedFile) -> usize {
+        StyleIr::from_parsed(file)
+            .map(|ir| ir.todo_count)
+            .unwrap_or(0)
+    }
+}
+
+// ── LineCountSmell Detector ──────────────────────────────────────────
+
+/// Detects LineCountSmell signal: files exceeding reasonable line thresholds.
+pub struct LineCountSmellDetector;
+
+impl LineCountSmellDetector {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for LineCountSmellDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SignalDetector for LineCountSmellDetector {
+    fn signal(&self) -> StyleSignal {
+        StyleSignal::LineCountSmell
+    }
+
+    fn supported_languages(&self) -> &'static [Language] {
+        ADAPTER_LANGUAGES
+    }
+
+    fn skips_test_files(&self) -> bool {
+        false
+    }
+
+    fn count_violations(&self, file: &ParsedFile) -> usize {
+        let line_count = file.content.lines().count();
+        let is_test = file.path.to_string_lossy().contains("test");
+        let threshold = if is_test { 2000 } else { 1000 };
+        if line_count > threshold {
+            line_count
+        } else {
+            0
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

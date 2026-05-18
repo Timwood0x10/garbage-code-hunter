@@ -46,6 +46,9 @@ pub fn analyze(issues: &[CodeIssue]) -> Personality {
         Some(StyleSignal::OverEngineering) => {
             long_fn_personality(get(StyleSignal::OverEngineering), total)
         }
+        Some(StyleSignal::LineCountSmell) => {
+            long_fn_personality(get(StyleSignal::LineCountSmell), total)
+        }
         Some(StyleSignal::CodeSmells) => magic_personality(get(StyleSignal::CodeSmells), total),
         Some(StyleSignal::Duplication) => dup_personality(get(StyleSignal::Duplication), total),
         _ => balanced_personality(total),

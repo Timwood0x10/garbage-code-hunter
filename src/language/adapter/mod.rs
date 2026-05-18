@@ -80,7 +80,77 @@ pub trait LanguageAdapter: Send + Sync {
         let _ = file;
         false
     }
+
+    /// Count commented-out code blocks in the file.
+    /// Default implementation uses content-based detection.
+    fn count_commented_out_code(&self, file: &ParsedFile) -> usize {
+        let line_comment = file.language.line_comment();
+        let mut total = 0;
+        let mut block_size = 0;
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with(line_comment) {
+                if trimmed.starts_with("///") || trimmed.starts_with("/**") {
+                    if block_size > 0 {
+                        total += block_size;
+                        block_size = 0;
+                    }
+                    continue;
+                }
+                let text = trimmed.strip_prefix(line_comment).unwrap_or("").trim();
+                let is_code = CODEC_PATTERNS.iter().any(|p| text.contains(p));
+                if is_code {
+                    block_size += 1;
+                } else if block_size > 0 {
+                    if block_size >= 3 {
+                        total += block_size;
+                    }
+                    block_size = 0;
+                }
+            } else if !trimmed.is_empty() {
+                if block_size >= 3 {
+                    total += block_size;
+                }
+                block_size = 0;
+            }
+        }
+        if block_size >= 3 {
+            total += block_size;
+        }
+        total
+    }
+
+    /// Count TODO/FIXME/BUG/HACK markers in comments.
+    /// Default implementation uses content-based detection.
+    fn count_todo_markers(&self, file: &ParsedFile) -> usize {
+        let line_comment = file.language.line_comment();
+        let mut count = 0;
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if let Some(pos) = trimmed.find(line_comment) {
+                let comment = trimmed[pos + line_comment.len()..].trim().to_uppercase();
+                if comment.starts_with("TODO")
+                    || comment.contains(" TODO ")
+                    || comment.starts_with("FIXME")
+                    || comment.contains(" FIXME ")
+                    || comment.starts_with("BUG")
+                    || comment.contains(" BUG ")
+                    || comment.starts_with("HACK")
+                    || comment.contains(" HACK ")
+                {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
 }
+
+const CODEC_PATTERNS: &[&str] = &[
+    "fn ", "if ", "else", "for ", "while ", "match ", "struct ", "enum ", "impl ", "let ",
+    "return ", "use ", "mod ", "break", "continue", "{", "}", "(", ")", "[", "]", ";", "=", "==",
+    "!=", "&&", "||", "->", "::",
+];
 
 /// Dispatch to the correct LanguageAdapter for a given language.
 pub fn adapter_for(lang: Language) -> Option<&'static dyn LanguageAdapter> {
