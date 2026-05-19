@@ -7,7 +7,6 @@ use walkdir::WalkDir;
 
 use crate::context::ProjectConfig;
 use crate::finding::StyleFinding;
-use crate::language::adapter::adapter_for;
 use crate::language::{Language, SUPPORTED_EXTENSIONS};
 use crate::signals::{aggregate_detector_scores, SignalDetector, StyleSignal};
 use crate::style_ir::{StyleIr, StyleIrSummary};
@@ -17,6 +16,7 @@ use crate::treesitter::engine::{ParsedFile, TreeSitterEngine};
 pub struct StyleIrFileInfo {
     pub file_path: String,
     pub summary: StyleIrSummary,
+    pub is_test: bool,
 }
 
 pub struct FullAnalysisResult {
@@ -195,11 +195,7 @@ impl CodeAnalyzer {
             let is_test_file = Self::is_test_file(file_path, &content);
 
             if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                let ast_test = adapter_for(lang)
-                    .map(|a| a.has_test_nodes(&parsed))
-                    .unwrap_or(false);
-                let effective_test = is_test_file || ast_test;
-                parsed_files.push((parsed, file_path.clone(), effective_test));
+                parsed_files.push((parsed, file_path.clone(), is_test_file));
             }
         }
 
@@ -300,18 +296,14 @@ impl CodeAnalyzer {
             let is_test_file = Self::is_test_file(file_path, &content);
 
             if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                let ast_test = adapter_for(lang)
-                    .map(|a| a.has_test_nodes(&parsed))
-                    .unwrap_or(false);
-                let effective_test = is_test_file || ast_test;
-
                 if let Some(ir) = StyleIr::from_parsed(&parsed) {
                     style_ir_files.push(StyleIrFileInfo {
                         file_path: file_path.to_string_lossy().to_string(),
                         summary: ir.summary(),
+                        is_test: is_test_file,
                     });
                 }
-                parsed_files.push((parsed, file_path.clone(), effective_test));
+                parsed_files.push((parsed, file_path.clone(), is_test_file));
             }
         }
 
@@ -408,7 +400,7 @@ impl CodeAnalyzer {
         self.analyze_path(file_path)
     }
 
-    fn is_test_file(path: &Path, content: &str) -> bool {
+    fn is_test_file(path: &Path, _content: &str) -> bool {
         let path_str = path.to_string_lossy();
         // Normalize: strip leading "./" for consistent matching
         let normalized = path_str.strip_prefix("./").unwrap_or(&path_str);
@@ -471,8 +463,7 @@ impl CodeAnalyzer {
         {
             return true;
         }
-        // Check for #[cfg(test)] module in content (Rust)
-        content.contains("#[cfg(test)]")
+        false
     }
 }
 
@@ -611,14 +602,15 @@ mod tests {
         );
     }
 
-    /// Objective: Verify that #[cfg(test)] in file content is detected even when
-    ///            the path does not contain any test indicators.
-    /// Invariants: Content analysis is the fallback when path heuristics fail.
+    /// Objective: Verify that a file with only path-based test indicators (like
+    ///            src/tests/ or _test.rs) is classified as test; content-based
+    ///            #[cfg(test)] alone is NOT sufficient.
+    /// Invariants: Test file detection is purely path-based.
     #[test]
-    fn test_is_test_file_uses_content_fallback_for_cfg_test() {
+    fn test_is_test_file_rejects_content_only_cfg_test() {
         assert!(
-            CodeAnalyzer::is_test_file(Path::new("src/foo.rs"), "#[cfg(test)]\nmod tests {}"),
-            "#[cfg(test)] in content should mark a file as test"
+            !CodeAnalyzer::is_test_file(Path::new("src/foo.rs"), "#[cfg(test)]\nmod tests {}"),
+            "#[cfg(test)] in content alone should NOT mark src/ file as test"
         );
     }
 

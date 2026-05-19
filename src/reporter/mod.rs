@@ -150,17 +150,13 @@ impl Reporter {
             self.print_markdown_report(&issues, &roasts, &combined_score, spread);
         } else {
             if self.show_friend_feedback && !issues.is_empty() {
-                let is_zh = self.i18n.lang.starts_with("zh");
-                let feedback = if is_zh {
-                    FriendFeedback::new_zh(&issues, &combined_score, &self.direct_scores)
-                } else {
-                    FriendFeedback::new(&issues, &combined_score, &self.direct_scores)
-                };
-                if is_zh {
-                    feedback.print_zh();
-                } else {
-                    feedback.print();
-                }
+                let feedback = FriendFeedback::new(
+                    &issues,
+                    &combined_score,
+                    &self.direct_scores,
+                    &self.i18n.lang,
+                );
+                feedback.print(&self.i18n.lang);
             }
 
             let (personality, autopsy) =
@@ -259,26 +255,25 @@ impl Reporter {
         // ── Friend Feedback ──
         if self.show_friend_feedback {
             let is_zh = self.i18n.lang.starts_with("zh");
-            let feedback = if is_zh {
-                FriendFeedback::new_zh(issues, combined_score, &self.direct_scores)
-            } else {
-                FriendFeedback::new(issues, combined_score, &self.direct_scores)
-            };
+            let feedback =
+                FriendFeedback::new(issues, combined_score, &self.direct_scores, &self.i18n.lang);
             if is_zh {
                 println!("## 💬 朋友的看法");
-                println!();
+            } else {
+                println!("## 💬 Friend's Take");
+            }
+            println!();
+            if is_zh {
                 println!(
                     "**心情:** {} {}",
                     feedback.mood.emoji(),
-                    feedback.mood.vibe_zh()
+                    feedback.mood.vibe(&self.i18n.lang)
                 );
             } else {
-                println!("## 💬 Friend's Take");
-                println!();
                 println!(
                     "**Mood:** {} {}",
                     feedback.mood.emoji(),
-                    feedback.mood.vibe()
+                    feedback.mood.vibe(&self.i18n.lang)
                 );
             }
             if !feedback.patterns.is_empty() {

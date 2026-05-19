@@ -639,6 +639,7 @@ fn run_analyze(args: AnalyzeArgs) {
         .map(|f| AnalyzeJsonFile {
             file_path: f.file_path,
             style_ir_summary: f.summary,
+            is_test: f.is_test,
         })
         .collect();
     let style_ir_summary = summarize_style_ir_files(&style_ir_files);

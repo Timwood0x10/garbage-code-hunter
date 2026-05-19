@@ -5,6 +5,7 @@
 //! language-agnostic and consolidates query logic per language.
 
 mod c;
+mod c_cpp_common;
 mod cpp;
 mod go;
 mod helpers;

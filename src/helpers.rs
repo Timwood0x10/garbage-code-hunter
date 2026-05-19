@@ -317,6 +317,8 @@ struct AnalyzeJsonSignal {
 pub struct AnalyzeJsonFile {
     pub file_path: String,
     pub style_ir_summary: StyleIrSummary,
+    #[serde(skip)]
+    pub is_test: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -419,15 +421,16 @@ pub fn output_json(
 }
 
 pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSummary> {
-    if files.is_empty() {
+    let non_test: Vec<&AnalyzeJsonFile> = files.iter().filter(|f| !f.is_test).collect();
+    if non_test.is_empty() {
         return None;
     }
 
-    let language = if files
+    let language = if non_test
         .iter()
-        .all(|file| file.style_ir_summary.language == files[0].style_ir_summary.language)
+        .all(|file| file.style_ir_summary.language == non_test[0].style_ir_summary.language)
     {
-        files[0].style_ir_summary.language.clone()
+        non_test[0].style_ir_summary.language.clone()
     } else {
         "Mixed".to_string()
     };
@@ -454,9 +457,9 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
     let mut ts_issue_count = 0usize;
     let mut dead_code_count = 0usize;
     let mut duplicate_import_count = 0usize;
-    let thresholds = files[0].style_ir_summary.thresholds;
+    let thresholds = non_test[0].style_ir_summary.thresholds;
 
-    for file in files {
+    for file in &non_test {
         let summary = &file.style_ir_summary;
         line_count += summary.line_count;
         function_count += summary.function_count;
