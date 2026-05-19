@@ -243,6 +243,33 @@ impl NextAction {
             .collect()
     }
 
+    fn rule_name_zh(name: &str) -> String {
+        match name {
+            "unwrap-abuse" | "unwrap_abuse" => "滥用 unwrap",
+            "single-letter-variable" => "单字母变量",
+            "magic-number" => "魔法数字",
+            "deep-nesting" | "deep_nesting" => "深层嵌套",
+            "code-duplication" => "代码重复",
+            "cross-file-duplication" => "跨文件重复",
+            "near-duplicate" => "近似重复",
+            "god-function" => "上帝函数",
+            "long-function" => "过长函数",
+            "too-many-params" => "参数过多",
+            "terrible-naming" => "糟糕命名",
+            "hungarian-notation" => "匈牙利命名",
+            "abbreviation-abuse" => "滥用缩写",
+            "println-debugging" => "调试打印",
+            "complex-closure" => "复杂闭包",
+            "box-abuse" => "滥用 Box",
+            "rust-must-use" => "缺少 #[must_use]",
+            "rust-derive-order" => "derive 顺序",
+            "rust-doc-example" => "文档示例缺失",
+            "rust-error-display" => "Error 未实现 Display",
+            _ => return name.to_string(),
+        }
+        .to_string()
+    }
+
     pub fn from_issues_zh(issues: &[CodeIssue]) -> Vec<Self> {
         let mut actionable: Vec<&CodeIssue> = issues.iter().filter(|i| i.line > 0).collect();
         actionable.sort_by(|a, b| {
@@ -264,7 +291,7 @@ impl NextAction {
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| issue.file_path.to_string_lossy().to_string());
-                let action = format!("修复 '{}'", issue.rule_name);
+                let action = format!("修复 '{}'", Self::rule_name_zh(&issue.rule_name));
                 let reason = issue.message.clone();
                 NextAction {
                     priority: (i + 1) as u8,

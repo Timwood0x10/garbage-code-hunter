@@ -34,8 +34,8 @@ pub fn analyze(issues: &[CodeIssue]) -> Personality {
         *counts.entry(signal).or_insert(0) += 1;
     }
 
-    let profile = StyleProfile::from_signal_counts(counts);
-    let get = |s| profile.score(s) as u32;
+    let profile = StyleProfile::from_signal_counts(counts.clone());
+    let get = |s| *counts.get(&s).unwrap_or(&0);
 
     match profile.dominant_signal {
         Some(StyleSignal::PanicAddiction) => {

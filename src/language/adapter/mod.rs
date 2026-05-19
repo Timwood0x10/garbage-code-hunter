@@ -198,9 +198,12 @@ pub trait LanguageAdapter: Send + Sync {
             if let Some(pos) = trimmed.find(line_comment) {
                 // Ensure the comment marker is genuinely a comment, not a # inside a string
                 // literal (e.g. `{"#TODO": "done"}` in Python). Real comments start at position
-                // 0 or are preceded by whitespace in the trimmed line.
-                if pos > 0 && !trimmed[..pos].ends_with(' ') {
-                    continue;
+                // 0 or are preceded by a space/tab in the trimmed line (inline comment).
+                if pos > 0 {
+                    let prev = trimmed.as_bytes()[pos - 1];
+                    if prev != b' ' && prev != b'\t' {
+                        continue;
+                    }
                 }
                 let comment = trimmed[pos + line_comment.len()..].trim().to_uppercase();
                 if comment.starts_with("TODO")
@@ -221,9 +224,9 @@ pub trait LanguageAdapter: Send + Sync {
 }
 
 const CODEC_PATTERNS: &[&str] = &[
-    "fn ", "if ", "else", "for ", "while ", "match {", "struct ", "enum ", "impl ", "let ",
-    "return ", "use ", "mod ", "break", "continue", "{", "}", "(", ")", "[", "]", ";", "=", "==",
-    "!=", "&&", "||", "->", "::",
+    "fn ", "if ", "else", "for ", "while ", "struct ", "enum ", "impl ", "let ", "return ", "use ",
+    "mod ", "break", "continue", "{", "}", "(", ")", "[", "]", ";", "=", "==", "!=", "&&", "||",
+    "->", "::",
 ];
 
 /// Dispatch to the correct LanguageAdapter for a given language.

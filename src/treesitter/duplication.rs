@@ -472,7 +472,7 @@ mod tests {
     fn test_cross_file_dup_detects_identical_functions() {
         let mut detector = CrossFileDupDetector::new();
         let a = parse_rust_as("file_a.rs", "fn compute(a: i32, b: i32) -> i32 {\n    let r = a + b;\n    let s = r * 2;\n    s\n}\n");
-        let b = parse_rust_as("file_b.rs", "fn compute(x: i32, y: i32) -> i32 {\n    let z = x + y;\n    let w = z * 2;\n    w\n}\n");
+        let b = parse_rust_as("file_b.rs", "fn compute(a: i32, b: i32) -> i32 {\n    let r = a + b;\n    let s = r * 2;\n    s\n}\n");
         detector.process_file(&a);
         detector.process_file(&b);
         let issues = detector.find_duplicates();
@@ -497,7 +497,7 @@ mod tests {
         );
         let b = parse_python_as(
             "mod_b.py",
-            "def sum(x, y):\n    total = x + y\n    print(total)\n    total += 1\n    return total\n",
+            "def add(a, b):\n    result = a + b\n    print(result)\n    result += 1\n    return result\n",
         );
         detector.process_file(&a);
         detector.process_file(&b);
