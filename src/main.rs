@@ -625,15 +625,23 @@ fn run_analyze(args: AnalyzeArgs) {
             Box::new(TodoMountainDetector::new()),
             Box::new(LineCountSmellDetector::new()),
         ]);
-    let findings = analyzer.analyze_to_findings(&args.path);
+    let full = analyzer.analyze_full(&args.path);
+
+    let findings = full.findings;
+    let file_count = full.file_count;
+    let total_lines = full.total_lines;
 
     let issues: Vec<CodeIssue> = findings.iter().map(|f| f.to_code_issue()).collect();
     let spread = analyzer.infection_spread();
-    let style_ir_files = collect_style_ir_files(&args.path, &args.exclude);
+    let style_ir_files: Vec<AnalyzeJsonFile> = full
+        .style_ir_files
+        .into_iter()
+        .map(|f| AnalyzeJsonFile {
+            file_path: f.file_path,
+            style_ir_summary: f.summary,
+        })
+        .collect();
     let style_ir_summary = summarize_style_ir_files(&style_ir_files);
-
-    // Calculate metrics for scoring
-    let (file_count, total_lines) = calculate_metrics(&args.path, &args.exclude);
 
     // Initialize educational advisor if needed
     let educational_advisor = if args.educational {

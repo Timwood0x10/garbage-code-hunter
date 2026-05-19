@@ -2,6 +2,8 @@ use streaming_iterator::StreamingIterator;
 
 use crate::analyzer::Severity;
 use crate::language::Language;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 use super::engine::ParsedFile;
 
@@ -59,60 +61,72 @@ pub struct IssueCandidate {
     pub severity: Severity,
 }
 
+thread_local! {
+    static QUERY_CACHE: RefCell<HashMap<(Language, String), tree_sitter::Query>> =
+        RefCell::new(HashMap::new());
+}
+
 /// Execute a tree-sitter query against a parsed file and collect captures.
 ///
 /// Returns a list of capture groups, one per query match.
 /// Each group contains all named captures for that match.
+/// Uses a thread-local cache to avoid recompiling the same query pattern.
 pub fn collect_captures<'a>(
     file: &'a ParsedFile,
     pattern: &str,
 ) -> Result<Vec<Vec<QueryCapture<'a>>>, String> {
-    let lang = file.language;
-    let grammar = super::parsers::get_grammar(lang).ok_or_else(|| {
-        format!(
-            "No tree-sitter grammar available for {}",
-            lang.display_name()
-        )
-    })?;
+    QUERY_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        let key = (file.language, pattern.to_string());
+        if !cache.contains_key(&key) {
+            let grammar = super::parsers::get_grammar(file.language).ok_or_else(|| {
+                format!(
+                    "No tree-sitter grammar available for {}",
+                    file.language.display_name()
+                )
+            })?;
+            let query = tree_sitter::Query::new(&grammar, pattern)
+                .map_err(|e| format!("Failed to create query: {}", e))?;
+            cache.insert(key.clone(), query);
+        }
+        let query = cache.get(&key).unwrap();
 
-    let query = tree_sitter::Query::new(&grammar, pattern)
-        .map_err(|e| format!("Failed to create query: {}", e))?;
+        let mut cursor = tree_sitter::QueryCursor::new();
+        let root = file.root_node();
+        let mut matches = cursor.matches(query, root, file.content.as_bytes());
 
-    let mut cursor = tree_sitter::QueryCursor::new();
-    let root = file.root_node();
-    let mut matches = cursor.matches(&query, root, file.content.as_bytes());
-
-    let capture_names: Vec<String> = query
-        .capture_names()
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    let mut result = Vec::new();
-
-    while let Some(match_) = matches.next() {
-        let captures: Vec<QueryCapture> = match_
-            .captures
+        let capture_names: Vec<String> = query
+            .capture_names()
             .iter()
-            .map(|capture| {
-                let name_idx = capture.index as usize;
-                let name = capture_names
-                    .get(name_idx)
-                    .cloned()
-                    .unwrap_or_else(|| "unknown".to_string());
-                let node = capture.node;
-                let start = node.start_byte();
-                let end = node.end_byte();
-                QueryCapture {
-                    name,
-                    node,
-                    text: &file.content[start..end],
-                }
-            })
+            .map(|s| s.to_string())
             .collect();
-        result.push(captures);
-    }
+        let mut result = Vec::new();
 
-    Ok(result)
+        while let Some(match_) = matches.next() {
+            let captures: Vec<QueryCapture> = match_
+                .captures
+                .iter()
+                .map(|capture| {
+                    let name_idx = capture.index as usize;
+                    let name = capture_names
+                        .get(name_idx)
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string());
+                    let node = capture.node;
+                    let start = node.start_byte();
+                    let end = node.end_byte();
+                    QueryCapture {
+                        name,
+                        node,
+                        text: &file.content[start..end],
+                    }
+                })
+                .collect();
+            result.push(captures);
+        }
+
+        Ok(result)
+    })
 }
 
 /// Run a `QueryRule` against a parsed file and produce issues.

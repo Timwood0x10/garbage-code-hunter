@@ -46,6 +46,16 @@ impl FriendMood {
             FriendMood::Exhausted => "I'm tired just looking at this.",
         }
     }
+
+    pub fn vibe_zh(&self) -> &'static str {
+        match self {
+            FriendMood::Proud => "嘿，这代码还不错嘛！",
+            FriendMood::Concerned => "还行，但咱得聊聊。",
+            FriendMood::Sarcastic => "哇哦。真是……绝了。",
+            FriendMood::Alarmed => "兄弟，我们需要 intervention 一下。",
+            FriendMood::Exhausted => "光看这代码我就累了。",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +67,51 @@ pub struct BehaviorPattern {
 }
 
 impl BehaviorPattern {
+    fn desc_zh(signal: &StyleSignal) -> (&'static str, &'static str) {
+        match signal {
+            StyleSignal::Duplication => (
+                "同样的代码写了好几遍，而不是复用",
+                "把共享逻辑提取到函数或模块中",
+            ),
+            StyleSignal::PanicAddiction => (
+                "用 unwrap/expect/panic 代替正确的错误处理",
+                "使用 Result<T, E> 并用 '?' 传播错误",
+            ),
+            StyleSignal::NamingChaos => (
+                "变量名看不出是干什么的",
+                "用能表达意图的描述性名称",
+            ),
+            StyleSignal::NestedHell => (
+                "嵌套太深，代码难以阅读",
+                "用 early return 和 guard clause 减少嵌套",
+            ),
+            StyleSignal::HotfixCulture => (
+                "残留的调试打印、TODO 和注释掉的代码",
+                "提交前清理调试残留",
+            ),
+            StyleSignal::OverEngineering => (
+                "一个函数干太多事",
+                "把大函数拆成职责单一的小函数",
+            ),
+            StyleSignal::CodeSmells => (
+                "unsafe 块、魔法数字和可疑的写法",
+                "优先用安全抽象；给常量起个好名字",
+            ),
+            StyleSignal::LegacyCode => (
+                "源文件里留着注释掉的代码",
+                "删掉死代码，git 有历史记录",
+            ),
+            StyleSignal::TodoMountain => (
+                "堆积的 TODO/FIXME/BUG/HACK 标记",
+                "用 issue 跟踪器管理待办，别写在代码里",
+            ),
+            StyleSignal::LineCountSmell => (
+                "文件行数超过了合理阈值",
+                "把大文件拆成更小、职责更清晰的模块",
+            ),
+        }
+    }
+
     pub fn from_signals(scores: &HashMap<StyleSignal, f64>) -> Vec<Self> {
         let mut pairs: Vec<(&StyleSignal, f64)> = scores.iter().map(|(s, v)| (s, *v)).collect();
         pairs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -124,6 +179,33 @@ impl BehaviorPattern {
             })
             .collect()
     }
+
+    pub fn from_signals_zh(scores: &HashMap<StyleSignal, f64>) -> Vec<Self> {
+        let mut pairs: Vec<(&StyleSignal, f64)> = scores.iter().map(|(s, v)| (s, *v)).collect();
+        pairs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        pairs
+            .into_iter()
+            .filter(|(_, v)| *v >= 3.0)
+            .take(3)
+            .map(|(signal, score)| {
+                let severity = if score >= 12.0 {
+                    "严重"
+                } else if score >= 6.0 {
+                    "中等"
+                } else {
+                    "轻微"
+                };
+                let (description, suggestion) = Self::desc_zh(signal);
+                BehaviorPattern {
+                    signal: *signal,
+                    severity,
+                    description: description.into(),
+                    suggestion: suggestion.into(),
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -170,6 +252,40 @@ impl NextAction {
             })
             .collect()
     }
+
+    pub fn from_issues_zh(issues: &[CodeIssue]) -> Vec<Self> {
+        let mut actionable: Vec<&CodeIssue> = issues.iter().filter(|i| i.line > 0).collect();
+        actionable.sort_by(|a, b| {
+            let order = |s: &Severity| match s {
+                Severity::Nuclear => 3,
+                Severity::Spicy => 2,
+                Severity::Mild => 1,
+            };
+            order(&b.severity).cmp(&order(&a.severity))
+        });
+
+        actionable
+            .into_iter()
+            .take(3)
+            .enumerate()
+            .map(|(i, issue)| {
+                let file = issue
+                    .file_path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| issue.file_path.to_string_lossy().to_string());
+                let action = format!("修复 '{}'", issue.rule_name);
+                let reason = issue.message.clone();
+                NextAction {
+                    priority: (i + 1) as u8,
+                    file,
+                    line: issue.line,
+                    action,
+                    reason,
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -190,6 +306,23 @@ impl FriendFeedback {
         let mood = FriendMood::from_score(score.total_score);
         let patterns = BehaviorPattern::from_signals(signal_scores);
         let next_actions = NextAction::from_issues(issues);
+        FriendFeedback {
+            mood,
+            patterns,
+            next_actions,
+            total_issues: issues.len(),
+            total_score: score.total_score,
+        }
+    }
+
+    pub fn new_zh(
+        issues: &[CodeIssue],
+        score: &CodeQualityScore,
+        signal_scores: &HashMap<StyleSignal, f64>,
+    ) -> Self {
+        let mood = FriendMood::from_score(score.total_score);
+        let patterns = BehaviorPattern::from_signals_zh(signal_scores);
+        let next_actions = NextAction::from_issues_zh(issues);
         FriendFeedback {
             mood,
             patterns,
@@ -249,6 +382,64 @@ impl FriendFeedback {
         if !self.next_actions.is_empty() {
             println!();
             println!("{}  Quick wins (top 3):", "🎯".bright_green());
+            for a in &self.next_actions {
+                let location = format!("{}:{}", a.file, a.line).bright_white();
+                println!("  {}. {} — {}", a.priority, location, a.action.bold(),);
+                println!("     {}", a.reason.dimmed());
+            }
+        }
+        println!();
+    }
+
+    pub fn print_zh(&self) {
+        use colored::*;
+        println!();
+        println!(
+            "{} 朋友的看法 {}",
+            "💬".bright_cyan(),
+            "─".repeat(60).bright_black()
+        );
+        println!(
+            "{}  {} {}",
+            self.mood.emoji(),
+            self.mood.vibe_zh().bright_cyan().bold(),
+            if self.total_issues == 0 {
+                "".to_string()
+            } else {
+                format!(
+                    "  ({} 个问题)",
+                    self.total_issues.to_string().yellow(),
+                )
+            }
+        );
+        println!("{}  评分: {:.1}/100", "📊".bright_blue(), self.total_score);
+
+        if !self.patterns.is_empty() {
+            println!();
+            println!("{}  发现的问题模式:", "🔍".bright_yellow());
+            for p in &self.patterns {
+                let sev_color = match p.severity {
+                    "严重" => "red",
+                    "中等" => "yellow",
+                    _ => "blue",
+                };
+                println!(
+                    "  {} [{}] {}",
+                    match p.severity {
+                        "严重" => "🔴",
+                        "中等" => "🟡",
+                        _ => "🔵",
+                    },
+                    p.severity.bold().color(sev_color),
+                    p.description,
+                );
+                println!("     → {}", p.suggestion.dimmed());
+            }
+        }
+
+        if !self.next_actions.is_empty() {
+            println!();
+            println!("{}  快速修复 (前 3 项):", "🎯".bright_green());
             for a in &self.next_actions {
                 let location = format!("{}:{}", a.file, a.line).bright_white();
                 println!("  {}. {} — {}", a.priority, location, a.action.bold(),);

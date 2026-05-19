@@ -11,9 +11,22 @@ use crate::language::adapter::adapter_for;
 use crate::language::{Language, SUPPORTED_EXTENSIONS};
 use crate::rules::generic::GenericRuleEngine;
 use crate::signals::{aggregate_detector_scores, SignalDetector, StyleSignal};
+use crate::style_ir::{StyleIr, StyleIrSummary};
 use crate::treesitter::duplication::{CrossFileDupDetector, IntraFileDupDetector};
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::{TreeSitterEngine, TreeSitterRuleEngine};
+
+pub struct StyleIrFileInfo {
+    pub file_path: String,
+    pub summary: StyleIrSummary,
+}
+
+pub struct FullAnalysisResult {
+    pub findings: Vec<StyleFinding>,
+    pub file_count: usize,
+    pub total_lines: usize,
+    pub style_ir_files: Vec<StyleIrFileInfo>,
+}
 
 #[derive(Debug, Clone)]
 pub struct CodeIssue {
@@ -217,31 +230,17 @@ impl CodeAnalyzer {
             }
         }
 
-        // Phase 1.5: Filter out generated files from duplication phases
-        let real_files: Vec<&PathBuf> = files
-            .iter()
-            .filter(|p| !Self::is_generated_file(p))
-            .collect();
-
-        // Phase 2: Cross-file duplication detection (tree-sitter based)
+        // Phase 2: Cross-file duplication detection (reuse Phase 1 parsed files)
         *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
-        for file_path in &real_files {
-            if let Ok(content) = fs::read_to_string(file_path) {
-                if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                    self.cross_detector.borrow_mut().process_file(&parsed);
-                }
-            }
+        for (parsed, _, _) in &parsed_files {
+            self.cross_detector.borrow_mut().process_file(parsed);
         }
         issues.extend(self.cross_detector.borrow().find_duplicates());
         issues.extend(self.cross_detector.borrow().find_near_duplicates());
 
-        // Phase 3: Intra-file code duplication
-        for file_path in &real_files {
-            if let Ok(content) = fs::read_to_string(file_path) {
-                if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                    issues.extend(IntraFileDupDetector::check(&parsed));
-                }
-            }
+        // Phase 3: Intra-file code duplication (reuse Phase 1 parsed files)
+        for (parsed, _, _) in &parsed_files {
+            issues.extend(IntraFileDupDetector::check(parsed));
         }
         // Convert rule issues to findings
         let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
@@ -264,13 +263,22 @@ impl CodeAnalyzer {
 
             for (parsed, file_path, is_test_file) in &parsed_files {
                 let lang = parsed.language;
+                let ir = StyleIr::from_parsed(parsed);
                 for detector in &self.detectors {
                     if !detector.supported_languages().contains(&lang) {
                         continue;
                     }
-                    for (signal, count) in
+                    let findings_iter = if let Some(ref ir) = ir {
+                        detector.detect_findings_with_ir(
+                            ir,
+                            parsed,
+                            *is_test_file,
+                            skip_tests_config,
+                        )
+                    } else {
                         detector.detect_findings(parsed, *is_test_file, skip_tests_config)
-                    {
+                    };
+                    for (signal, count) in findings_iter {
                         findings.push(StyleFinding::for_signal(signal, count, file_path.clone()));
                     }
                 }
@@ -278,6 +286,127 @@ impl CodeAnalyzer {
         }
 
         findings
+    }
+
+    pub fn analyze_full(&self, path: &Path) -> FullAnalysisResult {
+        let files = self.collect_source_files(path);
+        if files.is_empty() {
+            return FullAnalysisResult {
+                findings: Vec::new(),
+                file_count: 0,
+                total_lines: 0,
+                style_ir_files: Vec::new(),
+            };
+        }
+
+        let mut issues: Vec<CodeIssue> = Vec::new();
+        let mut parsed_files: Vec<(ParsedFile, PathBuf, bool)> = Vec::new();
+        let mut style_ir_files: Vec<StyleIrFileInfo> = Vec::new();
+        let mut file_count: usize = 0;
+        let mut total_lines: usize = 0;
+
+        for file_path in &files {
+            if Self::is_generated_file(file_path) {
+                continue;
+            }
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let lang = Language::from_path(file_path);
+            if lang == Language::Unknown {
+                continue;
+            }
+            file_count += 1;
+            total_lines += content.lines().count();
+            let is_test_file = Self::is_test_file(file_path, &content);
+
+            if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
+                let ast_test = adapter_for(lang)
+                    .map(|a| a.has_test_nodes(&parsed))
+                    .unwrap_or(false);
+                let effective_test = is_test_file || ast_test;
+
+                let context = FileContext::from_path(file_path);
+                issues.extend(self.ts_rule_engine.check_file_with_context(
+                    &parsed,
+                    effective_test,
+                    &context,
+                    &self.project_config,
+                ));
+                if let Some(ir) = StyleIr::from_parsed(&parsed) {
+                    style_ir_files.push(StyleIrFileInfo {
+                        file_path: file_path.to_string_lossy().to_string(),
+                        summary: ir.summary(),
+                    });
+                }
+                parsed_files.push((parsed, file_path.clone(), effective_test));
+            } else if lang == Language::C || lang == Language::Cpp {
+                issues.extend(
+                    self.generic_engine
+                        .check_file(file_path, &content, &self.lang),
+                );
+            }
+        }
+
+        *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
+        for (parsed, _, _) in &parsed_files {
+            self.cross_detector.borrow_mut().process_file(parsed);
+        }
+        issues.extend(self.cross_detector.borrow().find_duplicates());
+        issues.extend(self.cross_detector.borrow().find_near_duplicates());
+
+        for (parsed, _, _) in &parsed_files {
+            issues.extend(IntraFileDupDetector::check(parsed));
+        }
+
+        let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
+
+        if !self.detectors.is_empty() && !parsed_files.is_empty() {
+            let parsed_for_scores: Vec<ParsedFile> =
+                parsed_files.iter().map(|(p, _, _)| p.clone()).collect();
+            let test_flags: Vec<bool> = parsed_files
+                .iter()
+                .map(|(_, _, is_test)| *is_test)
+                .collect();
+            let skip_tests_config = self.project_config.signals.skip_tests;
+            *self.direct_scores.borrow_mut() = aggregate_detector_scores(
+                &self.detectors,
+                &parsed_for_scores,
+                &test_flags,
+                skip_tests_config,
+            );
+
+            for (parsed, file_path, is_test_file) in &parsed_files {
+                let lang = parsed.language;
+                let ir = StyleIr::from_parsed(parsed);
+                for detector in &self.detectors {
+                    if !detector.supported_languages().contains(&lang) {
+                        continue;
+                    }
+                    let findings_iter = if let Some(ref ir) = ir {
+                        detector.detect_findings_with_ir(
+                            ir,
+                            parsed,
+                            *is_test_file,
+                            skip_tests_config,
+                        )
+                    } else {
+                        detector.detect_findings(parsed, *is_test_file, skip_tests_config)
+                    };
+                    for (signal, count) in findings_iter {
+                        findings.push(StyleFinding::for_signal(signal, count, file_path.clone()));
+                    }
+                }
+            }
+        }
+
+        FullAnalysisResult {
+            findings,
+            file_count,
+            total_lines,
+            style_ir_files,
+        }
     }
 
     fn is_generated_file(path: &Path) -> bool {

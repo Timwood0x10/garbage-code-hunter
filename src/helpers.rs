@@ -6,8 +6,7 @@ use garbage_code_hunter::analyzer::{CodeAnalyzer, CodeIssue, Severity};
 use garbage_code_hunter::common::OutputFormat;
 use garbage_code_hunter::context::ProjectConfig;
 use garbage_code_hunter::language::SUPPORTED_EXTENSIONS;
-use garbage_code_hunter::style_ir::{StyleIr, StyleIrSummary};
-use garbage_code_hunter::treesitter::engine::TreeSitterEngine;
+use garbage_code_hunter::style_ir::StyleIrSummary;
 
 pub fn derive_count_score(count: f64, weight: f64) -> f64 {
     (100.0 - count * weight).clamp(0.0, 100.0)
@@ -419,29 +418,6 @@ pub fn output_json(
     }
 }
 
-pub fn collect_style_ir_files(path: &PathBuf, exclude_patterns: &[String]) -> Vec<AnalyzeJsonFile> {
-    let supported_files = collect_supported_files(path, exclude_patterns);
-    let mut files = Vec::new();
-
-    let tree_sitter_engine = TreeSitterEngine::new();
-    for file_path in supported_files {
-        let content = match fs::read_to_string(&file_path) {
-            Ok(content) => content,
-            Err(_) => continue,
-        };
-        if let Some(parsed) = tree_sitter_engine.parse_file(&file_path, &content) {
-            if let Some(style_ir) = StyleIr::from_parsed(&parsed) {
-                files.push(AnalyzeJsonFile {
-                    file_path: file_path.to_string_lossy().to_string(),
-                    style_ir_summary: style_ir.summary(),
-                });
-            }
-        }
-    }
-
-    files
-}
-
 pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSummary> {
     if files.is_empty() {
         return None;
@@ -552,79 +528,6 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
             && duplicate_import_count == 0,
         thresholds,
     })
-}
-
-pub fn collect_supported_files(path: &PathBuf, exclude_patterns: &[String]) -> Vec<PathBuf> {
-    let default_excludes = [
-        "target",
-        "node_modules",
-        ".git",
-        ".svn",
-        ".hg",
-        "build",
-        "dist",
-        "out",
-        "__pycache__",
-        ".DS_Store",
-        ".venv",
-        "venv",
-        "vendor",
-    ];
-    let all_patterns: Vec<String> = default_excludes
-        .iter()
-        .map(|s| s.to_string())
-        .chain(exclude_patterns.iter().cloned())
-        .collect();
-
-    let exclude_regexes: Vec<regex::Regex> = all_patterns
-        .iter()
-        .filter_map(|pattern| {
-            let regex_pattern = pattern
-                .replace('.', r"\.")
-                .replace('*', ".*")
-                .replace('?', ".");
-            regex::Regex::new(&regex_pattern).ok()
-        })
-        .collect();
-
-    let should_exclude = |path: &Path| -> bool {
-        let path_str = path.to_string_lossy();
-        exclude_regexes
-            .iter()
-            .any(|pattern| pattern.is_match(&path_str))
-    };
-
-    let mut files = Vec::new();
-    if path.is_file() {
-        if !should_exclude(path)
-            && path
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext))
-        {
-            files.push(path.clone());
-        }
-        return files;
-    }
-
-    if path.is_dir() {
-        for entry in WalkDir::new(path)
-            .into_iter()
-            .filter_map(|entry| entry.ok())
-            .filter(|entry| !should_exclude(entry.path()))
-            .filter(|entry| {
-                entry
-                    .path()
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext))
-            })
-        {
-            files.push(entry.path().to_path_buf());
-        }
-    }
-
-    files
 }
 
 /// Output GitHub Actions workflow commands as annotations.

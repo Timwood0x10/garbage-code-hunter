@@ -7,6 +7,7 @@ use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
 use regex::Regex;
+use std::sync::LazyLock;
 
 pub struct SwiftAdapter;
 
@@ -77,10 +78,10 @@ impl LanguageAdapter for SwiftAdapter {
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
         let mut count = 0usize;
-        let terrible_re = Regex::new(
-            r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$",
-        )
-        .ok();
+        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
+        });
+        let terrible_re = TERRIBLE_RE.as_ref();
 
         if let Ok(groups) = collect_captures(
             file,
@@ -93,7 +94,7 @@ impl LanguageAdapter for SwiftAdapter {
                         count += 1;
                         continue;
                     }
-                    if let Some(ref re) = terrible_re {
+                    if let Some(re) = terrible_re {
                         if re.is_match(&name.to_lowercase()) {
                             count += 1;
                             continue;

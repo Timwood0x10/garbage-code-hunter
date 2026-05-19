@@ -2,6 +2,7 @@
 
 use crate::analyzer::CodeIssue;
 use crate::language::Language;
+use crate::style_ir::StyleIr;
 use crate::treesitter::engine::ParsedFile;
 use std::collections::HashMap;
 
@@ -19,6 +20,12 @@ pub trait SignalDetector: Send + Sync {
 
     /// Run detection on a parsed file. Returns the number of signal violations found.
     fn count_violations(&self, file: &ParsedFile) -> usize;
+
+    /// Run detection using a pre-computed StyleIr (avoids redundant from_parsed calls).
+    /// Default: falls back to count_violations which recomputes the IR.
+    fn count_violations_with_ir(&self, _ir: &StyleIr, file: &ParsedFile) -> usize {
+        self.count_violations(file)
+    }
 
     /// Whether this detector should be skipped for test files.
     /// Override to `false` for signals that apply to test code too.
@@ -48,6 +55,27 @@ pub trait SignalDetector: Send + Sync {
             vec![]
         }
     }
+
+    /// Produce per-file signal findings using a pre-computed StyleIr.
+    fn detect_findings_with_ir(
+        &self,
+        ir: &StyleIr,
+        file: &ParsedFile,
+        is_test_file: bool,
+        skip_tests_config: bool,
+    ) -> Vec<(StyleSignal, usize)> {
+        let skip = is_test_file && self.skips_test_files() && skip_tests_config;
+        let count = if skip {
+            0
+        } else {
+            self.count_violations_with_ir(ir, file)
+        };
+        if count > 0 {
+            vec![(self.signal(), count)]
+        } else {
+            vec![]
+        }
+    }
 }
 
 /// Helpers for converting raw violations to density-normalized signal scores.
@@ -70,6 +98,7 @@ pub fn aggregate_detector_scores(
     for (i, file) in files.iter().enumerate() {
         let is_test = is_test_files.get(i).copied().unwrap_or(false);
         let lang = file.language;
+        let ir = StyleIr::from_parsed(file);
         for detector in detectors {
             if !detector.supported_languages().contains(&lang) {
                 continue;
@@ -78,6 +107,8 @@ pub fn aggregate_detector_scores(
             let skip = is_test && detector.skips_test_files() && skip_tests_config;
             let count = if skip {
                 0
+            } else if let Some(ref ir) = ir {
+                detector.count_violations_with_ir(ir, file)
             } else {
                 detector.count_violations(file)
             };

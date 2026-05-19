@@ -8,6 +8,7 @@ use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::collect_captures;
 use regex::Regex;
+use std::sync::LazyLock;
 
 const STANDARD_DUNDERS: &[&str] = &[
     "__init__",
@@ -283,10 +284,10 @@ impl LanguageAdapter for PythonAdapter {
             count += groups.len();
         }
 
-        let terrible_re = Regex::new(
-            r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$",
-        )
-        .ok();
+        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
+        });
+        let terrible_re = TERRIBLE_RE.as_ref();
         let meaningless: &[&str] = &[
             "foo", "bar", "baz", "qux", "quux", "quuz", "aaa", "bbb", "ccc", "ddd", "eee", "xxx",
             "yyy", "zzz", "test1", "test2", "test3",
@@ -297,7 +298,7 @@ impl LanguageAdapter for PythonAdapter {
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     let name_lower = name.to_lowercase();
-                    if let Some(ref re) = terrible_re {
+                    if let Some(re) = terrible_re {
                         if re.is_match(&name_lower) {
                             count += 1;
                             continue;

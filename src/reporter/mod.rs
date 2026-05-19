@@ -158,8 +158,17 @@ impl Reporter {
             self.print_markdown_report(&issues, &roasts, &combined_score, spread);
         } else {
             if self.show_friend_feedback && !issues.is_empty() {
-                let feedback = FriendFeedback::new(&issues, &combined_score, &self.direct_scores);
-                feedback.print();
+                let is_zh = self.i18n.lang.starts_with("zh");
+                let feedback = if is_zh {
+                    FriendFeedback::new_zh(&issues, &combined_score, &self.direct_scores)
+                } else {
+                    FriendFeedback::new(&issues, &combined_score, &self.direct_scores)
+                };
+                if is_zh {
+                    feedback.print_zh();
+                } else {
+                    feedback.print();
+                }
             }
 
             let (personality, autopsy) =
@@ -257,21 +266,40 @@ impl Reporter {
 
         // ── Friend Feedback ──
         if self.show_friend_feedback {
-            let feedback = FriendFeedback::new(issues, combined_score, &self.direct_scores);
-            println!("## 💬 Friend's Take");
-            println!();
-            println!(
-                "**Mood:** {} {}",
-                feedback.mood.emoji(),
-                feedback.mood.vibe()
-            );
+            let is_zh = self.i18n.lang.starts_with("zh");
+            let feedback = if is_zh {
+                FriendFeedback::new_zh(issues, combined_score, &self.direct_scores)
+            } else {
+                FriendFeedback::new(issues, combined_score, &self.direct_scores)
+            };
+            if is_zh {
+                println!("## 💬 朋友的看法");
+                println!();
+                println!(
+                    "**心情:** {} {}",
+                    feedback.mood.emoji(),
+                    feedback.mood.vibe_zh()
+                );
+            } else {
+                println!("## 💬 Friend's Take");
+                println!();
+                println!(
+                    "**Mood:** {} {}",
+                    feedback.mood.emoji(),
+                    feedback.mood.vibe()
+                );
+            }
             if !feedback.patterns.is_empty() {
                 println!();
-                println!("**Patterns I noticed:**");
+                if is_zh {
+                    println!("**发现的问题模式:**");
+                } else {
+                    println!("**Patterns I noticed:**");
+                }
                 for p in &feedback.patterns {
                     let sev = match p.severity {
-                        "major" => "🔴",
-                        "moderate" => "🟡",
+                        "major" | "严重" => "🔴",
+                        "moderate" | "中等" => "🟡",
                         _ => "🔵",
                     };
                     println!("- {} {} — {}", sev, p.description, p.suggestion);
@@ -279,7 +307,11 @@ impl Reporter {
             }
             if !feedback.next_actions.is_empty() {
                 println!();
-                println!("**Quick wins (top 3):**");
+                if is_zh {
+                    println!("**快速修复 (前 3 项):**");
+                } else {
+                    println!("**Quick wins (top 3):**");
+                }
                 for a in &feedback.next_actions {
                     println!(
                         "- `{}:{}` — {} _( {} )_",

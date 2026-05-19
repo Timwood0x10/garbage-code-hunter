@@ -55,6 +55,10 @@ impl SignalDetector for PanicAddictionDetector {
             .map(|ir| ir.panic_call_count)
             .unwrap_or(0)
     }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.panic_call_count
+    }
 }
 
 // ── NamingChaos Detector ─────────────────────────────────────────
@@ -89,6 +93,10 @@ impl SignalDetector for NamingChaosDetector {
             .map(|ir| ir.naming_violation_count)
             .unwrap_or(0)
     }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.naming_violation_count
+    }
 }
 
 // ── NestedHell Detector ──────────────────────────────────────────
@@ -121,6 +129,10 @@ impl SignalDetector for NestedHellDetector {
         StyleIr::from_parsed(file)
             .map(|ir| ir.deeply_nested_block_count + ir.defer_in_loop_count)
             .unwrap_or(0)
+    }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.deeply_nested_block_count + ir.defer_in_loop_count
     }
 }
 
@@ -155,6 +167,10 @@ impl SignalDetector for HotfixCultureDetector {
             .map(|ir| ir.debug_call_count)
             .unwrap_or(0)
     }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.debug_call_count
+    }
 }
 
 // ── OverEngineering Detector ─────────────────────────────────────
@@ -188,6 +204,10 @@ impl SignalDetector for OverEngineeringDetector {
             .map(|ir| ir.over_engineering_count())
             .unwrap_or(0)
     }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.over_engineering_count()
+    }
 }
 
 // ── CodeSmells Detector ────────────────────────────────────────────
@@ -220,6 +240,10 @@ impl SignalDetector for CodeSmellsDetector {
         StyleIr::from_parsed(file)
             .map(|ir| ir.code_smell_count())
             .unwrap_or(0)
+    }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.code_smell_count()
     }
 }
 
@@ -292,6 +316,10 @@ impl SignalDetector for LegacyCodeDetector {
             .map(|ir| ir.commented_out_lines)
             .unwrap_or(0)
     }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.commented_out_lines
+    }
 }
 
 // ── TodoMountain Detector ────────────────────────────────────────────
@@ -328,6 +356,10 @@ impl SignalDetector for TodoMountainDetector {
         StyleIr::from_parsed(file)
             .map(|ir| ir.todo_count)
             .unwrap_or(0)
+    }
+
+    fn count_violations_with_ir(&self, ir: &StyleIr, _file: &ParsedFile) -> usize {
+        ir.todo_count
     }
 }
 
