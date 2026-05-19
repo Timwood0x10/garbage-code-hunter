@@ -90,5 +90,3 @@ fn test_roast_messages_english() {
         "Should mention unwrap"
     );
 }
-
-// Naming rule tests are covered in treesitter::rules::rust_rules::tests

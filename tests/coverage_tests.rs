@@ -34,7 +34,25 @@ fn test_analyzer_with_empty_exclusions() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "mod foo { mod bar {}\n}\nfn main() {}\n").expect("Failed to write file");
+    // Use repeated code blocks to trigger intra-file duplication detection
+    let code = r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let x = 0;
+    let y = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let z = 0;
+}
+"#;
+    fs::write(&file_path, code).expect("Failed to write file");
 
     let issues = analyzer.analyze_file(&file_path);
     assert!(
@@ -55,7 +73,25 @@ fn test_analyzer_with_invalid_exclusion_patterns() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "mod foo { mod bar {}\n}\nfn main() {}\n").expect("Failed to write file");
+    // Use repeated code blocks to trigger intra-file duplication detection
+    let code = r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let x = 0;
+    let y = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let z = 0;
+}
+"#;
+    fs::write(&file_path, code).expect("Failed to write file");
 
     // Should still work even with invalid patterns
     let issues = analyzer.analyze_file(&file_path);
@@ -211,17 +247,29 @@ fn test_analyzer_with_non_rust_files() {
 fn test_analyzer_with_mixed_files() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
 
-    // Create mixed files — use a Rust file that triggers remaining tree-sitter rules
+    // Create mixed files — use a Rust file that triggers intra-file duplication
     let rust_file = temp_dir.path().join("code.rs");
     let txt_file = temp_dir.path().join("readme.txt");
 
-    // Box::new triggers box-abuse; a 90-line function triggers long-function
-    let mut code = String::from("fn main() {\n    let _ = Box::new(42);\n");
-    for _ in 0..90 {
-        code.push_str("    let _ = 1;\n");
-    }
-    code.push_str("}\n");
-    fs::write(&rust_file, &code).expect("Failed to write rust file");
+    // Repeated code block triggers intra-file duplication detection
+    let code = r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let x = 0;
+    let y = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let z = 0;
+}
+"#;
+    fs::write(&rust_file, code).expect("Failed to write rust file");
     fs::write(&txt_file, "This is a text file").expect("Failed to write txt file");
 
     let analyzer = CodeAnalyzer::new(&[], "en-US");

@@ -5,16 +5,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use crate::context::{FileContext, ProjectConfig};
+use crate::context::ProjectConfig;
 use crate::finding::StyleFinding;
 use crate::language::adapter::adapter_for;
 use crate::language::{Language, SUPPORTED_EXTENSIONS};
-use crate::rules::generic::GenericRuleEngine;
-use crate::signals::{aggregate_detector_scores, classify_rule, SignalDetector, StyleSignal};
+use crate::signals::{aggregate_detector_scores, SignalDetector, StyleSignal};
 use crate::style_ir::{StyleIr, StyleIrSummary};
 use crate::treesitter::duplication::{CrossFileDupDetector, IntraFileDupDetector};
-use crate::treesitter::engine::ParsedFile;
-use crate::treesitter::{TreeSitterEngine, TreeSitterRuleEngine};
+use crate::treesitter::engine::{ParsedFile, TreeSitterEngine};
 
 pub struct StyleIrFileInfo {
     pub file_path: String,
@@ -46,22 +44,15 @@ pub enum Severity {
 }
 
 pub struct CodeAnalyzer {
-    generic_engine: GenericRuleEngine,
     ts_engine: TreeSitterEngine,
-    ts_rule_engine: TreeSitterRuleEngine,
     exclude_patterns: Vec<Regex>,
     project_config: ProjectConfig,
-    lang: String,
     cross_detector: RefCell<CrossFileDupDetector>,
     detectors: Vec<Box<dyn SignalDetector>>,
     direct_scores: RefCell<HashMap<StyleSignal, f64>>,
 }
 
 impl CodeAnalyzer {
-    pub fn rule_names(&self) -> Vec<&'static str> {
-        self.ts_rule_engine.rule_names()
-    }
-
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
         Self::with_config(exclude_patterns, lang, ProjectConfig::default())
     }
@@ -70,7 +61,7 @@ impl CodeAnalyzer {
         self.cross_detector.borrow().infection_spread()
     }
 
-    pub fn with_config(exclude_patterns: &[String], lang: &str, config: ProjectConfig) -> Self {
+    pub fn with_config(exclude_patterns: &[String], _lang: &str, config: ProjectConfig) -> Self {
         // Default exclude patterns for common build/dependency directories
         let default_excludes = [
             "target",
@@ -109,17 +100,10 @@ impl CodeAnalyzer {
             })
             .collect();
 
-        let mut ts_rule_engine = TreeSitterRuleEngine::new();
-        crate::treesitter::rules::common_rules::register_common_rules(&mut ts_rule_engine);
-        crate::treesitter::rules::rust_rules::register_rust_rules(&mut ts_rule_engine);
-
         Self {
-            generic_engine: GenericRuleEngine::new(),
             ts_engine: TreeSitterEngine::new(),
-            ts_rule_engine,
             exclude_patterns: patterns,
             project_config: config,
-            lang: lang.to_string(),
             cross_detector: RefCell::new(CrossFileDupDetector::new()),
             detectors: Vec::new(),
             direct_scores: RefCell::new(HashMap::new()),
@@ -181,7 +165,7 @@ impl CodeAnalyzer {
 
     /// Full analysis pipeline returning `StyleFinding`s.
     ///
-    /// - Phase 1: Tree-sitter rule analysis per file (caches `ParsedFile` for Phase 4)
+    /// - Phase 1: Parse all files and cache `ParsedFile`s
     /// - Phase 2: Cross-file duplication detection
     /// - Phase 3: Intra-file duplication detection
     /// - Phase 4: Direct signal detection (scores + findings)
@@ -193,8 +177,7 @@ impl CodeAnalyzer {
             return Vec::new();
         }
 
-        // Phase 1: Rule analysis + cache parsed files for Phase 4
-        let mut issues: Vec<CodeIssue> = Vec::new();
+        // Phase 1: Parse all files and cache for downstream phases
         let mut parsed_files: Vec<(ParsedFile, PathBuf, bool)> = Vec::new();
 
         for file_path in &files {
@@ -211,31 +194,17 @@ impl CodeAnalyzer {
             }
             let is_test_file = Self::is_test_file(file_path, &content);
 
-            // Parse once — use for both rule analysis and Phase 4
             if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                // AST-level test detection (e.g., #[test] in Rust)
                 let ast_test = adapter_for(lang)
                     .map(|a| a.has_test_nodes(&parsed))
                     .unwrap_or(false);
                 let effective_test = is_test_file || ast_test;
-
-                let context = FileContext::from_path(file_path);
-                issues.extend(self.ts_rule_engine.check_file_with_context(
-                    &parsed,
-                    effective_test,
-                    &context,
-                    &self.project_config,
-                ));
                 parsed_files.push((parsed, file_path.clone(), effective_test));
-            } else if lang == Language::C || lang == Language::Cpp {
-                issues.extend(
-                    self.generic_engine
-                        .check_file(file_path, &content, &self.lang),
-                );
             }
         }
 
-        // Phase 2: Cross-file duplication detection (reuse Phase 1 parsed files)
+        // Phase 2: Cross-file duplication detection
+        let mut issues: Vec<CodeIssue> = Vec::new();
         *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
         for (parsed, _, is_test) in &parsed_files {
             if *is_test && self.project_config.signals.skip_tests {
@@ -246,23 +215,16 @@ impl CodeAnalyzer {
         issues.extend(self.cross_detector.borrow().find_duplicates());
         issues.extend(self.cross_detector.borrow().find_near_duplicates());
 
-        // Phase 3: Intra-file code duplication (reuse Phase 1 parsed files)
+        // Phase 3: Intra-file code duplication
         for (parsed, _, is_test) in &parsed_files {
             if *is_test && self.project_config.signals.skip_tests {
                 continue;
             }
             issues.extend(IntraFileDupDetector::check(parsed));
         }
-        // Convert rule issues to findings, excluding signals covered by Phase 4 detectors
-        let detector_signals: std::collections::HashSet<StyleSignal> =
-            self.detectors.iter().map(|d| d.signal()).collect();
-        let mut findings: Vec<StyleFinding> = issues
-            .iter()
-            .filter(|issue| !detector_signals.contains(&classify_rule(&issue.rule_name)))
-            .map(From::from)
-            .collect();
 
         // Phase 4: Direct signal detection (scores + findings)
+        let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
         if !self.detectors.is_empty() && !parsed_files.is_empty() {
             let parsed_for_scores: Vec<ParsedFile> =
                 parsed_files.iter().map(|(p, _, _)| p.clone()).collect();
@@ -316,7 +278,6 @@ impl CodeAnalyzer {
             };
         }
 
-        let mut issues: Vec<CodeIssue> = Vec::new();
         let mut parsed_files: Vec<(ParsedFile, PathBuf, bool)> = Vec::new();
         let mut style_ir_files: Vec<StyleIrFileInfo> = Vec::new();
         let mut file_count: usize = 0;
@@ -344,13 +305,6 @@ impl CodeAnalyzer {
                     .unwrap_or(false);
                 let effective_test = is_test_file || ast_test;
 
-                let context = FileContext::from_path(file_path);
-                issues.extend(self.ts_rule_engine.check_file_with_context(
-                    &parsed,
-                    effective_test,
-                    &context,
-                    &self.project_config,
-                ));
                 if let Some(ir) = StyleIr::from_parsed(&parsed) {
                     style_ir_files.push(StyleIrFileInfo {
                         file_path: file_path.to_string_lossy().to_string(),
@@ -358,14 +312,11 @@ impl CodeAnalyzer {
                     });
                 }
                 parsed_files.push((parsed, file_path.clone(), effective_test));
-            } else if lang == Language::C || lang == Language::Cpp {
-                issues.extend(
-                    self.generic_engine
-                        .check_file(file_path, &content, &self.lang),
-                );
             }
         }
 
+        // Phase 2-3: Duplication detection
+        let mut issues: Vec<CodeIssue> = Vec::new();
         *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
         for (parsed, _, _) in &parsed_files {
             self.cross_detector.borrow_mut().process_file(parsed);
@@ -377,13 +328,7 @@ impl CodeAnalyzer {
             issues.extend(IntraFileDupDetector::check(parsed));
         }
 
-        let detector_signals: std::collections::HashSet<StyleSignal> =
-            self.detectors.iter().map(|d| d.signal()).collect();
-        let mut findings: Vec<StyleFinding> = issues
-            .iter()
-            .filter(|issue| !detector_signals.contains(&classify_rule(&issue.rule_name)))
-            .map(From::from)
-            .collect();
+        let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
 
         if !self.detectors.is_empty() && !parsed_files.is_empty() {
             let parsed_for_scores: Vec<ParsedFile> =
@@ -460,31 +405,7 @@ impl CodeAnalyzer {
         if Self::is_generated_file(file_path) {
             return vec![];
         }
-
-        let content = match fs::read_to_string(file_path) {
-            Ok(content) => content,
-            Err(_) => return vec![],
-        };
-
-        let lang = Language::from_path(file_path);
-        let is_test_file = Self::is_test_file(file_path, &content);
-
-        // Use tree-sitter for all languages with grammar support
-        if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-            let context = FileContext::from_path(file_path);
-            self.ts_rule_engine.check_file_with_context(
-                &parsed,
-                is_test_file,
-                &context,
-                &self.project_config,
-            )
-        } else if lang == Language::C || lang == Language::Cpp {
-            // Fallback to generic text-based rules for C/C++
-            self.generic_engine
-                .check_file(file_path, &content, &self.lang)
-        } else {
-            vec![]
-        }
+        self.analyze_path(file_path)
     }
 
     fn is_test_file(path: &Path, content: &str) -> bool {

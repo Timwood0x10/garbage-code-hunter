@@ -246,17 +246,22 @@ fn test_integration_with_real_analysis() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test_integration.rs");
 
+    // Repeated code block triggers intra-file duplication detection
     let code = r#"
 fn main() {
-    let data = "hello";
-    let temp = 42;
-    let a = 10;
-    let result = Some(42).unwrap();
-    let s1 = String::from("test");
-    let s2 = s1.clone();
-    let s3 = s2.clone();
-    let s4 = s3.clone();
-    let s5 = s4.clone();
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let x = 0;
+    let y = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let z = 0;
 }
 "#;
 

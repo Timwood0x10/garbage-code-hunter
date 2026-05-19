@@ -453,8 +453,38 @@ impl IntraFileDupDetector {
 
 #[cfg(test)]
 mod tests {
-    use super::super::rules::test_helpers::{parse_python_as, parse_rust, parse_rust_as};
     use super::*;
+    use crate::treesitter::engine::TreeSitterEngine;
+    use std::path::Path;
+    use std::sync::OnceLock;
+
+    fn shared_engine() -> &'static TreeSitterEngine {
+        static ENGINE: OnceLock<TreeSitterEngine> = OnceLock::new();
+        ENGINE.get_or_init(|| {
+            let engine = TreeSitterEngine::new();
+            engine.ensure_parser(crate::language::Language::Rust);
+            engine.ensure_parser(crate::language::Language::Python);
+            engine
+        })
+    }
+
+    fn parse_rust(code: &str) -> ParsedFile {
+        shared_engine()
+            .parse_file(Path::new("main.rs"), code)
+            .expect("Rust parse should succeed")
+    }
+
+    fn parse_rust_as(filename: &str, code: &str) -> ParsedFile {
+        shared_engine()
+            .parse_file(Path::new(filename), code)
+            .expect("Rust parse should succeed")
+    }
+
+    fn parse_python_as(filename: &str, code: &str) -> ParsedFile {
+        shared_engine()
+            .parse_file(Path::new(filename), code)
+            .expect("Python parse should succeed")
+    }
 
     #[test]
     fn test_find_function_nodes() {

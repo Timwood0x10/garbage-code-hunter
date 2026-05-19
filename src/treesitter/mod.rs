@@ -6,10 +6,7 @@ pub mod duplication;
 pub mod engine;
 pub mod parsers;
 pub mod query;
-pub mod rule;
-pub mod rules;
 
 pub use duplication::{CrossFileDupDetector, IntraFileDupDetector};
 pub use engine::{ParsedFile, TreeSitterEngine};
 pub use query::QueryRule;
-pub use rule::{TreeSitterRule, TreeSitterRuleEngine};
