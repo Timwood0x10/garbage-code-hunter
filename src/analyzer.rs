@@ -10,7 +10,7 @@ use crate::finding::StyleFinding;
 use crate::language::adapter::adapter_for;
 use crate::language::{Language, SUPPORTED_EXTENSIONS};
 use crate::rules::generic::GenericRuleEngine;
-use crate::signals::{aggregate_detector_scores, SignalDetector, StyleSignal};
+use crate::signals::{aggregate_detector_scores, classify_rule, SignalDetector, StyleSignal};
 use crate::style_ir::{StyleIr, StyleIrSummary};
 use crate::treesitter::duplication::{CrossFileDupDetector, IntraFileDupDetector};
 use crate::treesitter::engine::ParsedFile;
@@ -237,18 +237,30 @@ impl CodeAnalyzer {
 
         // Phase 2: Cross-file duplication detection (reuse Phase 1 parsed files)
         *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
-        for (parsed, _, _) in &parsed_files {
+        for (parsed, _, is_test) in &parsed_files {
+            if *is_test && self.project_config.signals.skip_tests {
+                continue;
+            }
             self.cross_detector.borrow_mut().process_file(parsed);
         }
         issues.extend(self.cross_detector.borrow().find_duplicates());
         issues.extend(self.cross_detector.borrow().find_near_duplicates());
 
         // Phase 3: Intra-file code duplication (reuse Phase 1 parsed files)
-        for (parsed, _, _) in &parsed_files {
+        for (parsed, _, is_test) in &parsed_files {
+            if *is_test && self.project_config.signals.skip_tests {
+                continue;
+            }
             issues.extend(IntraFileDupDetector::check(parsed));
         }
-        // Convert rule issues to findings
-        let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
+        // Convert rule issues to findings, excluding signals covered by Phase 4 detectors
+        let detector_signals: std::collections::HashSet<StyleSignal> =
+            self.detectors.iter().map(|d| d.signal()).collect();
+        let mut findings: Vec<StyleFinding> = issues
+            .iter()
+            .filter(|issue| !detector_signals.contains(&classify_rule(&issue.rule_name)))
+            .map(From::from)
+            .collect();
 
         // Phase 4: Direct signal detection (scores + findings)
         if !self.detectors.is_empty() && !parsed_files.is_empty() {
@@ -365,7 +377,13 @@ impl CodeAnalyzer {
             issues.extend(IntraFileDupDetector::check(parsed));
         }
 
-        let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
+        let detector_signals: std::collections::HashSet<StyleSignal> =
+            self.detectors.iter().map(|d| d.signal()).collect();
+        let mut findings: Vec<StyleFinding> = issues
+            .iter()
+            .filter(|issue| !detector_signals.contains(&classify_rule(&issue.rule_name)))
+            .map(From::from)
+            .collect();
 
         if !self.detectors.is_empty() && !parsed_files.is_empty() {
             let parsed_for_scores: Vec<ParsedFile> =

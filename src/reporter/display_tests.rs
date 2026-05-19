@@ -5,7 +5,6 @@ fn en_reporter() -> Reporter {
     Reporter::new(
         false,
         false,
-        10,
         5,
         false,
         false,
@@ -19,7 +18,6 @@ fn zh_reporter() -> Reporter {
     Reporter::new(
         false,
         false,
-        10,
         5,
         false,
         false,

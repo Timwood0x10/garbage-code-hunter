@@ -45,8 +45,6 @@ pub struct AnalyzeArgs {
     pub harsh: bool,
     #[arg(short, long)]
     pub verbose: bool,
-    #[arg(short = 't', long, default_value = "5")]
-    pub top: usize,
     #[arg(short = 'i', long, default_value = "5")]
     pub issues: usize,
     #[arg(short = 's', long)]
@@ -91,7 +89,6 @@ impl Default for AnalyzeArgs {
             path: PathBuf::from("."),
             harsh: false,
             verbose: false,
-            top: 5,
             issues: 5,
             summary: false,
             brief: false,

@@ -127,10 +127,15 @@ fn extract_code_contexts(issues: &[CodeIssue]) -> HashMap<String, String> {
     // Read all file contents upfront
     let file_contents: HashMap<PathBuf, Vec<String>> = file_paths
         .into_iter()
-        .filter_map(|path| {
-            let content = std::fs::read_to_string(&path).ok()?;
-            let lines: Vec<String> = content.lines().map(String::from).collect();
-            Some((path, lines))
+        .filter_map(|path| match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                let lines: Vec<String> = content.lines().map(String::from).collect();
+                Some((path, lines))
+            }
+            Err(e) => {
+                tracing::warn!("Failed to read source file {}: {}", path.display(), e);
+                None
+            }
         })
         .collect();
 

@@ -111,13 +111,12 @@ fn generate_autopsy(issues: &[CodeIssue]) -> AutopsyReport {
         });
     }
 
-    // Estimate lifespan
-    let density = total as f64; // rough estimate
-    let lifespan = if density > 100.0 {
+    // Estimate lifespan based on issue count
+    let lifespan = if total > 200 {
         "3 months — code is on life support".to_string()
-    } else if density > 50.0 {
+    } else if total > 80 {
         "6 months — symptoms are treatable".to_string()
-    } else if density > 20.0 {
+    } else if total > 30 {
         "12 months — early intervention recommended".to_string()
     } else {
         "24+ months — prognosis is good".to_string()

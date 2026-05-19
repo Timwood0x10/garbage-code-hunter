@@ -91,7 +91,7 @@ pub fn collect_captures<'a>(
         }
         let query = cache
             .get(&key)
-            .ok_or_else(|| format!("Query cache miss for pattern"))?;
+            .ok_or_else(|| "Query cache miss for pattern".to_string())?;
 
         let mut cursor = tree_sitter::QueryCursor::new();
         let root = file.root_node();

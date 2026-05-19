@@ -1,8 +1,8 @@
 //! CppAdapter — C++ language adapter.
 
 use super::{
-    count_params, is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
-    LanguageAdapter, MEANINGLESS_NAMES,
+    count_params, is_boolean_or_null, is_common_safe_number, is_inside_declaration,
+    is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -17,15 +17,9 @@ impl LanguageAdapter for CppAdapter {
         Language::Cpp
     }
 
-    fn count_panic_calls(&self, file: &ParsedFile) -> usize {
-        let mut count = 0;
-        if let Ok(groups) = collect_captures(
-            file,
-            "(call_expression function: (identifier) @f (#match? @f \"^(exit|abort)$\"))",
-        ) {
-            count += groups.len();
-        }
-        count
+    fn count_panic_calls(&self, _file: &ParsedFile) -> usize {
+        // exit()/abort() are normal C++ idioms, not anti-patterns
+        0
     }
 
     fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
@@ -181,7 +175,12 @@ impl LanguageAdapter for CppAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
+                    if text != "0"
+                        && text != "1"
+                        && text != "-1"
+                        && !is_common_safe_number(text)
+                        && !is_boolean_or_null(text)
+                    {
                         count += 1;
                     }
                 }
@@ -292,7 +291,7 @@ int main() {
 "#;
         let file = parse_cpp(code);
         let adapter = CppAdapter;
-        assert_eq!(adapter.count_panic_calls(&file), 2);
+        assert_eq!(adapter.count_panic_calls(&file), 0);
     }
 
     #[test]
@@ -382,7 +381,7 @@ void main() {
 "#;
         let file = parse_cpp(code);
         let adapter = CppAdapter;
-        assert_eq!(adapter.count_panic_calls(&file), 2);
+        assert_eq!(adapter.count_panic_calls(&file), 0);
     }
 
     #[test]

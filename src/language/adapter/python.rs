@@ -1,8 +1,9 @@
 //! PythonAdapter — Python language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, count_params, get_node_text, is_common_safe_number,
-    is_inside_declaration, is_repeating_chars, max_scope_depth, FunctionNode, LanguageAdapter,
+    count_block_ancestors, count_nested_blocks, count_params, get_node_text, is_boolean_or_null,
+    is_common_safe_number, is_inside_declaration, is_repeating_chars, max_scope_depth,
+    FunctionNode, LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -398,7 +399,11 @@ impl LanguageAdapter for PythonAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && !is_common_safe_number(text) {
+                    if text != "0"
+                        && text != "1"
+                        && !is_common_safe_number(text)
+                        && !is_boolean_or_null(text)
+                    {
                         count += 1;
                     }
                 }

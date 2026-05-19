@@ -1,8 +1,9 @@
 //! RustAdapter — Rust language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, count_params, is_common_safe_number,
-    is_inside_declaration, is_repeating_chars, max_scope_depth, FunctionNode, LanguageAdapter,
+    count_block_ancestors, count_nested_blocks, count_params, is_boolean_or_null,
+    is_common_safe_number, is_inside_declaration, is_repeating_chars, max_scope_depth,
+    FunctionNode, LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -140,6 +141,11 @@ impl LanguageAdapter for RustAdapter {
             "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
         ];
         let scope_prefixes: &[&str] = &["g_", "m_", "s_", "p_"];
+        // Domain-specific prefixes that look like Hungarian but aren't
+        let domain_prefixes: &[&str] = &[
+            "ctx", "req", "res", "err", "db", "kv", "fs", "io", "api", "http", "html", "ssh",
+            "tls", "uid", "uri", "url",
+        ];
         let bad_abbrevs: &[&str] = &[
             "mgr", "mngr", "ctrl", "hdlr", "usr", "pwd", "prefs", "btn", "lbl", "pic", "tbl",
             "col", "cnt",
@@ -153,6 +159,11 @@ impl LanguageAdapter for RustAdapter {
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     let name_lower = name.to_lowercase();
+
+                    // Skip domain prefixes that look like Hungarian but aren't
+                    if domain_prefixes.iter().any(|p| name_lower.starts_with(p)) {
+                        continue;
+                    }
 
                     if scope_prefixes.iter().any(|p| name_lower.starts_with(p))
                         || hungarian_prefixes.iter().any(|p| {
@@ -241,7 +252,12 @@ impl LanguageAdapter for RustAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
+                    if text != "0"
+                        && text != "1"
+                        && text != "-1"
+                        && !is_common_safe_number(text)
+                        && !is_boolean_or_null(text)
+                    {
                         count += 1;
                     }
                 }
@@ -412,6 +428,14 @@ fn main() {
         let file = parse_rust(code);
         let adapter = RustAdapter;
         assert_eq!(adapter.count_naming_violations(&file), 2);
+    }
+
+    #[test]
+    fn test_naming_hungarian_exempts_domain_prefixes() {
+        let code = "fn main() { let ctxUser = 1; let dbQuery = 2; let kvStore = 3; }";
+        let file = parse_rust(code);
+        let adapter = RustAdapter;
+        assert_eq!(adapter.count_naming_violations(&file), 0);
     }
 
     #[test]

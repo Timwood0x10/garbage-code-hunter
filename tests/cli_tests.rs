@@ -278,28 +278,6 @@ fn test_cli_verbose_mode() {
 }
 
 #[test]
-fn test_cli_top_files_option() {
-    let temp_dir = TempDir::new().expect("Failed to create temp directory");
-    let file_path = temp_dir.path().join("test.rs");
-
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
-
-    let output = Command::new("cargo")
-        .args([
-            "run",
-            "--",
-            "analyze",
-            "--top",
-            "1",
-            file_path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("Failed to execute command");
-
-    assert!(output.status.success());
-}
-
-#[test]
 fn test_cli_issues_limit() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");

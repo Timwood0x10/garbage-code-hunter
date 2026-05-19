@@ -40,7 +40,6 @@ fn test_reporter_creation() {
         false,
         false,
         5,
-        5,
         false,
         false,
         false,
@@ -70,7 +69,6 @@ fn test_reporter_harsh_mode() {
         true,
         false,
         5,
-        5,
         false,
         false,
         false,
@@ -85,7 +83,6 @@ fn test_reporter_summary_only() {
     let reporter = Reporter::new(
         false,
         false,
-        5,
         5,
         true,
         false,
@@ -104,7 +101,6 @@ fn test_reporter_markdown_output() {
         false,
         true,
         3,
-        3,
         false,
         false,
         true,
@@ -121,7 +117,6 @@ fn test_reporter_chinese_output() {
     let reporter = Reporter::new(
         false,
         true,
-        5,
         5,
         false,
         false,
@@ -140,7 +135,6 @@ fn test_reporter_empty_issues() {
         false,
         false,
         5,
-        5,
         false,
         false,
         false,
@@ -157,7 +151,6 @@ fn test_reporter_limited_issues_per_file() {
     let reporter = Reporter::new(
         false,
         false,
-        5,
         1,
         false,
         false,
@@ -287,18 +280,17 @@ fn main() {
 
     // Test all reporter configurations with real issues (smoke test)
     let configurations = vec![
-        (false, false, 5, 5, false, false, "en-US"),
-        (true, false, 3, 3, false, false, "en-US"),
-        (false, true, 5, 5, false, false, "zh-CN"),
-        (false, false, 5, 5, true, false, "en-US"),
-        (false, false, 5, 5, false, true, "en-US"),
+        (false, false, 5, false, false, "en-US"),
+        (true, false, 3, false, false, "en-US"),
+        (false, true, 5, false, false, "zh-CN"),
+        (false, false, 5, true, false, "en-US"),
+        (false, false, 5, false, true, "en-US"),
     ];
 
-    for (harsh, verbose, top, max_issues, summary, markdown, lang) in configurations {
+    for (harsh, verbose, max_issues, summary, markdown, lang) in configurations {
         let reporter = Reporter::new(
             harsh,
             verbose,
-            top,
             max_issues,
             summary,
             false,
@@ -351,7 +343,6 @@ fn test_reporter_with_different_severities() {
     let reporter = Reporter::new(
         false,
         true,
-        5,
         5,
         false,
         false,

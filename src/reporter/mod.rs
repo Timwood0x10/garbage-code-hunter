@@ -19,8 +19,6 @@ use crate::style_ir::StyleIrSummary;
 pub struct Reporter {
     harsh_mode: bool,
     verbose: bool,
-    #[expect(dead_code)]
-    top_files: usize,
     max_issues_per_file: usize,
     summary_only: bool,
     brief: bool,
@@ -37,7 +35,6 @@ impl Reporter {
     pub fn new(
         harsh_mode: bool,
         verbose: bool,
-        top_files: usize,
         max_issues_per_file: usize,
         summary_only: bool,
         brief: bool,
@@ -48,7 +45,6 @@ impl Reporter {
         Self {
             harsh_mode,
             verbose,
-            top_files,
             max_issues_per_file,
             summary_only,
             brief,
@@ -547,7 +543,6 @@ mod tests {
         let reporter = Reporter::new(
             false,
             false,
-            10,
             5,
             false,
             false,
@@ -568,7 +563,6 @@ mod tests {
         let reporter = Reporter::new(
             false,
             false,
-            10,
             5,
             false,
             false,

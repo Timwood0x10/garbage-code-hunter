@@ -1,8 +1,8 @@
 //! ZigAdapter — Zig language adapter.
 
 use super::{
-    count_params, is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
-    LanguageAdapter, MEANINGLESS_NAMES,
+    count_params, is_boolean_or_null, is_common_safe_number, is_inside_declaration,
+    is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -175,7 +175,12 @@ impl LanguageAdapter for ZigAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
+                    if text != "0"
+                        && text != "1"
+                        && text != "-1"
+                        && !is_common_safe_number(text)
+                        && !is_boolean_or_null(text)
+                    {
                         count += 1;
                     }
                 }

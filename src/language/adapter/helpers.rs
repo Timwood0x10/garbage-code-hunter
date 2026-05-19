@@ -95,6 +95,14 @@ pub(crate) fn is_common_safe_number(text: &str) -> bool {
     )
 }
 
+/// Boolean and null literals that may appear as number_literal in some grammars.
+pub(crate) fn is_boolean_or_null(text: &str) -> bool {
+    matches!(
+        text,
+        "true" | "false" | "NULL" | "nullptr" | "nil" | "None" | "True" | "False"
+    )
+}
+
 pub(crate) fn is_inside_declaration(node: tree_sitter::Node) -> bool {
     let mut current = Some(node);
     while let Some(n) = current {

@@ -685,7 +685,6 @@ fn run_analyze(args: AnalyzeArgs) {
     let reporter = Reporter::new(
         args.harsh,
         args.verbose,
-        args.top,
         args.issues,
         args.summary,
         args.brief,
