@@ -77,30 +77,20 @@ impl BehaviorPattern {
                 "用 unwrap/expect/panic 代替正确的错误处理",
                 "使用 Result<T, E> 并用 '?' 传播错误",
             ),
-            StyleSignal::NamingChaos => (
-                "变量名看不出是干什么的",
-                "用能表达意图的描述性名称",
-            ),
+            StyleSignal::NamingChaos => ("变量名看不出是干什么的", "用能表达意图的描述性名称"),
             StyleSignal::NestedHell => (
                 "嵌套太深，代码难以阅读",
                 "用 early return 和 guard clause 减少嵌套",
             ),
-            StyleSignal::HotfixCulture => (
-                "残留的调试打印、TODO 和注释掉的代码",
-                "提交前清理调试残留",
-            ),
-            StyleSignal::OverEngineering => (
-                "一个函数干太多事",
-                "把大函数拆成职责单一的小函数",
-            ),
+            StyleSignal::HotfixCulture => {
+                ("残留的调试打印、TODO 和注释掉的代码", "提交前清理调试残留")
+            }
+            StyleSignal::OverEngineering => ("一个函数干太多事", "把大函数拆成职责单一的小函数"),
             StyleSignal::CodeSmells => (
                 "unsafe 块、魔法数字和可疑的写法",
                 "优先用安全抽象；给常量起个好名字",
             ),
-            StyleSignal::LegacyCode => (
-                "源文件里留着注释掉的代码",
-                "删掉死代码，git 有历史记录",
-            ),
+            StyleSignal::LegacyCode => ("源文件里留着注释掉的代码", "删掉死代码，git 有历史记录"),
             StyleSignal::TodoMountain => (
                 "堆积的 TODO/FIXME/BUG/HACK 标记",
                 "用 issue 跟踪器管理待办，别写在代码里",
@@ -406,10 +396,7 @@ impl FriendFeedback {
             if self.total_issues == 0 {
                 "".to_string()
             } else {
-                format!(
-                    "  ({} 个问题)",
-                    self.total_issues.to_string().yellow(),
-                )
+                format!("  ({} 个问题)", self.total_issues.to_string().yellow(),)
             }
         );
         println!("{}  评分: {:.1}/100", "📊".bright_blue(), self.total_score);
