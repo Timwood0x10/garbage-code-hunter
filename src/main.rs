@@ -684,7 +684,6 @@ fn run_analyze(args: AnalyzeArgs) {
     let direct_scores = analyzer.direct_signal_scores();
     let reporter = Reporter::new(
         args.harsh,
-        args.savage,
         args.verbose,
         args.top,
         args.issues,

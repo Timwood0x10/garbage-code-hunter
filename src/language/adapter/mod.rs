@@ -155,7 +155,10 @@ pub trait LanguageAdapter: Send + Sync {
         for line in file.content.lines() {
             let trimmed = line.trim();
             if trimmed.starts_with(line_comment) {
-                if trimmed.starts_with("///") || trimmed.starts_with("/**") {
+                // Guard: skip doc-comments (///, /**) but do NOT skip //// (4-slash lines)
+                if (trimmed.starts_with("///") && !trimmed.starts_with("////"))
+                    || trimmed.starts_with("/**")
+                {
                     if block_size > 0 {
                         total += block_size;
                         block_size = 0;
@@ -193,6 +196,12 @@ pub trait LanguageAdapter: Send + Sync {
         for line in file.content.lines() {
             let trimmed = line.trim();
             if let Some(pos) = trimmed.find(line_comment) {
+                // Ensure the comment marker is genuinely a comment, not a # inside a string
+                // literal (e.g. `{"#TODO": "done"}` in Python). Real comments start at position
+                // 0 or are preceded by whitespace in the trimmed line.
+                if pos > 0 && !trimmed[..pos].ends_with(' ') {
+                    continue;
+                }
                 let comment = trimmed[pos + line_comment.len()..].trim().to_uppercase();
                 if comment.starts_with("TODO")
                     || comment.contains(" TODO ")
@@ -212,7 +221,7 @@ pub trait LanguageAdapter: Send + Sync {
 }
 
 const CODEC_PATTERNS: &[&str] = &[
-    "fn ", "if ", "else", "for ", "while ", "match ", "struct ", "enum ", "impl ", "let ",
+    "fn ", "if ", "else", "for ", "while ", "match {", "struct ", "enum ", "impl ", "let ",
     "return ", "use ", "mod ", "break", "continue", "{", "}", "(", ")", "[", "]", ";", "=", "==",
     "!=", "&&", "||", "->", "::",
 ];

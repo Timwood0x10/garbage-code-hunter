@@ -9,10 +9,9 @@ use crate::treesitter::engine::ParsedFile;
 // ─── Cross-file duplication ──────────────────────────────────────────────────
 
 /// Normalized token for function fingerprinting.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum FToken {
-    Ident,
+    Ident(u8),
     Int,
     Float,
     Str,
@@ -30,13 +29,15 @@ struct FuncFingerprint {
 }
 
 /// Build a normalized token sequence from a function node.
-fn fingerprint_function(file: &ParsedFile, node: tree_sitter::Node) -> Option<FuncFingerprint> {
+fn fingerprint_function(
+    file: &ParsedFile,
+    node: tree_sitter::Node,
+) -> Option<(FuncFingerprint, Vec<FToken>)> {
     let name = extract_func_name(file, node)?;
     let line_start = node.start_position().row + 1;
     let line_end = node.end_position().row + 1;
     let line_count = line_end - line_start + 1;
 
-    // Skip small functions (likely trivial or boilerplate)
     if line_count < 5 {
         return None;
     }
@@ -50,17 +51,23 @@ fn fingerprint_function(file: &ParsedFile, node: tree_sitter::Node) -> Option<Fu
     tokens.hash(&mut hasher);
     let hash = hasher.finish();
 
-    Some(FuncFingerprint {
-        hash,
-        name,
-        file: file.path.clone(),
-        line_start,
-    })
+    Some((
+        FuncFingerprint {
+            hash,
+            name,
+            file: file.path.clone(),
+            line_start,
+        },
+        tokens,
+    ))
 }
 
-/// Normalize a tree-sitter node into a Vec<FToken> for fingerprinting.
-/// Leaf nodes (identifiers, literals) map to generic tokens.
-/// Compound nodes recurse into their named children.
+fn hash_ident(text: &str) -> u8 {
+    let mut h = DefaultHasher::new();
+    text.hash(&mut h);
+    (h.finish() % 16) as u8
+}
+
 #[allow(clippy::only_used_in_recursion)]
 fn normalize_node(file: &ParsedFile, node: tree_sitter::Node) -> Vec<FToken> {
     let kind = node.kind();
@@ -69,7 +76,12 @@ fn normalize_node(file: &ParsedFile, node: tree_sitter::Node) -> Vec<FToken> {
         | "field_identifier"
         | "shorthand_property_identifier"
         | "variable_name"
-        | "name" => return vec![FToken::Ident],
+        | "name" => {
+            let start = node.start_byte();
+            let end = node.end_byte();
+            let text = &file.content[start..end];
+            return vec![FToken::Ident(hash_ident(text))];
+        }
         "type_identifier" | "primitive_type" | "mutable_specifier" => return vec![FToken::Type],
         "integer_literal" | "integer" | "number" => return vec![FToken::Int],
         "float_literal" | "float" => return vec![FToken::Float],
@@ -117,29 +129,44 @@ const FN_NODE_KINDS: &[&str] = &[
     "method",               // Ruby
 ];
 
+fn build_token_bigrams(tokens: &[FToken]) -> std::collections::HashSet<(FToken, FToken)> {
+    tokens.windows(2).map(|w| (w[0], w[1])).collect()
+}
+
 /// Recursively find function-like nodes and fingerprint them.
 fn find_functions_recursive(
     file: &ParsedFile,
     node: tree_sitter::Node,
     fingerprints: &mut Vec<FuncFingerprint>,
+    token_sets: &mut Vec<(
+        std::collections::HashSet<FToken>,
+        std::collections::HashSet<(FToken, FToken)>,
+    )>,
     processed: &mut usize,
 ) {
     let kind = node.kind();
     if FN_NODE_KINDS.contains(&kind) {
-        if let Some(fp) = fingerprint_function(file, node) {
+        if let Some((fp, tokens)) = fingerprint_function(file, node) {
+            let type_set: std::collections::HashSet<FToken> = tokens.iter().copied().collect();
+            let bigram_set = build_token_bigrams(&tokens);
             fingerprints.push(fp);
+            token_sets.push((type_set, bigram_set));
             *processed += 1;
         }
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        find_functions_recursive(file, child, fingerprints, processed);
+        find_functions_recursive(file, child, fingerprints, token_sets, processed);
     }
 }
 
 /// Cross-file duplication analyzer using tree-sitter fingerprints.
 pub struct CrossFileDupDetector {
     fingerprints: Vec<FuncFingerprint>,
+    token_sets: Vec<(
+        std::collections::HashSet<FToken>,
+        std::collections::HashSet<(FToken, FToken)>,
+    )>,
     processed: usize,
 }
 
@@ -153,6 +180,7 @@ impl CrossFileDupDetector {
     pub fn new() -> Self {
         Self {
             fingerprints: Vec::new(),
+            token_sets: Vec::new(),
             processed: 0,
         }
     }
@@ -160,7 +188,13 @@ impl CrossFileDupDetector {
     /// Process a parsed file, extracting function fingerprints.
     pub fn process_file(&mut self, file: &ParsedFile) {
         let root = file.root_node();
-        find_functions_recursive(file, root, &mut self.fingerprints, &mut self.processed);
+        find_functions_recursive(
+            file,
+            root,
+            &mut self.fingerprints,
+            &mut self.token_sets,
+            &mut self.processed,
+        );
     }
 
     /// Find duplicate functions across files.
@@ -213,7 +247,74 @@ impl CrossFileDupDetector {
 
     /// Find near-duplicate functions using Jaccard similarity on normalized tokens.
     pub fn find_near_duplicates(&self) -> Vec<CodeIssue> {
-        vec![]
+        if self.fingerprints.len() < 2 {
+            return vec![];
+        }
+
+        let mut by_len: HashMap<usize, Vec<usize>> = HashMap::new();
+        for i in 0..self.fingerprints.len() {
+            let bucket = self.token_sets[i].1.len() / 5;
+            by_len.entry(bucket).or_default().push(i);
+        }
+
+        let mut reported = std::collections::HashSet::new();
+        let mut issues = Vec::new();
+
+        for indices in by_len.values() {
+            for pair in indices.windows(2) {
+                let (a, b) = (pair[0], pair[1]);
+                if self.fingerprints[a].file == self.fingerprints[b].file {
+                    continue;
+                }
+                if self.fingerprints[a].hash == self.fingerprints[b].hash {
+                    continue;
+                }
+
+                let (types_a, bigrams_a) = &self.token_sets[a];
+                let (types_b, bigrams_b) = &self.token_sets[b];
+
+                let bigram_inter = bigrams_a.intersection(bigrams_b).count();
+                let bigram_union = bigrams_a.union(bigrams_b).count();
+                if bigram_union == 0 {
+                    continue;
+                }
+                let similarity = bigram_inter as f64 / bigram_union as f64;
+
+                let type_inter = types_a.intersection(types_b).count();
+                let type_union = types_a.union(types_b).count();
+                let type_ratio = if type_union > 0 {
+                    type_inter as f64 / type_union as f64
+                } else {
+                    0.0
+                };
+
+                if similarity >= 0.8
+                    && bigrams_a.len() >= 5
+                    && bigrams_b.len() >= 5
+                    && type_ratio >= 0.5
+                {
+                    for &idx in &[a, b] {
+                        if reported.insert(idx) {
+                            issues.push(CodeIssue {
+                                file_path: self.fingerprints[idx].file.clone(),
+                                line: self.fingerprints[idx].line_start,
+                                column: 1,
+                                rule_name: "near-duplicate".to_string(),
+                                message: format!(
+                                    "Function '{}' is near-identical to '{}' ({:.0}% similar)",
+                                    self.fingerprints[a].name,
+                                    self.fingerprints[b].name,
+                                    similarity * 100.0,
+                                ),
+                                severity: Severity::Spicy,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        issues
     }
 
     pub fn stats(&self) -> (usize, usize) {

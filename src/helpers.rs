@@ -505,8 +505,17 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         ts_issue_count,
         dead_code_count,
         duplicate_import_count,
-        over_engineering_count: god_function_count + excessive_param_count,
-        code_smell_count: unsafe_block_count * 2 + magic_number_count,
+        over_engineering_count: god_function_count + excessive_param_count + goroutine_spawn_count,
+        code_smell_count: unsafe_block_count * 2
+            + magic_number_count
+            + go_convention_count
+            + python_issue_count
+            + java_issue_count
+            + ruby_issue_count
+            + c_issue_count
+            + ts_issue_count
+            + dead_code_count
+            + duplicate_import_count,
         is_clean_signal_baseline: panic_call_count == 0
             && naming_violation_count == 0
             && deeply_nested_block_count == 0

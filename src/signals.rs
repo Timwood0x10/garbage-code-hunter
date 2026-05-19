@@ -318,8 +318,11 @@ impl StyleProfile {
     /// Scores are set directly from counts so dominant_signal reflects the
     /// most frequent signal, matching the behavior of personality/profiles.rs.
     pub fn from_signal_counts(counts: HashMap<StyleSignal, u32>) -> Self {
-        let signal_scores: HashMap<StyleSignal, f64> =
-            counts.iter().map(|(s, &c)| (*s, c as f64)).collect();
+        let max_count = counts.values().copied().max().unwrap_or(1).max(1) as f64;
+        let signal_scores: HashMap<StyleSignal, f64> = counts
+            .iter()
+            .map(|(s, &c)| (*s, c as f64 / max_count * 25.0))
+            .collect();
         Self::from_signal_scores(signal_scores)
     }
 

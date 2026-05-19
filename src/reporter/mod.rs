@@ -18,8 +18,6 @@ use crate::style_ir::StyleIrSummary;
 
 pub struct Reporter {
     harsh_mode: bool,
-    #[expect(dead_code)]
-    savage_mode: bool,
     verbose: bool,
     #[expect(dead_code)]
     top_files: usize,
@@ -38,7 +36,6 @@ impl Reporter {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         harsh_mode: bool,
-        savage_mode: bool,
         verbose: bool,
         top_files: usize,
         max_issues_per_file: usize,
@@ -50,7 +47,6 @@ impl Reporter {
     ) -> Self {
         Self {
             harsh_mode,
-            savage_mode,
             verbose,
             top_files,
             max_issues_per_file,
@@ -551,7 +547,6 @@ mod tests {
         let reporter = Reporter::new(
             false,
             false,
-            false,
             10,
             5,
             false,
@@ -571,7 +566,6 @@ mod tests {
     #[test]
     fn test_reporter_creates_with_chinese_i18n() {
         let reporter = Reporter::new(
-            false,
             false,
             false,
             10,

@@ -95,11 +95,13 @@ impl CodeAnalyzer {
         let patterns = all_patterns
             .iter()
             .filter_map(|pattern| {
-                // Convert glob patterns to regular expressions
-                let regex_pattern = pattern
+                // Convert glob patterns to regular expressions with path-boundary anchoring.
+                // Without anchors, "build" would match "mybuild/foo.o" — a substring false positive.
+                let glob_pattern = pattern
                     .replace(".", r"\.")
                     .replace("*", ".*")
                     .replace("?", ".");
+                let regex_pattern = format!(r"(?:^|/){}(?:/|$)", glob_pattern);
                 Regex::new(&regex_pattern).ok()
             })
             .collect();

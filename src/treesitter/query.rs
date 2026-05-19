@@ -108,10 +108,14 @@ pub fn collect_captures<'a>(
                 .iter()
                 .map(|capture| {
                     let name_idx = capture.index as usize;
-                    let name = capture_names
-                        .get(name_idx)
-                        .cloned()
-                        .unwrap_or_else(|| "unknown".to_string());
+                    let name = capture_names.get(name_idx).cloned().unwrap_or_else(|| {
+                        tracing::warn!(
+                            "capture index {} out of bounds (max {}); using 'unknown'",
+                            name_idx,
+                            capture_names.len()
+                        );
+                        "unknown".to_string()
+                    });
                     let node = capture.node;
                     let start = node.start_byte();
                     let end = node.end_byte();

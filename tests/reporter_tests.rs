@@ -39,7 +39,6 @@ fn test_reporter_creation() {
     let reporter = Reporter::new(
         false,
         false,
-        false,
         5,
         5,
         false,
@@ -70,7 +69,6 @@ fn test_reporter_harsh_mode() {
     let reporter = Reporter::new(
         true,
         false,
-        false,
         5,
         5,
         false,
@@ -85,7 +83,6 @@ fn test_reporter_harsh_mode() {
 #[test]
 fn test_reporter_summary_only() {
     let reporter = Reporter::new(
-        false,
         false,
         false,
         5,
@@ -104,7 +101,6 @@ fn test_reporter_summary_only() {
 #[test]
 fn test_reporter_markdown_output() {
     let reporter = Reporter::new(
-        false,
         false,
         true,
         3,
@@ -125,7 +121,6 @@ fn test_reporter_chinese_output() {
     let reporter = Reporter::new(
         false,
         true,
-        true,
         5,
         5,
         false,
@@ -135,14 +130,13 @@ fn test_reporter_chinese_output() {
         Box::new(LocalRoastProvider),
     );
     let issues = create_test_issues();
-    // Smoke test: Chinese locale with savage mode should not panic
+    // Smoke test: Chinese locale should not panic
     reporter.report_with_metrics(issues, 1, 100);
 }
 
 #[test]
 fn test_reporter_empty_issues() {
     let reporter = Reporter::new(
-        false,
         false,
         false,
         5,
@@ -161,7 +155,6 @@ fn test_reporter_empty_issues() {
 #[test]
 fn test_reporter_limited_issues_per_file() {
     let reporter = Reporter::new(
-        false,
         false,
         false,
         5,
@@ -294,17 +287,16 @@ fn main() {
 
     // Test all reporter configurations with real issues (smoke test)
     let configurations = vec![
-        (false, false, false, 5, 5, false, false, "en-US"),
-        (true, false, false, 3, 3, false, false, "en-US"),
-        (false, true, true, 5, 5, false, false, "zh-CN"),
-        (false, false, false, 5, 5, true, false, "en-US"),
-        (false, false, false, 5, 5, false, true, "en-US"),
+        (false, false, 5, 5, false, false, "en-US"),
+        (true, false, 3, 3, false, false, "en-US"),
+        (false, true, 5, 5, false, false, "zh-CN"),
+        (false, false, 5, 5, true, false, "en-US"),
+        (false, false, 5, 5, false, true, "en-US"),
     ];
 
-    for (harsh, savage, verbose, top, max_issues, summary, markdown, lang) in configurations {
+    for (harsh, verbose, top, max_issues, summary, markdown, lang) in configurations {
         let reporter = Reporter::new(
             harsh,
-            savage,
             verbose,
             top,
             max_issues,
@@ -357,7 +349,6 @@ fn test_reporter_with_different_severities() {
 
     // Smoke test with verbose mode
     let reporter = Reporter::new(
-        false,
         false,
         true,
         5,

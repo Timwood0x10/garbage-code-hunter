@@ -43,8 +43,6 @@ pub struct AnalyzeArgs {
     pub path: PathBuf,
     #[arg(long)]
     pub harsh: bool,
-    #[arg(long)]
-    pub savage: bool,
     #[arg(short, long)]
     pub verbose: bool,
     #[arg(short = 't', long, default_value = "5")]
@@ -92,7 +90,6 @@ impl Default for AnalyzeArgs {
         Self {
             path: PathBuf::from("."),
             harsh: false,
-            savage: false,
             verbose: false,
             top: 5,
             issues: 5,

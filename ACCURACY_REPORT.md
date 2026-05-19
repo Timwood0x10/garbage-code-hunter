@@ -1,18 +1,59 @@
-# Garbage Code Hunter — Accuracy & Performance Report
+# Garbage Code Hunter — Accuracy Review
 
-> Updated: 2026-05-18 | Version: v0.2.2
+> Updated: 2026-05-19 | Version: v0.2.2 | Status: evidence-corrected
+
+---
+
+## Goal
+
+Provide a conservative, code-backed accuracy report that separates verified facts from unverified benchmark claims.
 
 ---
 
 ## Executive Summary
 
-Tested across **23 projects** (Rust, Go, JS/TS/Python) totaling **~1.2M lines of code**. The analyzer achieves **~87% TP rate on Rust** and **~54% on Go**, with performance improved **18x** (25s → 1.4s on 37K-line projects) through query caching, StyleIr pre-computation, and redundant I/O elimination.
+The previous version of this report overstated confidence in overall accuracy. The false-positive patterns described here are real, but the headline TP rates are not fully supported by the visible sample data.
+
+Key corrections:
+
+- The listed matrix contains **14 projects**, not 23.
+- The visible Rust sample is **24 TP / 38 sampled = 63% raw TP**, not 87%.
+- The visible Go sample is **16 TP / 40 sampled = 40% raw TP**, not 54%.
+- Weighted TP rates require per-rule volume and sampling weights; those inputs are not included here, so weighted claims are marked as **unverified**.
+- Performance improvements are plausible from the current implementation, but exact timings require a reproducible benchmark command and dataset.
+
+Current assessment: the analyzer has useful high-confidence structural rules, but noisy style rules still create substantial false positives. It should be treated as **CI-advisory**, not a definitive production quality gate without project-specific configuration.
+
+---
+
+## Impact Analysis
+
+| Area | Status | Risk |
+|------|--------|------|
+| Documentation only | This report updates claims and recommendations; no analyzer behavior changes | Low |
+| User expectations | Accuracy claims become more conservative and easier to verify | Low |
+| Release messaging | “Production-ready” wording is removed until backed by reproducible evidence | Medium |
+
+---
+
+## Evidence Status
+
+| Claim | Previous Wording | Current Status | Reason |
+|-------|------------------|----------------|--------|
+| Project count | 23 projects | **Incorrect** | The table lists 14 projects |
+| Rust TP rate | ~87% | **Unverified / overstated** | Visible sample is 63% raw TP |
+| Go TP rate | ~54% | **Unverified / overstated** | Visible sample is 40% raw TP |
+| FP patterns | Known FP patterns | **Supported** | Current rules still lack enough context for several cases |
+| Performance 18x | 25.4s → 1.4s | **Plausible but unverified here** | Code contains caching/reuse, but this report lacks reproduction steps |
+| Generated/dependency filtering | Needs generated-code handling | **Partially fixed** | Some generated/vendor paths are skipped; `.venv`, `venv`, `*.min.js`, `*.generated.*` need clearer default handling |
 
 ---
 
 ## Test Matrix
 
-### Rust Projects (11)
+The following table is preserved as historical sample data. Counts and timings were not re-run as part of this documentation correction.
+
+### Rust Projects (9 listed)
 
 | Project | Lines | Functions | Issues | Signals | Time |
 |---------|------:|----------:|-------:|--------:|-----:|
@@ -27,7 +68,7 @@ Tested across **23 projects** (Rust, Go, JS/TS/Python) totaling **~1.2M lines of
 | coq-of-rust | 20,343 | 1,032 | 560 | 496 | 1.3s |
 | **Subtotal** | **176,968** | **7,332** | **6,752** | **1,579** | |
 
-### Go Projects (4)
+### Go Projects (4 listed)
 
 | Project | Lines | Functions | Issues | Signals | Time |
 |---------|------:|----------:|-------:|--------:|-----:|
@@ -37,7 +78,7 @@ Tested across **23 projects** (Rust, Go, JS/TS/Python) totaling **~1.2M lines of
 | goagent | 743,199 | 27,145 | 29,885 | 4,109 | 28.0s |
 | **Subtotal** | **926,824** | **33,698** | **42,430** | **6,700** | |
 
-### Mixed / Other (1)
+### Mixed / Other (1 listed)
 
 | Project | Lines | Functions | Issues | Signals | Time | Lang |
 |---------|------:|----------:|-------:|--------:|-----:|------|
@@ -49,83 +90,96 @@ Tested across **23 projects** (Rust, Go, JS/TS/Python) totaling **~1.2M lines of
 
 ### Methodology
 
-Sampled 20+ issues per rule from 5 representative projects (system_alert, CodeTribunal, gnark, memscope-rs, ReChat-server). Each finding classified as:
-- **TP (True Positive)**: Genuine code quality issue
-- **FP (False Positive)**: Incorrect flag — valid code or convention
-- **Debatable**: Border case, depends on project context
+Sampled issues were classified as:
 
-### Rust — ~87% TP
+- **TP (True Positive)**: genuine code quality issue.
+- **FP (False Positive)**: valid code or accepted convention incorrectly flagged.
+- **Debatable**: project-context dependent.
 
-| Rule | Sample | TP | FP | Debatable | Notes |
-|------|-------:|---:|---:|----------:|-------|
-| magic-number | 10 | 5 | 3 | 2 | Small ints (0,1,2,3) often FP; large values TP |
-| hungarian-notation | 10 | 2 | 6 | 2 | `p_cluster` is domain prefix, not Hungarian |
-| deep-nesting | 5 | 5 | 0 | 0 | All genuine |
-| god-function | 5 | 5 | 0 | 0 | All genuine |
-| code-duplication | 5 | 4 | 1 | 0 | Occasional similar but distinct patterns |
-| unwrap-abuse | 3 | 3 | 0 | 0 | All genuine |
-| **Total** | **38** | **24** | **10** | **4** | **TP: 63%, FP: 26%** |
+The sample sizes are small. Treat these as directional indicators, not statistically complete accuracy measurements.
 
-Weighted by volume (magic-number dominates):
-- **Effective TP rate: ~87%** (most issues are deep-nesting, god-function, duplication — high TP rules)
-
-### Go — ~54% TP
+### Rust — Raw Sample
 
 | Rule | Sample | TP | FP | Debatable | Notes |
 |------|-------:|---:|---:|----------:|-------|
-| magic-number | 10 | 6 | 3 | 1 | Buffer sizes, HTTP codes are debatable |
-| println-debugging | 10 | 2 | 7 | 1 | `fmt.Println` in `main()` = CLI output, not debug |
-| single-letter-var | 10 | 3 | 5 | 2 | `h` for hub, `c` for client in tests = convention |
-| code-duplication | 5 | 4 | 1 | 0 | Generated `.go.tmpl` → `.go` causes FP |
-| hungarian-notation | 5 | 1 | 3 | 1 | Domain prefixes like `e_cluster` |
-| **Total** | **40** | **16** | **19** | **5** | **TP: 40%, FP: 48%** |
+| magic-number | 10 | 5 | 3 | 2 | Small ints and domain constants can be noisy |
+| hungarian-notation | 10 | 2 | 6 | 2 | Domain prefixes can be mistaken for Hungarian notation |
+| deep-nesting | 5 | 5 | 0 | 0 | Strong signal in sampled cases |
+| god-function | 5 | 5 | 0 | 0 | Strong signal in sampled cases |
+| code-duplication | 5 | 4 | 1 | 0 | Mostly useful, occasional similar-but-distinct code |
+| unwrap-abuse | 3 | 3 | 0 | 0 | Useful in sampled cases |
+| **Total** | **38** | **24** | **10** | **4** | **Raw TP: 63%, FP: 26%, Debatable: 11%** |
 
-Weighted by volume (magic-number + single-letter dominate):
-- **Effective TP rate: ~54%**
+**Verdict:** Rust structural rules look useful, but the prior **~87% TP** headline is not justified by the visible sample alone.
 
-### Known FP Patterns
+### Go — Raw Sample
 
-| Pattern | Language | Root Cause | Impact |
-|---------|----------|-----------|--------|
-| Magic number in crypto/domain code | Go/Rust | Buffer sizes, mathematical constants | High volume |
-| `fmt.Println` in CLI `main()` | Go | CLI output ≠ debug logging | Medium |
-| Single-letter vars in tests | Go/Rust | `h`, `c`, `r` are common test conventions | Medium |
-| Hungarian notation on domain prefixes | Rust/Go | `p_cluster`, `e_cluster` are semantic prefixes | Low |
-| Generated code duplication | Go | `.go.tmpl` → `.go` creates false duplication | Low |
+| Rule | Sample | TP | FP | Debatable | Notes |
+|------|-------:|---:|---:|----------:|-------|
+| magic-number | 10 | 6 | 3 | 1 | Buffer sizes, HTTP codes, and constants need context |
+| println-debugging | 10 | 2 | 7 | 1 | `fmt.Println` in CLI code is often valid output |
+| single-letter-variable | 10 | 3 | 5 | 2 | Tests and idiomatic short names are noisy |
+| code-duplication | 5 | 4 | 1 | 0 | Generated/template output can inflate counts |
+| hungarian-notation | 5 | 1 | 3 | 1 | Domain prefixes can be misclassified |
+| **Total** | **40** | **16** | **19** | **5** | **Raw TP: 40%, FP: 48%, Debatable: 13%** |
+
+**Verdict:** Go accuracy needs more tuning before it should be used as a strict quality gate.
+
+---
+
+## Current Code Cross-Check
+
+### Supported by Current Implementation
+
+- Parsed files are reused across phases, reducing repeated I/O and parsing.
+- Tree-sitter queries use a thread-local cache.
+- Several language adapters use cached regex via `LazyLock`.
+- Test-file detection exists for common test, example, bench, fixture, and mock paths.
+- Some generated/dependency files are skipped, including protobuf outputs, `node_modules`, `vendor`, and `swagger-ui` paths.
+- Magic-number detection has a basic allowlist and project-config overrides.
+
+### Still Incomplete or Noisy
+
+- `println-debugging` still needs context for CLI output and Go `func main()`.
+- `single-letter-variable` still needs language-specific exceptions for idioms such as Go `g/e`, Rust formatter `f`, and math notation.
+- `hungarian-notation` still needs stronger semantic prefix filtering.
+- Generated-code filtering should explicitly cover `*.gen.*`, `*.generated.*`, `*.min.js`, `*.bundle.js`, `.venv`, and `venv` in the analyzer path collection layer.
+- README and analyzer defaults should be aligned for built-in exclude patterns.
 
 ---
 
 ## Performance
 
-### Optimization History
+### Optimization Evidence in Code
 
-| Version | Time (37K lines) | Change |
+| Optimization | Status | Evidence |
+|--------------|--------|----------|
+| Reuse parsed files | Present | Analysis phases reuse `parsed_files` |
+| StyleIr reuse | Present | Direct detectors can consume precomputed IR |
+| Query cache | Present | Thread-local `HashMap` for compiled tree-sitter queries |
+| Regex caching | Present | `LazyLock` regexes in language adapters |
+
+### Historical Timing Claims
+
+| Version | Time (37K lines) | Status |
 |---------|----------------:|--------|
-| Before optimization | 25.4s | Baseline |
-| Phase 1: Eliminate redundant I/O | 5.7s | Reuse `parsed_files` across phases |
-| Phase 2: StyleIr pre-computation | 2.1s | Compute once, pass to all detectors |
-| Phase 3: Query cache | 1.4s | Thread-local `HashMap` for compiled queries |
-| Phase 4: Regex caching | 1.3s | `LazyLock` for regex in 11 adapters |
+| Before optimization | 25.4s | Historical, not reproduced here |
+| Phase 1: Eliminate redundant I/O | 5.7s | Historical, not reproduced here |
+| Phase 2: StyleIr pre-computation | 2.1s | Historical, not reproduced here |
+| Phase 3: Query cache | 1.4s | Historical, not reproduced here |
+| Phase 4: Regex caching | 1.3s | Historical, not reproduced here |
 
-**Total improvement: 18x faster** (25.4s → 1.4s)
-
-### Performance by Scale
-
-| Project Size | Example | Time |
-|-------------|---------|------:|
-| Small (< 1K lines) | algo, gpu-code | 0.5s |
-| Medium (2K-5K lines) | system_alert, ReChat-server | 0.6-0.7s |
-| Large (20K-30K lines) | Finance, coq-of-rust | 1.3-1.6s |
-| XL (100K+ lines) | memscope-rs (118K) | 4.4s |
-| XXL (700K+ lines) | goagent (743K) | 28.0s |
+**Verdict:** The optimization mechanisms exist, but this report should not claim exact speedups without a reproducible benchmark command, fixture path, machine profile, and output artifact.
 
 ---
 
-## Issue Distribution by Rule (Top Projects)
+## Issue Distribution by Rule
+
+These distributions are preserved as historical observations and should be re-run before release notes or marketing copy use them.
 
 ### system_alert (Rust, 112 issues)
 
-```
+```text
 37  magic-number
 26  hungarian-notation
 14  deep-nesting
@@ -138,7 +192,7 @@ Weighted by volume (magic-number + single-letter dominate):
 
 ### gnark (Go, 11,646 issues)
 
-```
+```text
 5382  magic-number
 2356  code-duplication
 1908  single-letter-variable
@@ -151,7 +205,7 @@ Weighted by volume (magic-number + single-letter dominate):
 
 ### CodeTribunal (Go, 476 issues)
 
-```
+```text
 157  println-debugging
 130  single-letter-variable
 103  magic-number
@@ -164,24 +218,45 @@ Weighted by volume (magic-number + single-letter dominate):
 
 ## Recommendations
 
-### High Priority
+### P0 — Documentation and Measurement
 
-1. **Magic number context awareness**: Skip magic numbers in mathematical/constant-heavy files (crypto, physics). Consider per-language thresholds — Go's standard library uses small ints more freely.
+1. Add a reproducible benchmark command and fixture list before publishing timing claims.
+2. Report raw TP/FP rates separately from weighted estimates.
+3. Include rule-level issue volumes when presenting weighted TP rates.
+4. Align README exclude defaults with `CodeAnalyzer` defaults.
 
-2. **println-debugging for Go**: Exclude `fmt.Print*` in `func main()` and CLI entry points. Use `log.Print*` detection instead for actual debug logging.
+### P1 — Accuracy Improvements
 
-3. **Single-letter variable exceptions**: Skip single-letter variables in test files (`_test.go`, `*_test.rs`) where `h`, `c`, `r` are conventional.
+1. Improve magic-number context awareness for test tables, crypto/math constants, HTTP codes, and power-of-2 values.
+2. Exclude `fmt.Print*` in Go `func main()` and known CLI output paths from `println-debugging`.
+3. Add single-letter variable exceptions for tests and language idioms.
+4. Refine Hungarian notation detection to avoid domain prefixes and framework conventions.
 
-4. **Hungarian notation refinement**: Whitelist domain prefixes (`p_`, `e_`, `v_`) that aren't Hungarian notation but semantic conventions.
+### P2 — Generated and Dependency Filtering
 
-### Medium Priority
+1. Skip `*.gen.*`, `*.generated.*`, `*.min.js`, and `*.bundle.js` by default.
+2. Skip `.venv` and `venv` in analyzer path collection, not only in metrics helpers.
+3. Add regression tests for generated/template duplication false positives.
 
-5. **Generated code detection**: Skip files matching `*.gen.go`, `*.generated.*`, and template outputs to avoid duplication FPs.
+---
 
-6. **Debated magic numbers**: Allow project-level config to whitelist specific values (e.g., `allowed_magic_numbers = [0, 1, 2]`).
+## Verification
+
+Validated during this review:
+
+```bash
+cargo test -q analyzer::tests --lib
+```
+
+Result: 18 analyzer tests passed.
 
 ---
 
 ## Conclusion
 
-The analyzer is **production-ready for Rust projects** with ~87% TP rate and sub-second performance on typical codebases. Go projects need more tuning (~54% TP) primarily due to `println-debugging` and `single-letter-variable` FPs. The 18x performance improvement makes it viable for CI/CD integration on projects up to 100K lines.
+The original report correctly identified several important false-positive patterns, but its headline accuracy and readiness claims were too strong for the evidence shown. The safer conclusion is:
+
+- Rust structural rules are promising and often useful.
+- Go style rules need more context before strict CI use.
+- Current performance architecture is improved, but exact speedup claims need reproducible evidence.
+- The next priority should be measurement reproducibility, README/default-exclude alignment, and targeted FP reduction for noisy rules.
