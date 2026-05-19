@@ -16,12 +16,13 @@ type TokenSetPair = (
 /// Normalized token for function fingerprinting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum FToken {
-    Ident(u8),
+    Ident(u16),
     Int,
     Float,
     Str,
     Bool,
     Type,
+    Kind(u16),
 }
 
 /// Fingerprint of a function — hash + source location.
@@ -43,12 +44,12 @@ fn fingerprint_function(
     let line_end = node.end_position().row + 1;
     let line_count = line_end - line_start + 1;
 
-    if line_count < 5 {
+    if line_count < 8 || is_adapter_batch_helper(&name) {
         return None;
     }
 
     let tokens = normalize_node(file, node);
-    if tokens.len() < 8 {
+    if tokens.len() < 20 {
         return None;
     }
 
@@ -67,10 +68,31 @@ fn fingerprint_function(
     ))
 }
 
-fn hash_ident(text: &str) -> u8 {
+fn hash_text(text: &str) -> u16 {
     let mut h = DefaultHasher::new();
     text.hash(&mut h);
-    (h.finish() % 16) as u8
+    (h.finish() & u16::MAX as u64) as u16
+}
+
+fn is_adapter_batch_helper(name: &str) -> bool {
+    (name.starts_with("count_") || name.starts_with("extract_"))
+        && (name.ends_with("_from_batch") || name.ends_with("_from_batch_with"))
+}
+
+fn is_skippable_dup_path(path: &std::path::Path) -> bool {
+    let name = path.to_string_lossy();
+    name.contains("_test.")
+        || name.starts_with("example/")
+        || name.starts_with("examples/")
+        || name.starts_with("demo/")
+        || name.contains("/tests/")
+        || name.contains("/test/")
+        || name.contains("/example/")
+        || name.contains("/examples/")
+        || name.contains("/demo/")
+        || name.contains("/fixtures/")
+        || name.contains("/mocks/")
+        || name.contains("/benches/")
 }
 
 #[allow(clippy::only_used_in_recursion)]
@@ -85,7 +107,7 @@ fn normalize_node(file: &ParsedFile, node: tree_sitter::Node) -> Vec<FToken> {
             let start = node.start_byte();
             let end = node.end_byte();
             let text = &file.content[start..end];
-            return vec![FToken::Ident(hash_ident(text))];
+            return vec![FToken::Ident(hash_text(text))];
         }
         "type_identifier" | "primitive_type" | "mutable_specifier" => return vec![FToken::Type],
         "integer_literal" | "integer" | "number" => return vec![FToken::Int],
@@ -94,7 +116,6 @@ fn normalize_node(file: &ParsedFile, node: tree_sitter::Node) -> Vec<FToken> {
             return vec![FToken::Str];
         }
         "boolean" | "true" | "false" => return vec![FToken::Bool],
-        // Ignored: keywords, operators, punctuation
         "let" | "const" | "mut" | "fn" | "def" | "function" | "fun" | "return" | "if" | "else"
         | "for" | "while" | "match" | "use" | "mod" | "struct" | "enum" | "impl" | "trait"
         | "pub" | "pub(crate)" | "unsafe" | "async" | "await" | "where" | "in" | "as"
@@ -102,9 +123,9 @@ fn normalize_node(file: &ParsedFile, node: tree_sitter::Node) -> Vec<FToken> {
         _ => {}
     }
 
-    let mut tokens = Vec::new();
+    let mut tokens = vec![FToken::Kind(hash_text(kind))];
     let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
+    for child in node.children(&mut cursor) {
         tokens.extend(normalize_node(file, child));
     }
     tokens
@@ -186,6 +207,9 @@ impl CrossFileDupDetector {
 
     /// Process a parsed file, extracting function fingerprints.
     pub fn process_file(&mut self, file: &ParsedFile) {
+        if is_skippable_dup_path(&file.path) {
+            return;
+        }
         let root = file.root_node();
         find_functions_recursive(
             file,
@@ -225,21 +249,24 @@ impl CrossFileDupDetector {
                 Severity::Mild
             };
 
-            for fp in group {
-                issues.push(CodeIssue {
-                    file_path: fp.file.clone(),
-                    line: fp.line_start,
-                    column: 1,
-                    rule_name: "cross-file-duplication".to_string(),
-                    message: format!(
-                        "Function '{}' duplicated in {} files ({} occurrences)",
-                        fp.name,
-                        file_count,
-                        group.len()
-                    ),
-                    severity: sev.clone(),
-                });
-            }
+            let representative = group
+                .iter()
+                .min_by_key(|fp| (fp.file.as_path(), fp.line_start))
+                .copied()
+                .unwrap_or(group[0]);
+            issues.push(CodeIssue {
+                file_path: representative.file.clone(),
+                line: representative.line_start,
+                column: 1,
+                rule_name: "cross-file-duplication".to_string(),
+                message: format!(
+                    "Function '{}' duplicated in {} files ({} occurrences)",
+                    representative.name,
+                    file_count,
+                    group.len()
+                ),
+                severity: sev.clone(),
+            });
         }
         issues
     }
@@ -287,10 +314,10 @@ impl CrossFileDupDetector {
                     0.0
                 };
 
-                if similarity >= 0.8
-                    && bigrams_a.len() >= 5
-                    && bigrams_b.len() >= 5
-                    && type_ratio >= 0.5
+                if similarity >= 0.95
+                    && bigrams_a.len() >= 20
+                    && bigrams_b.len() >= 20
+                    && type_ratio >= 0.85
                 {
                     for &idx in &[a, b] {
                         if reported.insert(idx) {
@@ -305,7 +332,7 @@ impl CrossFileDupDetector {
                                     self.fingerprints[b].name,
                                     similarity * 100.0,
                                 ),
-                                severity: Severity::Spicy,
+                                severity: Severity::Mild,
                             });
                         }
                     }
@@ -382,14 +409,18 @@ pub struct IntraFileDupDetector;
 impl IntraFileDupDetector {
     /// Returns true if the file path looks like a test/example/bench fixture.
     fn is_skippable(path: &std::path::Path) -> bool {
-        let name = path.to_string_lossy();
-        name.contains("_test.")
-            || name.contains("/tests/")
-            || name.contains("/test/")
-            || name.contains("/examples/")
-            || name.contains("/fixtures/")
-            || name.contains("/mocks/")
-            || name.contains("/benches/")
+        is_skippable_dup_path(path)
+    }
+
+    fn is_substantive_line(line: &str) -> bool {
+        let trimmed = line.trim();
+        !trimmed.is_empty()
+            && !trimmed.starts_with("//")
+            && !trimmed.starts_with('#')
+            && !matches!(trimmed, "{" | "}" | ");" | "," | "else" | "} else {")
+            && !trimmed.starts_with("}")
+            && !trimmed.ends_with("{")
+            && !trimmed.ends_with("=>")
     }
 
     pub fn check(file: &ParsedFile) -> Vec<CodeIssue> {
@@ -408,9 +439,9 @@ impl IntraFileDupDetector {
             let chunk: Vec<&str> = lines[i..i + chunk_size]
                 .iter()
                 .map(|l| l.trim())
-                .filter(|l| !l.is_empty() && !l.starts_with("//") && !l.starts_with('#'))
+                .filter(|l| Self::is_substantive_line(l))
                 .collect();
-            if chunk.len() < 3 {
+            if chunk.len() < 4 {
                 continue;
             }
 
@@ -422,17 +453,30 @@ impl IntraFileDupDetector {
             seen.entry(hash).or_default().push(i);
         }
 
+        let mut groups: Vec<(usize, usize)> = seen
+            .values()
+            .filter_map(|positions| {
+                if positions.len() < 2 {
+                    return None;
+                }
+                let is_spaced = positions.windows(2).any(|w| w[1] - w[0] > chunk_size);
+                if is_spaced {
+                    Some((positions[0], positions.len()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        groups.sort_by_key(|(start, _)| *start);
+
         let mut issues = Vec::new();
-        for positions in seen.values() {
-            if positions.len() < 2 {
+        let mut last_reported_end = 0usize;
+        for (start, occurrences) in groups {
+            if start < last_reported_end {
                 continue;
             }
-            // Only flag if occurrences are well-separated (not adjacent)
-            let is_spaced = positions.windows(2).any(|w| w[1] - w[0] > chunk_size);
-            if !is_spaced {
-                continue;
-            }
-            let start = positions[0];
+            last_reported_end = start + chunk_size;
+
             issues.push(CodeIssue {
                 file_path: file.path.clone(),
                 line: start + 1,
@@ -441,7 +485,7 @@ impl IntraFileDupDetector {
                 message: format!(
                     "Duplicate code block ({} lines) found {} times starting at line {}",
                     chunk_size,
-                    positions.len(),
+                    occurrences,
                     start + 1
                 ),
                 severity: Severity::Mild,
@@ -500,12 +544,49 @@ mod tests {
     #[test]
     fn test_cross_file_dup_detects_identical_functions() {
         let mut detector = CrossFileDupDetector::new();
-        let a = parse_rust_as("file_a.rs", "fn compute(a: i32, b: i32) -> i32 {\n    let r = a + b;\n    let s = r * 2;\n    s\n}\n");
-        let b = parse_rust_as("file_b.rs", "fn compute(a: i32, b: i32) -> i32 {\n    let r = a + b;\n    let s = r * 2;\n    s\n}\n");
+        let code = r#"
+fn compute(a: i32, b: i32) -> i32 {
+    let base = a + b;
+    let doubled = base * 2;
+    let shifted = doubled + 10;
+    let checked = shifted - a;
+    let final_value = checked + b;
+    final_value
+}
+"#;
+        let a = parse_rust_as("file_a.rs", code);
+        let b = parse_rust_as("file_b.rs", code);
         detector.process_file(&a);
         detector.process_file(&b);
         let issues = detector.find_duplicates();
         assert!(!issues.is_empty(), "Should detect cross-file duplicate");
+    }
+
+    #[test]
+    fn test_cross_file_duplicate_group_reports_once() {
+        let mut detector = CrossFileDupDetector::new();
+        let code = r#"
+fn compute(a: i32, b: i32) -> i32 {
+    let base = a + b;
+    let doubled = base * 2;
+    let shifted = doubled + 10;
+    let checked = shifted - a;
+    let final_value = checked + b;
+    final_value
+}
+"#;
+        let a = parse_rust_as("file_a.rs", code);
+        let b = parse_rust_as("file_b.rs", code);
+        let c = parse_rust_as("file_c.rs", code);
+        detector.process_file(&a);
+        detector.process_file(&b);
+        detector.process_file(&c);
+        let issues = detector.find_duplicates();
+        assert_eq!(issues.len(), 1, "Duplicate group should report once");
+        assert!(
+            issues[0].message.contains("3 occurrences"),
+            "message should preserve occurrence count"
+        );
     }
 
     #[test]
@@ -520,18 +601,62 @@ mod tests {
     #[test]
     fn test_cross_file_python() {
         let mut detector = CrossFileDupDetector::new();
-        let a = parse_python_as(
-            "mod_a.py",
-            "def add(a, b):\n    result = a + b\n    print(result)\n    result += 1\n    return result\n",
-        );
-        let b = parse_python_as(
-            "mod_b.py",
-            "def add(a, b):\n    result = a + b\n    print(result)\n    result += 1\n    return result\n",
-        );
+        let code = r#"
+def add(a, b):
+    result = a + b
+    doubled = result * 2
+    shifted = doubled + 10
+    checked = shifted - a
+    final_value = checked + b
+    print(final_value)
+    return final_value
+"#;
+        let a = parse_python_as("mod_a.py", code);
+        let b = parse_python_as("mod_b.py", code);
         detector.process_file(&a);
         detector.process_file(&b);
         let issues = detector.find_duplicates();
         assert!(!issues.is_empty(), "Should detect Python cross-file dup");
+    }
+
+    #[test]
+    fn test_cross_file_skips_adapter_batch_helpers() {
+        let mut detector = CrossFileDupDetector::new();
+        let code = r#"
+fn count_debug_from_batch<'a>(batch: &[Vec<QueryCapture<'a>>]) -> usize {
+    batch
+        .iter()
+        .filter(|m| m.iter().any(|c| c.name == "dp_method"))
+        .count()
+}
+"#;
+        let a = parse_rust_as("adapter_a.rs", code);
+        let b = parse_rust_as("adapter_b.rs", code);
+        detector.process_file(&a);
+        detector.process_file(&b);
+        let issues = detector.find_duplicates();
+        assert!(issues.is_empty(), "Adapter batch helpers should be skipped");
+    }
+
+    #[test]
+    fn test_cross_file_skips_demo_paths() {
+        let mut detector = CrossFileDupDetector::new();
+        let code = r#"
+fn compute(a: i32, b: i32) -> i32 {
+    let base = a + b;
+    let doubled = base * 2;
+    let shifted = doubled + 10;
+    let checked = shifted - a;
+    let final_value = checked + b;
+    final_value
+}
+"#;
+        let a = parse_rust_as("demo/file_a.rs", code);
+        let b = parse_rust_as("demo/file_b.rs", code);
+        detector.process_file(&a);
+        detector.process_file(&b);
+        let issues = detector.find_duplicates();
+        assert!(issues.is_empty(), "Demo paths should be skipped");
     }
 
     #[test]
@@ -556,6 +681,91 @@ fn main() {
         let issues = IntraFileDupDetector::check(&file);
         assert!(!issues.is_empty(), "Should detect repeated code block");
         assert!(issues.iter().any(|i| i.rule_name == "code-duplication"));
+    }
+
+    #[test]
+    fn test_intra_file_dup_merges_overlapping_chunks() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = 4;
+    let e = 5;
+    let f = 6;
+    let marker = 0;
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = 4;
+    let e = 5;
+    let f = 6;
+}
+"#,
+        );
+        let issues = IntraFileDupDetector::check(&file);
+        assert_eq!(issues.len(), 1, "Overlapping duplicate chunks should merge");
+    }
+
+    #[test]
+    fn test_intra_file_dup_skips_example_paths() {
+        let file = parse_rust_as(
+            "example/demo.rs",
+            r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    println!("block_end");
+    let x = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    println!("block_end");
+}
+"#,
+        );
+        let issues = IntraFileDupDetector::check(&file);
+        assert!(issues.is_empty(), "Example paths should be skipped");
+    }
+
+    #[test]
+    fn test_intra_file_dup_ignores_structural_lines() {
+        let file = parse_rust(
+            r#"
+fn first(a: bool, b: bool, c: bool, d: bool) {
+    if a {
+        if b {
+            if c {
+                if d {
+                    println!("one");
+                }
+            }
+        }
+    }
+}
+
+fn second(a: bool, b: bool, c: bool, d: bool) {
+    if a {
+        if b {
+            if c {
+                if d {
+                    println!("two");
+                }
+            }
+        }
+    }
+}
+"#,
+        );
+        let issues = IntraFileDupDetector::check(&file);
+        assert!(
+            issues.is_empty(),
+            "Structural lines should not trigger duplication"
+        );
     }
 
     #[test]

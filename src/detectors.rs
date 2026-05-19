@@ -836,4 +836,433 @@ fn sub(a: i32, b: i32) -> i32 { a - b }
         let detector = DuplicationDetector::new();
         assert_eq!(detector.count_violations(&file), 0, "short file = 0");
     }
+
+    // ── SignalDetector — LegacyCodeDetector ─────────────────────
+
+    /// Objective: Verify LegacyCodeDetector finds consecutive commented-out code lines.
+    #[test]
+    fn test_detector_legacy_code_block() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    // let x = 1;
+    // let y = 2;
+    // let z = 3;
+    // let w = x + y;
+    // foo(w);
+    bar();
+}
+"#,
+        );
+        let detector = LegacyCodeDetector::new();
+        assert!(
+            detector.count_violations(&file) >= 5,
+            "5 consecutive commented-out lines should be >= 5"
+        );
+    }
+
+    /// Objective: Verify LegacyCodeDetector ignores doc comments.
+    #[test]
+    fn test_detector_legacy_code_doc_ok() {
+        let file = parse_rust(
+            r#"
+/// Documented function
+fn documented() -> i32 {
+    // normal comment
+    42
+}
+"#,
+        );
+        let detector = LegacyCodeDetector::new();
+        assert_eq!(
+            detector.count_violations(&file),
+            0,
+            "doc comment + 1 normal = 0"
+        );
+    }
+
+    /// Objective: Verify LegacyCodeDetector returns 0 for short comments.
+    #[test]
+    fn test_detector_legacy_code_short_ok() {
+        let file = parse_rust(
+            r#"
+// short
+// comments
+// are fine
+fn main() {}
+"#,
+        );
+        let detector = LegacyCodeDetector::new();
+        assert_eq!(detector.count_violations(&file), 0, "short comments = 0");
+    }
+
+    /// Objective: Verify LegacyCodeDetector is 0 for empty code.
+    #[test]
+    fn test_detector_legacy_code_empty() {
+        let file = parse_rust("// just a single comment");
+        let detector = LegacyCodeDetector::new();
+        assert_eq!(detector.count_violations(&file), 0);
+    }
+
+    /// Objective: Verify LegacyCodeDetector catches 4+ consecutive commented lines.
+    #[test]
+    fn test_detector_legacy_code_four_lines() {
+        let file = parse_rust(
+            r#"
+// fn old() {
+//     do_thing();
+//     let x = 1;
+//     x
+// }
+fn new() {}
+"#,
+        );
+        let detector = LegacyCodeDetector::new();
+        assert!(
+            detector.count_violations(&file) >= 4,
+            "4 consecutive commented lines"
+        );
+    }
+
+    // ── SignalDetector — TodoMountainDetector ────────────────────
+
+    /// Objective: Verify TodoMountainDetector counts TODO markers.
+    #[test]
+    fn test_detector_todo_basic() {
+        let file = parse_rust(
+            r#"
+// TODO: refactor
+// FIXME: fix this
+fn main() {}
+"#,
+        );
+        let detector = TodoMountainDetector::new();
+        assert_eq!(detector.count_violations(&file), 2);
+    }
+
+    /// Objective: Verify TodoMountainDetector counts BUG and HACK too.
+    #[test]
+    fn test_detector_todo_bug_hack() {
+        let file = parse_rust(
+            r#"
+// BUG: critical issue here
+// HACK: workaround
+fn main() {}
+"#,
+        );
+        let detector = TodoMountainDetector::new();
+        assert_eq!(detector.count_violations(&file), 2);
+    }
+
+    /// Objective: Verify TodoMountainDetector returns 0 for clean code.
+    #[test]
+    fn test_detector_todo_clean() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    let x = 1;
+}
+"#,
+        );
+        let detector = TodoMountainDetector::new();
+        assert_eq!(detector.count_violations(&file), 0);
+    }
+
+    /// Objective: Verify TodoMountainDetector is case-insensitive.
+    #[test]
+    fn test_detector_todo_case_insensitive() {
+        let file = parse_rust(
+            r#"
+// todo: lowercase
+// fixme: lowercase
+fn main() {}
+"#,
+        );
+        let detector = TodoMountainDetector::new();
+        assert!(
+            detector.count_violations(&file) >= 2,
+            "case-insensitive TODO + FIXME"
+        );
+    }
+
+    /// Objective: Verify TodoMountainDetector counts inline markers.
+    #[test]
+    fn test_detector_todo_inline() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    let x = 1; // TODO: use constant
+    let y = 2; // FIXME: off by one
+}
+"#,
+        );
+        let detector = TodoMountainDetector::new();
+        assert_eq!(detector.count_violations(&file), 2);
+    }
+
+    // ── SignalDetector — LineCountSmellDetector ──────────────────
+
+    fn create_rust_file(lines: usize) -> String {
+        let mut s = String::from("fn main() {\n");
+        for i in 0..lines.saturating_sub(2) {
+            s.push_str(&format!("    let x_{} = {};\n", i, i));
+        }
+        s.push_str("}\n");
+        s
+    }
+
+    /// Objective: Verify LineCountSmellDetector signals for large files.
+    #[test]
+    fn test_detector_linecount_over_threshold() {
+        let code = create_rust_file(1100);
+        let engine = TreeSitterEngine::new();
+        let file = engine
+            .parse_file(std::path::Path::new("lib.rs"), &code)
+            .expect("parse should work");
+        let detector = LineCountSmellDetector::new();
+        assert!(
+            detector.count_violations(&file) > 0,
+            "1100-line file should trigger smell"
+        );
+    }
+
+    /// Objective: Verify LineCountSmellDetector does NOT signal small files.
+    #[test]
+    fn test_detector_linecount_under_threshold() {
+        let code = create_rust_file(100);
+        let file = parse_rust(&code);
+        let detector = LineCountSmellDetector::new();
+        assert_eq!(detector.count_violations(&file), 0, "100-line file = 0");
+    }
+
+    /// Objective: Verify LineCountSmellDetector uses higher threshold for test files.
+    #[test]
+    fn test_detector_linecount_test_threshold() {
+        use std::path::Path;
+        let code = create_rust_file(1100);
+        let engine = TreeSitterEngine::new();
+        let file = engine
+            .parse_file(Path::new("test_suite.rs"), &code)
+            .expect("parse should work");
+        let detector = LineCountSmellDetector::new();
+        assert_eq!(
+            detector.count_violations(&file),
+            0,
+            "1100-line test file = 0 (test threshold = 2000)"
+        );
+    }
+
+    /// Objective: Verify LineCountSmellDetector crosses test threshold.
+    #[test]
+    fn test_detector_linecount_test_over_threshold() {
+        use std::path::Path;
+        let code = create_rust_file(2100);
+        let engine = TreeSitterEngine::new();
+        let file = engine
+            .parse_file(Path::new("test_suite.rs"), &code)
+            .expect("parse should work");
+        let detector = LineCountSmellDetector::new();
+        assert!(
+            detector.count_violations(&file) > 0,
+            "2100-line test file should trigger smell"
+        );
+    }
+
+    // ── SignalDetector — NamingChaosDetector additional ──────────
+
+    /// Objective: Verify NamingChaosDetector catches Hungarian notation.
+    #[test]
+    fn test_detector_naming_hungarian() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    let strName = String::new();
+    let intCount = 42;
+}
+"#,
+        );
+        let detector = NamingChaosDetector::new();
+        assert!(
+            detector.count_violations(&file) >= 2,
+            "Hungarian notation vars"
+        );
+    }
+
+    /// Objective: Verify NamingChaosDetector catches non-idiomatic single-letter.
+    #[test]
+    fn test_detector_naming_non_idiomatic_single() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    let z = 1;
+    let q = 2;
+}
+"#,
+        );
+        let detector = NamingChaosDetector::new();
+        assert_eq!(detector.count_violations(&file), 2, "z + q = 2");
+    }
+
+    /// Objective: Verify NamingChaosDetector exempts idiomatic single-letter vars.
+    #[test]
+    fn test_detector_naming_idiomatic_single_ok() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    let i = 0;
+    let j = 1;
+    let n = 100;
+}
+"#,
+        );
+        let detector = NamingChaosDetector::new();
+        assert_eq!(detector.count_violations(&file), 0, "i, j, n are idiomatic");
+    }
+
+    // ── SignalDetector — PanicAddictionDetector additional ───────
+
+    /// Objective: Verify PanicAddictionDetector returns 0 for safe code.
+    #[test]
+    fn test_detector_panic_clean() {
+        let file = parse_rust(
+            r#"
+fn safe() -> Result<i32, String> {
+    Ok(42)
+}
+"#,
+        );
+        let detector = PanicAddictionDetector::new();
+        assert_eq!(detector.count_violations(&file), 0, "safe code = 0");
+    }
+
+    /// Objective: Verify PanicAddictionDetector finds .unwrap() in closures.
+    #[test]
+    fn test_detector_panic_unwrap_in_closure() {
+        let file = parse_rust(
+            r#"
+fn main() {
+    let result = (0..10).filter(|x| x.unwrap() > 0);
+}
+"#,
+        );
+        let detector = PanicAddictionDetector::new();
+        assert_eq!(detector.count_violations(&file), 1, "unwrap in closure");
+    }
+
+    // ── SignalDetector — OverEngineeringDetector additional ──────
+
+    /// Objective: Verify OverEngineeringDetector counts god function with >50 lines.
+    #[test]
+    fn test_detector_overengineering_god_function_55_lines() {
+        let mut code = String::from("fn god() {\n");
+        for i in 0..53 {
+            code.push_str(&format!("    let var_{} = {};\n", i, i));
+        }
+        code.push_str("}\n");
+        let file = parse_rust(&code);
+        let detector = OverEngineeringDetector::new();
+        assert!(
+            detector.count_violations(&file) >= 1,
+            "55-line god function should count"
+        );
+    }
+
+    // ── SignalDetector — CodeSmellsDetector additional ───────────
+
+    /// Objective: Verify CodeSmellsDetector handles empty functions.
+    #[test]
+    fn test_detector_code_smells_empty_fn() {
+        let file = parse_rust("fn empty() {}");
+        let detector = CodeSmellsDetector::new();
+        assert_eq!(detector.count_violations(&file), 0);
+    }
+
+    /// Objective: Verify CodeSmellsDetector counts multiply-imported items.
+    #[test]
+    fn test_detector_code_smells_duplicate_import() {
+        let file = parse_rust(
+            r#"
+use std::collections::HashMap;
+use std::collections::HashMap;
+fn main() {}
+"#,
+        );
+        let detector = CodeSmellsDetector::new();
+        assert!(
+            detector.count_violations(&file) >= 1,
+            "duplicate import should be > 0"
+        );
+    }
+
+    /// Objective: Verify signal() returns the correct StyleSignal variant.
+    #[test]
+    fn test_detector_panic_signal_type() {
+        assert_eq!(
+            PanicAddictionDetector::new().signal(),
+            StyleSignal::PanicAddiction
+        );
+    }
+
+    #[test]
+    fn test_detector_naming_signal_type() {
+        assert_eq!(
+            NamingChaosDetector::new().signal(),
+            StyleSignal::NamingChaos
+        );
+    }
+
+    #[test]
+    fn test_detector_nested_signal_type() {
+        assert_eq!(NestedHellDetector::new().signal(), StyleSignal::NestedHell);
+    }
+
+    #[test]
+    fn test_detector_hotfix_signal_type() {
+        assert_eq!(
+            HotfixCultureDetector::new().signal(),
+            StyleSignal::HotfixCulture
+        );
+    }
+
+    #[test]
+    fn test_detector_overeng_signal_type() {
+        assert_eq!(
+            OverEngineeringDetector::new().signal(),
+            StyleSignal::OverEngineering
+        );
+    }
+
+    #[test]
+    fn test_detector_code_smells_signal_type() {
+        assert_eq!(CodeSmellsDetector::new().signal(), StyleSignal::CodeSmells);
+    }
+
+    #[test]
+    fn test_detector_legacy_signal_type() {
+        assert_eq!(LegacyCodeDetector::new().signal(), StyleSignal::LegacyCode);
+    }
+
+    #[test]
+    fn test_detector_todo_signal_type() {
+        assert_eq!(
+            TodoMountainDetector::new().signal(),
+            StyleSignal::TodoMountain
+        );
+    }
+
+    #[test]
+    fn test_detector_linecount_signal_type() {
+        assert_eq!(
+            LineCountSmellDetector::new().signal(),
+            StyleSignal::LineCountSmell
+        );
+    }
+
+    #[test]
+    fn test_detector_duplication_signal_type() {
+        assert_eq!(
+            DuplicationDetector::new().signal(),
+            StyleSignal::Duplication
+        );
+    }
 }

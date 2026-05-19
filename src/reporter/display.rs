@@ -282,16 +282,10 @@ impl Reporter {
             sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let max_score = signals
-            .iter()
-            .map(|s| score.signal_scores.get(s).copied().unwrap_or(0.0))
-            .fold(0.0f64, f64::max)
-            .max(1.0);
-
         let bar_width: usize = 25;
         for signal in &signals {
             let s = score.signal_scores.get(signal).copied().unwrap_or(0.0);
-            let pct = (s / max_score * 100.0).min(100.0);
+            let pct = (s / 25.0 * 100.0).min(100.0);
             let filled = (pct / 100.0 * bar_width as f64).round() as usize;
             let empty = bar_width.saturating_sub(filled);
             let bar = "█".repeat(filled) + &"░".repeat(empty);

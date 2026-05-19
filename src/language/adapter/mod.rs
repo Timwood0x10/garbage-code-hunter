@@ -193,13 +193,8 @@ pub trait LanguageAdapter: Send + Sync {
                 }
                 let text = trimmed.strip_prefix(line_comment).unwrap_or("").trim();
                 let is_code = CODEC_PATTERNS.iter().any(|p| text.contains(p));
-                if is_code {
+                if is_code || block_size > 0 {
                     block_size += 1;
-                } else if block_size > 0 {
-                    if block_size >= 3 {
-                        total += block_size;
-                    }
-                    block_size = 0;
                 }
             } else if !trimmed.is_empty() {
                 if block_size >= 3 {

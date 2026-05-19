@@ -445,13 +445,16 @@ fn helper_function(data: &str) -> String {
     let trimmed = data.trim();
     let result = trimmed.to_uppercase();
     let formatted = format!("processed: {}", result);
-    formatted
+    let validated = formatted.trim().to_string();
+    let final_output = validated.replace("  ", " ");
+    final_output
 }
 
 fn process_item(item: i32) -> i32 {
     let adjusted = item + 10;
     let doubled = adjusted * 2;
-    let final_value = doubled - 5;
+    let halved = doubled / 2;
+    let final_value = halved - 5;
     final_value
 }
 "#;
