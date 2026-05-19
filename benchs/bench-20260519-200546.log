@@ -1,0 +1,1039 @@
+    Finished `bench` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/garbage_code_hunter-dc11f57be3b89d00)
+
+running 701 tests
+test analyzer::tests::test_analyze_to_findings_includes_detector_findings ... ignored
+test analyzer::tests::test_is_generated_file_detects_all_protobuf_suffixes ... ignored
+test analyzer::tests::test_is_generated_file_detects_dependency_directories ... ignored
+test analyzer::tests::test_is_generated_file_does_not_false_positive_go_source ... ignored
+test analyzer::tests::test_is_generated_file_does_not_flag_user_code ... ignored
+test analyzer::tests::test_is_test_file_detects_test_directories ... ignored
+test analyzer::tests::test_is_test_file_detects_test_naming_conventions ... ignored
+test analyzer::tests::test_is_test_file_does_not_flag_normal_source ... ignored
+test analyzer::tests::test_is_test_file_strips_leading_dot_slash ... ignored
+test analyzer::tests::test_is_test_file_uses_content_fallback_for_cfg_test ... ignored
+test analyzer::tests::test_should_exclude_applies_default_patterns ... ignored
+test analyzer::tests::test_should_exclude_combines_custom_and_default_patterns ... ignored
+test analyzer::tests::test_should_exclude_only_matches_intended_directories ... ignored
+test autopsy::tests::test_categorize ... ignored
+test autopsy::tests::test_run_json_format ... ignored
+test autopsy::tests::test_run_on_current_dir ... ignored
+test autopsy::tests::test_run_on_current_dir_chinese ... ignored
+test badge::generator::tests::test_badge_score_formatting ... ignored
+test badge::generator::tests::test_badge_uses_correct_color ... ignored
+test badge::generator::tests::test_generate_flat_contains_svg ... ignored
+test badge::generator::tests::test_generate_plastic_contains_svg ... ignored
+test badge::generator::tests::test_score_color_ranges ... ignored
+test badge::tests::test_render_plastic_style ... ignored
+test badge::tests::test_render_returns_svg ... ignored
+test badge::tests::test_run_writes_file ... ignored
+test ci_bot::tests::test_categorize ... ignored
+test ci_bot::tests::test_run_json_format ... ignored
+test ci_bot::tests::test_run_on_current_dir ... ignored
+test ci_bot::tests::test_run_on_current_dir_chinese ... ignored
+test commit_roaster::analyzer::tests::test_analyzer_config_default ... ignored
+test commit_roaster::analyzer::tests::test_first_line_empty ... ignored
+test commit_roaster::analyzer::tests::test_first_line_multi_line ... ignored
+test commit_roaster::analyzer::tests::test_first_line_single_line ... ignored
+test commit_roaster::analyzer::tests::test_first_line_whitespace ... ignored
+test commit_roaster::report::tests::test_build_report_empty ... ignored
+test commit_roaster::report::tests::test_build_report_with_issues ... ignored
+test commit_roaster::report::tests::test_format_json_valid ... ignored
+test commit_roaster::report::tests::test_truncate_long_string ... ignored
+test commit_roaster::report::tests::test_truncate_short_string ... ignored
+test commit_roaster::rules::tests::test_disabled_rules_not_matched ... ignored
+test commit_roaster::rules::tests::test_empty_message_matches ... ignored
+test commit_roaster::rules::tests::test_good_message_no_issues ... ignored
+test commit_roaster::rules::tests::test_parse_default_rules ... ignored
+test commit_roaster::rules::tests::test_short_message_matches ... ignored
+test commit_roaster::rules::tests::test_wip_message_matches ... ignored
+test commit_roaster::tests::test_run_on_nonexistent_path ... ignored
+test common::i18n_ext::tests::test_is_chinese_case_insensitive ... ignored
+test common::i18n_ext::tests::test_is_chinese_empty ... ignored
+test common::i18n_ext::tests::test_is_chinese_non_chinese ... ignored
+test common::i18n_ext::tests::test_is_chinese_standard_variants ... ignored
+test common::i18n_ext::tests::test_t_basic ... ignored
+test common::i18n_ext::tests::test_t_fallback_for_unknown ... ignored
+test common::i18n_ext::tests::test_t_owned_basic ... ignored
+test common::i18n_ext::tests::test_t_owned_identical_strings ... ignored
+test common::severity::tests::test_emoji_specific_values ... ignored
+test common::severity::tests::test_label_all_variants ... ignored
+test common::severity::tests::test_label_unique ... ignored
+test common::severity::tests::test_penalty_ordering_matches_severity ... ignored
+test common::severity::tests::test_penalty_values ... ignored
+test common::severity::tests::test_severity_ordering_adjacent ... ignored
+test common::severity::tests::test_severity_ordering_equal ... ignored
+test common::severity::tests::test_severity_ordering_transitive ... ignored
+test common::severity::tests::test_severity_serde_from_string ... ignored
+test common::severity::tests::test_severity_serde_roundtrip ... ignored
+test common::severity::tests::test_weight_is_alias_for_penalty ... ignored
+test common::tests::test_output_format_serde ... ignored
+test common::tests::test_score_to_grade ... ignored
+test config::tests::test_config_cli_overrides_file ... ignored
+test config::tests::test_config_defaults_when_no_file ... ignored
+test config::tests::test_config_invalid_toml ... ignored
+test config::tests::test_config_llm_defaults ... ignored
+test config::tests::test_config_llm_openai_compatible ... ignored
+test config::tests::test_config_parse_llm_mode ... ignored
+test config::tests::test_config_parse_local_mode ... ignored
+test context::file_context::tests::test_benchmark_context ... ignored
+test context::file_context::tests::test_business_context ... ignored
+test context::file_context::tests::test_business_does_not_skip ... ignored
+test context::file_context::tests::test_example_context ... ignored
+test context::file_context::tests::test_main_file_is_business ... ignored
+test context::file_context::tests::test_should_skip_rules_in_example ... ignored
+test context::file_context::tests::test_should_skip_rules_in_test ... ignored
+test context::file_context::tests::test_test_context ... ignored
+test context::file_context::tests::test_weight_multipliers ... ignored
+test context::project_config::tests::test_default_config ... ignored
+test context::project_config::tests::test_discover_without_config ... ignored
+test context::project_config::tests::test_load_nonexistent_file ... ignored
+test context::project_config::tests::test_load_valid_config ... ignored
+test context::project_config::tests::test_magic_number_config_parse ... ignored
+test danger_zone::tests::test_run_json_format ... ignored
+test danger_zone::tests::test_run_on_current_dir ... ignored
+test danger_zone::tests::test_run_on_current_dir_chinese ... ignored
+test debt_invoice::cost_model::tests::test_categorize ... ignored
+test debt_invoice::cost_model::tests::test_category_cost ... ignored
+test debt_invoice::cost_model::tests::test_estimate_lifespan ... ignored
+test debt_invoice::display::tests::test_format_json ... ignored
+test debt_invoice::display::tests::test_format_terminal ... ignored
+test debt_invoice::display::tests::test_format_terminal_chinese ... ignored
+test debt_invoice::display::tests::test_format_terminal_critical_lifespan ... ignored
+test debt_invoice::display::tests::test_format_terminal_warning_lifespan ... ignored
+test debt_invoice::display::tests::test_format_terminal_zero_items ... ignored
+test debt_invoice::tests::test_run_on_current_dir ... ignored
+test decay::tests::test_display_json_empty_timeline ... ignored
+test decay::tests::test_display_json_structure ... ignored
+test decay::tests::test_find_turning_point_biggest_drop_wins ... ignored
+test decay::tests::test_find_turning_point_detected ... ignored
+test decay::tests::test_find_turning_point_increasing_scores ... ignored
+test decay::tests::test_find_turning_point_small_drop_not_detected ... ignored
+test decay::tests::test_find_turning_point_too_few_points ... ignored
+test decay::tests::test_health_label_boundaries ... ignored
+test decay::tests::test_is_generic_message_case_insensitive ... ignored
+test decay::tests::test_is_generic_message_exact_match ... ignored
+test decay::tests::test_is_generic_message_non_generic ... ignored
+test decay::tests::test_is_generic_message_with_trailing ... ignored
+test decay::tests::test_parse_git_log_empty ... ignored
+test decay::tests::test_parse_git_log_malformed ... ignored
+test decay::tests::test_parse_git_log_single ... ignored
+test decay::tests::test_parse_git_log_standard ... ignored
+test decay::tests::test_truncate_delegates ... ignored
+test deps_shamer::parser::tests::test_detect_and_parse_multiple_files ... ignored
+test deps_shamer::parser::tests::test_parse_cargo_toml_basic ... ignored
+test deps_shamer::parser::tests::test_parse_go_mod_basic ... ignored
+test deps_shamer::parser::tests::test_parse_package_json_basic ... ignored
+test deps_shamer::parser::tests::test_parse_pyproject_toml_poetry ... ignored
+test deps_shamer::parser::tests::test_parse_requirements_txt_basic ... ignored
+test deps_shamer::report::tests::test_build_stats_counts ... ignored
+test deps_shamer::report::tests::test_format_json_valid ... ignored
+test deps_shamer::report::tests::test_format_terminal_empty ... ignored
+test deps_shamer::report::tests::test_format_terminal_with_issues ... ignored
+test deps_shamer::rules::tests::test_check_dep_file_integration ... ignored
+test deps_shamer::rules::tests::test_deprecated_dep_rust ... ignored
+test deps_shamer::rules::tests::test_duplicated_dep_detected ... ignored
+test deps_shamer::rules::tests::test_git_deps_detected ... ignored
+test deps_shamer::rules::tests::test_pre_release_detected ... ignored
+test deps_shamer::rules::tests::test_pre_release_ignores_dev_deps ... ignored
+test deps_shamer::rules::tests::test_too_many_deps_no_trigger ... ignored
+test deps_shamer::rules::tests::test_too_many_deps_triggers ... ignored
+test deps_shamer::rules::tests::test_wildcard_version_detected ... ignored
+test deps_shamer::tests::test_analyze_returns_structured_data ... ignored
+test deps_shamer::tests::test_run_json_format ... ignored
+test deps_shamer::tests::test_run_multiple_ecosystems ... ignored
+test deps_shamer::tests::test_run_no_dep_files ... ignored
+test deps_shamer::tests::test_run_no_dep_files_json ... ignored
+test deps_shamer::tests::test_run_with_cargo_toml ... ignored
+test detectors::tests::test_detector_code_smells_clean ... ignored
+test detectors::tests::test_detector_code_smells_const_ok ... ignored
+test detectors::tests::test_detector_code_smells_magic ... ignored
+test detectors::tests::test_detector_code_smells_trivial_numbers_ok ... ignored
+test detectors::tests::test_detector_code_smells_unsafe ... ignored
+test detectors::tests::test_detector_duplication_clean ... ignored
+test detectors::tests::test_detector_duplication_intra_file ... ignored
+test detectors::tests::test_detector_duplication_short_file ... ignored
+test detectors::tests::test_detector_hotfix_clean ... ignored
+test detectors::tests::test_detector_hotfix_dbg_eprintln ... ignored
+test detectors::tests::test_detector_hotfix_println ... ignored
+test detectors::tests::test_detector_hotfix_todo ... ignored
+test detectors::tests::test_detector_naming_clean ... ignored
+test detectors::tests::test_detector_naming_single_letter ... ignored
+test detectors::tests::test_detector_naming_terrible ... ignored
+test detectors::tests::test_detector_nested_hell_deep ... ignored
+test detectors::tests::test_detector_nested_hell_flat ... ignored
+test detectors::tests::test_detector_nested_hell_just_under_threshold ... ignored
+test detectors::tests::test_detector_overengineering_clean ... ignored
+test detectors::tests::test_detector_overengineering_excessive_params ... ignored
+test detectors::tests::test_detector_overengineering_god_function ... ignored
+test detectors::tests::test_detector_panic_expect ... ignored
+test detectors::tests::test_detector_panic_macro ... ignored
+test detectors::tests::test_detector_panic_mixed ... ignored
+test detectors::tests::test_detector_panic_unwrap ... ignored
+test educational::tests::test_advice_db_has_expected_rule_count ... ignored
+test educational::tests::test_advice_is_deterministic ... ignored
+test educational::tests::test_all_chinese_advice_have_best_practice_tip ... ignored
+test educational::tests::test_all_english_advice_have_best_practice_tip ... ignored
+test educational::tests::test_all_rules_have_chinese_advice ... ignored
+test educational::tests::test_all_rules_have_english_advice ... ignored
+test educational::tests::test_chinese_terrible_naming_has_expected_content ... ignored
+test educational::tests::test_english_only_rules_remain_english_in_chinese_mode ... ignored
+test educational::tests::test_english_terrible_naming_has_expected_content ... ignored
+test educational::tests::test_how_to_fix_minimum_length ... ignored
+test educational::tests::test_unknown_rule_returns_none ... ignored
+test finding::tests::test_build_profile_from_findings_dominant ... ignored
+test finding::tests::test_build_profile_from_findings_personality ... ignored
+test finding::tests::test_category_complexity ... ignored
+test finding::tests::test_category_duplication ... ignored
+test finding::tests::test_category_fallback_consistency ... ignored
+test finding::tests::test_category_naming ... ignored
+test finding::tests::test_confidence_high ... ignored
+test finding::tests::test_confidence_low ... ignored
+test finding::tests::test_confidence_medium ... ignored
+test finding::tests::test_confidence_score_values ... ignored
+test finding::tests::test_display_names_non_empty ... ignored
+test finding::tests::test_evidence_snippet ... ignored
+test finding::tests::test_finding_from_issue_basic ... ignored
+test finding::tests::test_finding_id_deterministic ... ignored
+test finding::tests::test_finding_id_distinct ... ignored
+test finding::tests::test_finding_id_format ... ignored
+test finding::tests::test_finding_id_from_issue_deterministic ... ignored
+test finding::tests::test_intent_mapping ... ignored
+test finding::tests::test_signal_scores_from_findings ... ignored
+test finding::tests::test_signal_scores_from_findings_empty ... ignored
+test finding::tests::test_suggestion_default_none ... ignored
+test friend::feedback::tests::test_behavior_patterns_filters_low_scores ... ignored
+test friend::feedback::tests::test_behavior_patterns_top_3_signals ... ignored
+test friend::feedback::tests::test_friend_feedback_construction ... ignored
+test friend::feedback::tests::test_mood_concerned_at_mid_score ... ignored
+test friend::feedback::tests::test_mood_exhausted_at_low_score ... ignored
+test friend::feedback::tests::test_mood_proud_at_high_score ... ignored
+test friend::feedback::tests::test_next_actions_empty_issues ... ignored
+test friend::feedback::tests::test_next_actions_top_3_by_severity ... ignored
+test hall_of_shame::tests::test_duplicate_file_path_creates_multiple_entries ... ignored
+test hall_of_shame::tests::test_empty_issues_produces_no_entry ... ignored
+test hall_of_shame::tests::test_garbage_density_formula_correct ... ignored
+test hall_of_shame::tests::test_multiple_files_accumulate_lines ... ignored
+test hall_of_shame::tests::test_pattern_stats_example_files_capped_at_five ... ignored
+test hall_of_shame::tests::test_pattern_stats_mixed_severities ... ignored
+test hall_of_shame::tests::test_pattern_stats_tracks_rule_count_across_files ... ignored
+test hall_of_shame::tests::test_pattern_stats_tracks_severity_distribution ... ignored
+test hall_of_shame::tests::test_report_limited_to_ten_entries ... ignored
+test hall_of_shame::tests::test_report_sorted_by_score_descending ... ignored
+test hall_of_shame::tests::test_shame_score_weights_per_severity ... ignored
+test hall_of_shame::tests::test_zero_total_lines_does_not_crash ... ignored
+test language::adapter::c::tests::test_c_count_panic_clean ... ignored
+test language::adapter::c::tests::test_c_count_panic_exit ... ignored
+test language::adapter::c::tests::test_c_debug_printf ... ignored
+test language::adapter::c::tests::test_c_excessive_params ... ignored
+test language::adapter::c::tests::test_c_extract_functions ... ignored
+test language::adapter::c::tests::test_c_magic_numbers ... ignored
+test language::adapter::c::tests::test_c_magic_numbers_skips_trivial ... ignored
+test language::adapter::c::tests::test_c_naming_single_letter ... ignored
+test language::adapter::cpp::tests::test_c_count_panic_clean ... ignored
+test language::adapter::cpp::tests::test_c_count_panic_exit ... ignored
+test language::adapter::cpp::tests::test_c_debug_printf ... ignored
+test language::adapter::cpp::tests::test_c_excessive_params ... ignored
+test language::adapter::cpp::tests::test_c_extract_functions ... ignored
+test language::adapter::cpp::tests::test_c_magic_numbers ... ignored
+test language::adapter::cpp::tests::test_c_magic_numbers_skips_trivial ... ignored
+test language::adapter::cpp::tests::test_c_naming_single_letter ... ignored
+test language::adapter::cpp::tests::test_cpp_count_panic_clean ... ignored
+test language::adapter::cpp::tests::test_cpp_count_panic_exit ... ignored
+test language::adapter::cpp::tests::test_cpp_debug_printf ... ignored
+test language::adapter::cpp::tests::test_cpp_excessive_params ... ignored
+test language::adapter::cpp::tests::test_cpp_extract_functions ... ignored
+test language::adapter::cpp::tests::test_cpp_magic_numbers ... ignored
+test language::adapter::cpp::tests::test_cpp_magic_numbers_skips_trivial ... ignored
+test language::adapter::cpp::tests::test_cpp_naming_single_letter ... ignored
+test language::adapter::go::tests::test_go_count_panic_calls ... ignored
+test language::adapter::go::tests::test_go_count_panic_calls_clean ... ignored
+test language::adapter::go::tests::test_go_debug_fmt_println ... ignored
+test language::adapter::go::tests::test_go_excessive_params ... ignored
+test language::adapter::go::tests::test_go_extract_functions ... ignored
+test language::adapter::go::tests::test_go_magic_numbers ... ignored
+test language::adapter::go::tests::test_go_magic_numbers_skips_trivial ... ignored
+test language::adapter::go::tests::test_go_naming_single_letter ... ignored
+test language::adapter::java::tests::test_java_count_panic_clean ... ignored
+test language::adapter::java::tests::test_java_count_panic_throw ... ignored
+test language::adapter::java::tests::test_java_debug_print_stack_trace ... ignored
+test language::adapter::java::tests::test_java_debug_sout ... ignored
+test language::adapter::java::tests::test_java_excessive_params ... ignored
+test language::adapter::java::tests::test_java_extract_functions ... ignored
+test language::adapter::java::tests::test_java_magic_numbers ... ignored
+test language::adapter::java::tests::test_java_magic_numbers_skips_trivial ... ignored
+test language::adapter::java::tests::test_java_naming_single_letter ... ignored
+test language::adapter::js::tests::test_js_count_panic_clean ... ignored
+test language::adapter::js::tests::test_js_count_panic_throw ... ignored
+test language::adapter::js::tests::test_js_debug_console_log ... ignored
+test language::adapter::js::tests::test_js_excessive_params ... ignored
+test language::adapter::js::tests::test_js_extract_functions ... ignored
+test language::adapter::js::tests::test_js_magic_numbers ... ignored
+test language::adapter::js::tests::test_js_magic_numbers_skips_trivial ... ignored
+test language::adapter::js::tests::test_js_naming_single_letter ... ignored
+test language::adapter::python::tests::test_python_count_panic_calls_bare_except ... ignored
+test language::adapter::python::tests::test_python_count_panic_calls_base_exception ... ignored
+test language::adapter::python::tests::test_python_count_panic_calls_specific_ok ... ignored
+test language::adapter::python::tests::test_python_debug_clean ... ignored
+test language::adapter::python::tests::test_python_debug_print ... ignored
+test language::adapter::python::tests::test_python_excessive_params ... ignored
+test language::adapter::python::tests::test_python_extract_functions ... ignored
+test language::adapter::python::tests::test_python_magic_numbers ... ignored
+test language::adapter::python::tests::test_python_magic_numbers_skips_trivial ... ignored
+test language::adapter::python::tests::test_python_naming_camel_case_fn ... ignored
+test language::adapter::python::tests::test_python_naming_single_letter ... ignored
+test language::adapter::ruby::tests::test_ruby_count_panic_clean ... ignored
+test language::adapter::ruby::tests::test_ruby_count_panic_raise ... ignored
+test language::adapter::ruby::tests::test_ruby_debug_clean ... ignored
+test language::adapter::ruby::tests::test_ruby_debug_puts ... ignored
+test language::adapter::ruby::tests::test_ruby_excessive_params ... ignored
+test language::adapter::ruby::tests::test_ruby_excessive_params_ok ... ignored
+test language::adapter::ruby::tests::test_ruby_extract_functions ... ignored
+test language::adapter::ruby::tests::test_ruby_magic_numbers_expression ... ignored
+test language::adapter::ruby::tests::test_ruby_magic_numbers_skips_declaration ... ignored
+test language::adapter::ruby::tests::test_ruby_magic_numbers_skips_trivial ... ignored
+test language::adapter::ruby::tests::test_ruby_max_nesting_depth_empty ... ignored
+test language::adapter::ruby::tests::test_ruby_max_nesting_depth_flat ... ignored
+test language::adapter::ruby::tests::test_ruby_max_nesting_depth_nested ... ignored
+test language::adapter::ruby::tests::test_ruby_naming_clean ... ignored
+test language::adapter::ruby::tests::test_ruby_naming_meaningless ... ignored
+test language::adapter::ruby::tests::test_ruby_naming_single_letter ... ignored
+test language::adapter::ruby::tests::test_ruby_naming_terrible ... ignored
+test language::adapter::rust::tests::test_naming_abbreviation ... ignored
+test language::adapter::rust::tests::test_naming_clean ... ignored
+test language::adapter::rust::tests::test_naming_hungarian ... ignored
+test language::adapter::rust::tests::test_naming_hungarian_exempts_domain_prefixes ... ignored
+test language::adapter::rust::tests::test_naming_meaningless ... ignored
+test language::adapter::rust::tests::test_naming_single_letter ... ignored
+test language::adapter::rust::tests::test_naming_terrible ... ignored
+test language::adapter::rust::tests::test_rust_compute_all ... ignored
+test language::adapter::rust::tests::test_rust_count_magic_numbers ... ignored
+test language::adapter::rust::tests::test_rust_count_magic_numbers_const_ok ... ignored
+test language::adapter::rust::tests::test_rust_count_magic_numbers_skips_trivial ... ignored
+test language::adapter::rust::tests::test_rust_count_panic_clean ... ignored
+test language::adapter::rust::tests::test_rust_count_panic_macro ... ignored
+test language::adapter::rust::tests::test_rust_count_panic_unwrap_expect ... ignored
+test language::adapter::rust::tests::test_rust_count_unsafe_blocks ... ignored
+test language::adapter::rust::tests::test_rust_count_unsafe_blocks_clean ... ignored
+test language::adapter::rust::tests::test_rust_extract_functions ... ignored
+test language::adapter::rust::tests::test_rust_max_nesting_depth_empty ... ignored
+test language::adapter::rust::tests::test_rust_max_nesting_depth_flat ... ignored
+test language::adapter::rust::tests::test_rust_max_nesting_depth_nested ... ignored
+test language::adapter::swift::tests::test_swift_count_panic_clean ... ignored
+test language::adapter::swift::tests::test_swift_count_panic_fatal_error ... ignored
+test language::adapter::swift::tests::test_swift_debug_print ... ignored
+test language::adapter::swift::tests::test_swift_excessive_params ... ignored
+test language::adapter::swift::tests::test_swift_extract_functions ... ignored
+test language::adapter::swift::tests::test_swift_magic_numbers ... ignored
+test language::adapter::swift::tests::test_swift_magic_numbers_skips_trivial ... ignored
+test language::adapter::swift::tests::test_swift_naming_single_letter ... ignored
+test language::adapter::ts::tests::test_ts_count_panic_clean ... ignored
+test language::adapter::ts::tests::test_ts_count_panic_throw ... ignored
+test language::adapter::ts::tests::test_ts_debug_console_log ... ignored
+test language::adapter::ts::tests::test_ts_excessive_params ... ignored
+test language::adapter::ts::tests::test_ts_extract_functions ... ignored
+test language::adapter::ts::tests::test_ts_magic_numbers ... ignored
+test language::adapter::ts::tests::test_ts_magic_numbers_skips_trivial ... ignored
+test language::adapter::ts::tests::test_ts_naming_single_letter ... ignored
+test language::adapter::zig::tests::test_zig_count_panic_at_panic ... ignored
+test language::adapter::zig::tests::test_zig_count_panic_clean ... ignored
+test language::adapter::zig::tests::test_zig_debug_print ... ignored
+test language::adapter::zig::tests::test_zig_excessive_params ... ignored
+test language::adapter::zig::tests::test_zig_extract_functions ... ignored
+test language::adapter::zig::tests::test_zig_magic_numbers ... ignored
+test language::adapter::zig::tests::test_zig_magic_numbers_skips_trivial ... ignored
+test language::adapter::zig::tests::test_zig_naming_single_letter ... ignored
+test language::tests::test_display_names ... ignored
+test language::tests::test_extensions_rust ... ignored
+test language::tests::test_from_extension_python ... ignored
+test language::tests::test_from_extension_rust ... ignored
+test language::tests::test_from_extension_unknown ... ignored
+test language::tests::test_line_comments ... ignored
+test language::tests::test_tree_sitter_grammar_available ... ignored
+test last_words::display::tests::test_format_json ... ignored
+test last_words::display::tests::test_format_terminal_chinese ... ignored
+test last_words::display::tests::test_format_terminal_empty ... ignored
+test last_words::display::tests::test_format_terminal_empty_chinese ... ignored
+test last_words::display::tests::test_format_terminal_with_items ... ignored
+test last_words::display::tests::test_truncate ... ignored
+test last_words::scanner::tests::test_build_patterns_deprecated ... ignored
+test last_words::scanner::tests::test_build_patterns_fixme ... ignored
+test last_words::scanner::tests::test_build_patterns_hack ... ignored
+test last_words::scanner::tests::test_build_patterns_quickfix ... ignored
+test last_words::scanner::tests::test_build_patterns_safety ... ignored
+test last_words::scanner::tests::test_build_patterns_temp ... ignored
+test last_words::scanner::tests::test_build_patterns_todo ... ignored
+test last_words::scanner::tests::test_build_patterns_wontfix ... ignored
+test last_words::scanner::tests::test_build_patterns_workaround ... ignored
+test last_words::scanner::tests::test_is_comment_line_all_styles ... ignored
+test last_words::scanner::tests::test_is_comment_line_non_comment ... ignored
+test last_words::scanner::tests::test_is_source_file_supported ... ignored
+test last_words::scanner::tests::test_is_source_file_unsupported ... ignored
+test last_words::scanner::tests::test_kind_label_all_variants ... ignored
+test last_words::scanner::tests::test_scan_empty_file ... ignored
+test last_words::scanner::tests::test_scan_finds_hack_in_python ... ignored
+test last_words::scanner::tests::test_scan_finds_todos_and_fixmes ... ignored
+test last_words::scanner::tests::test_scan_ignores_unsupported_extensions ... ignored
+test last_words::scanner::tests::test_scan_single_file ... ignored
+test last_words::scanner::tests::test_scan_skips_code_lines ... ignored
+test last_words::scanner::tests::test_tombstone_quote_all_variants ... ignored
+test last_words::tests::test_run_on_temp_dir ... ignored
+test llm::client::tests::test_config_defaults_for_ollama ... ignored
+test llm::client::tests::test_config_defaults_for_openai_compatible ... ignored
+test llm::client::tests::test_config_overrides_defaults ... ignored
+test llm::client::tests::test_config_unknown_provider_defaults_to_openai_compatible ... ignored
+test llm::prompt::tests::test_dominant_language ... ignored
+test llm::prompt::tests::test_language_persona_not_empty ... ignored
+test llm::prompt::tests::test_prompt_caps_issues ... ignored
+test llm::prompt::tests::test_prompt_contains_all_issues ... ignored
+test llm::prompt::tests::test_prompt_detects_language_context ... ignored
+test llm::prompt::tests::test_prompt_includes_code_context ... ignored
+test llm::prompt::tests::test_prompt_requests_json ... ignored
+test llm::prompt::tests::test_prompt_uses_chinese_instruction ... ignored
+test llm::provider::tests::test_extract_json_from_generic_code_fence ... ignored
+test llm::provider::tests::test_extract_json_from_markdown_fence ... ignored
+test llm::provider::tests::test_extract_json_from_plain_object ... ignored
+test llm::provider::tests::test_fix_trailing_commas_before_brace ... ignored
+test llm::provider::tests::test_fix_trailing_commas_before_bracket ... ignored
+test llm::provider::tests::test_fix_trailing_commas_handles_whitespace ... ignored
+test llm::provider::tests::test_fix_trailing_commas_preserves_valid_json ... ignored
+test llm::provider::tests::test_local_provider_returns_roasts_for_known_rules ... ignored
+test llm::provider::tests::test_local_provider_returns_something_for_unknown_rules ... ignored
+test llm::provider::tests::test_parse_response_maps_indices_to_issue_keys ... ignored
+test llm::provider::tests::test_parse_response_skips_out_of_range_indices ... ignored
+test llm::provider::tests::test_parse_response_with_markdown_wrapped_json ... ignored
+test llm::provider::tests::test_parse_response_with_trailing_comma ... ignored
+test personality::profiles::tests::test_archetype_specific_multipliers ... ignored
+test personality::profiles::tests::test_case_insensitivity ... ignored
+test personality::profiles::tests::test_dup_dominant ... ignored
+test personality::profiles::tests::test_empty_issues ... ignored
+test personality::profiles::tests::test_long_fn_dominant ... ignored
+test personality::profiles::tests::test_magic_dominant ... ignored
+test personality::profiles::tests::test_naming_dominant ... ignored
+test personality::profiles::tests::test_nesting_dominant ... ignored
+test personality::profiles::tests::test_score_boundary_floor_at_zero ... ignored
+test personality::profiles::tests::test_score_exact_value_for_small_count ... ignored
+test personality::profiles::tests::test_score_formula_with_dominant_category ... ignored
+test personality::profiles::tests::test_tied_categories_pick_last ... ignored
+test personality::profiles::tests::test_unrecognized_rules_fall_to_sorcerer ... ignored
+test personality::profiles::tests::test_unwrap_dominant ... ignored
+test personality::tests::test_run_on_current_dir ... ignored
+test personas::tests::test_all_persona_intros ... ignored
+test personas::tests::test_all_persona_names ... ignored
+test personas::tests::test_persona_from_str ... ignored
+test personas::tests::test_persona_from_str_all_variants ... ignored
+test personas::tests::test_persona_name ... ignored
+test personas::tests::test_run_on_current_dir ... ignored
+test pr_title_hunter::github::tests::test_fetch_prs_empty_repo ... ignored
+test pr_title_hunter::github::tests::test_fetch_prs_invalid_repo ... ignored
+test pr_title_hunter::github::tests::test_github_config_default ... ignored
+test pr_title_hunter::report::tests::test_build_stats_counts ... ignored
+test pr_title_hunter::report::tests::test_format_json_valid ... ignored
+test pr_title_hunter::report::tests::test_format_terminal_empty ... ignored
+test pr_title_hunter::report::tests::test_format_terminal_with_issues ... ignored
+test pr_title_hunter::rules::tests::test_all_caps ... ignored
+test pr_title_hunter::rules::tests::test_check_prs_multiple ... ignored
+test pr_title_hunter::rules::tests::test_conventional_commit_ok ... ignored
+test pr_title_hunter::rules::tests::test_draft_title ... ignored
+test pr_title_hunter::rules::tests::test_empty_title ... ignored
+test pr_title_hunter::rules::tests::test_exclamation_marks ... ignored
+test pr_title_hunter::rules::tests::test_generic_title_fix ... ignored
+test pr_title_hunter::rules::tests::test_generic_title_update ... ignored
+test pr_title_hunter::rules::tests::test_keyboard_mash ... ignored
+test pr_title_hunter::rules::tests::test_lowercase_start ... ignored
+test pr_title_hunter::rules::tests::test_normal_title_no_issues ... ignored
+test pr_title_hunter::rules::tests::test_ticket_hash ... ignored
+test pr_title_hunter::rules::tests::test_ticket_only ... ignored
+test pr_title_hunter::rules::tests::test_too_short ... ignored
+test pr_title_hunter::rules::tests::test_whitespace_title ... ignored
+test pr_title_hunter::rules::tests::test_wip_title ... ignored
+test pr_title_hunter::tests::test_run_json_format ... ignored
+test pr_title_hunter::tests::test_run_on_nonexistent_path ... ignored
+test pr_title_hunter::tests::test_run_on_real_repo ... ignored
+test radar::tests::test_analyze_dimensions_capped_at_100 ... ignored
+test radar::tests::test_analyze_dimensions_empty_issues ... ignored
+test radar::tests::test_analyze_dimensions_multiple_categories ... ignored
+test radar::tests::test_analyze_dimensions_single_issue ... ignored
+test radar::tests::test_categorize_all_branches ... ignored
+test radar::tests::test_categorize_case_insensitive ... ignored
+test radar::tests::test_categorize_fallback_to_legacy_smell ... ignored
+test radar::tests::test_display_json_all_fields_present ... ignored
+test radar::tests::test_display_json_all_zeros ... ignored
+test radar::tests::test_generate_svg_all_max_renders ... ignored
+test radar::tests::test_generate_svg_all_zeros_renders ... ignored
+test radar::tests::test_generate_svg_structure ... ignored
+test reporter::display::display_tests::test_diagnose_academic_wizard ... ignored
+test reporter::display::display_tests::test_diagnose_chinese_output ... ignored
+test reporter::display::display_tests::test_diagnose_copy_paste_artist_mild ... ignored
+test reporter::display::display_tests::test_diagnose_copy_paste_artist_moderate ... ignored
+test reporter::display::display_tests::test_diagnose_copy_paste_artist_severe ... ignored
+test reporter::display::display_tests::test_diagnose_hotfix_mercenary ... ignored
+test reporter::display::display_tests::test_diagnose_legacy_necromancer ... ignored
+test reporter::display::display_tests::test_diagnose_startup_survivor ... ignored
+test reporter::display::display_tests::test_diagnose_trait_wizard ... ignored
+test reporter::display::display_tests::test_diagnose_unknown_fallback ... ignored
+test reporter::display::display_tests::test_diagnose_yolo_engineer ... ignored
+test reporter::display::display_tests::test_is_zh_chinese ... ignored
+test reporter::display::display_tests::test_is_zh_english ... ignored
+test reporter::display::display_tests::test_print_behavior_distribution_empty_scores ... ignored
+test reporter::display::display_tests::test_print_behavior_distribution_with_scores ... ignored
+test reporter::display::display_tests::test_print_final_summary_no_panic ... ignored
+test reporter::display::display_tests::test_print_final_summary_none_personality ... ignored
+test reporter::display::display_tests::test_translate_cause_of_death_all ... ignored
+test reporter::display::display_tests::test_translate_cause_of_death_unknown ... ignored
+test reporter::display::display_tests::test_translate_condition_all ... ignored
+test reporter::display::display_tests::test_translate_emotion_all ... ignored
+test reporter::display::display_tests::test_translate_emotion_unknown ... ignored
+test reporter::display::display_tests::test_translate_final_words_all ... ignored
+test reporter::display::display_tests::test_translate_personality_type_chinese ... ignored
+test reporter::display::display_tests::test_translate_personality_type_english ... ignored
+test reporter::display::display_tests::test_translate_philosophy_all ... ignored
+test reporter::display::display_tests::test_translate_threat_chinese ... ignored
+test reporter::display::display_tests::test_translate_threat_english ... ignored
+test reporter::display::display_tests::test_translate_trait_chinese_known ... ignored
+test reporter::display::display_tests::test_translate_trait_english_passthrough ... ignored
+test reporter::display::display_tests::test_translate_trait_unknown_fallback ... ignored
+test reporter::tests::test_is_test_path_detects_all_language_test_suffixes ... ignored
+test reporter::tests::test_is_test_path_detects_test_directories ... ignored
+test reporter::tests::test_is_test_path_detects_test_prefix_at_root ... ignored
+test reporter::tests::test_is_test_path_does_not_flag_production_code ... ignored
+test reporter::tests::test_reporter_creates_with_chinese_i18n ... ignored
+test reporter::tests::test_reporter_creates_with_english_i18n ... ignored
+test scoring::tests::test_all_category_keys_present ... ignored
+test scoring::tests::test_categories_are_independent ... ignored
+test scoring::tests::test_category_score_positive_when_rule_matches ... ignored
+test scoring::tests::test_category_score_zero_when_no_matching_rules ... ignored
+test scoring::tests::test_d_score_capped_at_60 ... ignored
+test scoring::tests::test_d_score_higher_with_denser_code ... ignored
+test scoring::tests::test_empty_issues_score_zero ... ignored
+test scoring::tests::test_n_score_capped_at_40 ... ignored
+test scoring::tests::test_n_score_monotonic_with_nuclear_count ... ignored
+test scoring::tests::test_quality_level_description_chinese ... ignored
+test scoring::tests::test_quality_level_description_english ... ignored
+test scoring::tests::test_quality_level_tier_boundaries ... ignored
+test scoring::tests::test_severity_distribution_counts ... ignored
+test scoring::tests::test_total_score_is_n_plus_d ... ignored
+test scoring::tests::test_zero_lines_does_not_produce_nan ... ignored
+test signals::tests::test_aggregate_detector_scores ... ignored
+test signals::tests::test_classify_code_smells_fallback ... ignored
+test signals::tests::test_classify_duplication_all ... ignored
+test signals::tests::test_classify_legacy_code ... ignored
+test signals::tests::test_classify_line_count_smell ... ignored
+test signals::tests::test_classify_naming_all ... ignored
+test signals::tests::test_classify_nested_all ... ignored
+test signals::tests::test_classify_over_engineering_all ... ignored
+test signals::tests::test_classify_panic_all ... ignored
+test signals::tests::test_classify_todo_mountain ... ignored
+test signals::tests::test_compute_signal_scores_capped ... ignored
+test signals::tests::test_compute_signal_scores_category_independence ... ignored
+test signals::tests::test_compute_signal_scores_density_scaling ... ignored
+test signals::tests::test_compute_signal_scores_empty ... ignored
+test signals::tests::test_compute_signal_scores_mixed ... ignored
+test signals::tests::test_compute_signal_scores_zero_lines ... ignored
+test signals::tests::test_display_name_all_variants ... ignored
+test signals::tests::test_display_name_zh_all_variants ... ignored
+test signals::tests::test_matrix_direct_signals_go ... ignored
+test signals::tests::test_matrix_direct_signals_python ... ignored
+test signals::tests::test_matrix_direct_signals_rust ... ignored
+test signals::tests::test_matrix_has_direct_detector_rust ... ignored
+test signals::tests::test_matrix_supported_all_grammar_languages ... ignored
+test signals::tests::test_matrix_supported_unknown ... ignored
+test signals::tests::test_matrix_supports_signal_rust_panic ... ignored
+test signals::tests::test_matrix_supports_signal_unknown ... ignored
+test signals::tests::test_style_profile_academic_compound ... ignored
+test signals::tests::test_style_profile_academic_over_eng ... ignored
+test signals::tests::test_style_profile_all_zero ... ignored
+test signals::tests::test_style_profile_copy_paste ... ignored
+test signals::tests::test_style_profile_empty ... ignored
+test signals::tests::test_style_profile_enterprise ... ignored
+test signals::tests::test_style_profile_hotfix ... ignored
+test signals::tests::test_style_profile_legacy_necromancer ... ignored
+test signals::tests::test_style_profile_startup ... ignored
+test signals::tests::test_style_profile_trait_wizard ... ignored
+test signals::tests::test_style_profile_yolo ... ignored
+test signals::tests::test_violations_to_score_capped ... ignored
+test signals::tests::test_violations_to_score_increasing ... ignored
+test signals::tests::test_violations_to_score_zero ... ignored
+test style_ir::tests::test_style_ir_clean_baseline ... ignored
+test style_ir::tests::test_style_ir_code_smell_count ... ignored
+test style_ir::tests::test_style_ir_debug_count ... ignored
+test style_ir::tests::test_style_ir_naming_count ... ignored
+test style_ir::tests::test_style_ir_nested_count ... ignored
+test style_ir::tests::test_style_ir_over_engineering_count ... ignored
+test style_ir::tests::test_style_ir_panic_count ... ignored
+test style_ir::tests::test_style_ir_summary_schema ... ignored
+test team_roast::tests::test_generate_roast ... ignored
+test team_roast::tests::test_generate_roast_clean ... ignored
+test team_roast::tests::test_generate_roast_high_fix_ratio ... ignored
+test team_roast::tests::test_generate_roast_short_messages ... ignored
+test team_roast::tests::test_run_json_format ... ignored
+test team_roast::tests::test_run_on_current_dir ... ignored
+test team_roast::tests::test_run_on_current_dir_chinese ... ignored
+test treesitter::duplication::tests::test_cross_file_dup_detects_identical_functions ... ignored
+test treesitter::duplication::tests::test_cross_file_python ... ignored
+test treesitter::duplication::tests::test_cross_file_skip_trivial_functions ... ignored
+test treesitter::duplication::tests::test_find_function_nodes ... ignored
+test treesitter::duplication::tests::test_intra_file_clean_code_no_false_positive ... ignored
+test treesitter::duplication::tests::test_intra_file_dup_detects_repeated_block ... ignored
+test treesitter::engine::tests::test_parse_file_by_path ... ignored
+test treesitter::engine::tests::test_parse_invalid_rust ... ignored
+test treesitter::engine::tests::test_parse_rust_source ... ignored
+test treesitter::engine::tests::test_unsupported_language ... ignored
+test treesitter::query::tests::test_collect_captures_basic ... ignored
+test treesitter::query::tests::test_invalid_query_returns_error ... ignored
+test treesitter::query::tests::test_query_rule_default_handler ... ignored
+test treesitter::query::tests::test_single_letter_variable_query ... ignored
+test treesitter::rule::tests::test_is_rule_disabled_magic_number ... ignored
+test treesitter::rule::tests::test_is_rule_disabled_naming_rules ... ignored
+test treesitter::rule::tests::test_is_rule_disabled_println ... ignored
+test treesitter::rule::tests::test_is_rule_disabled_unknown ... ignored
+test treesitter::rule::tests::test_is_rule_disabled_unwrap ... ignored
+test treesitter::rule::tests::test_is_test_file_benches_dir ... ignored
+test treesitter::rule::tests::test_is_test_file_content_based ... ignored
+test treesitter::rule::tests::test_is_test_file_content_no_false_positive ... ignored
+test treesitter::rule::tests::test_is_test_file_examples_dir ... ignored
+test treesitter::rule::tests::test_is_test_file_gap_test_prefix_in_subdir ... ignored
+test treesitter::rule::tests::test_is_test_file_leading_dot_slash ... ignored
+test treesitter::rule::tests::test_is_test_file_non_test_paths ... ignored
+test treesitter::rule::tests::test_is_test_file_test_dir_singular ... ignored
+test treesitter::rule::tests::test_is_test_file_test_prefix ... ignored
+test treesitter::rule::tests::test_is_test_file_tests_dir ... ignored
+test treesitter::rule::tests::test_is_test_file_underscore_test_suffix ... ignored
+test treesitter::rule::tests::test_rule_language_filtering ... ignored
+test treesitter::rule::tests::test_rule_names_empty ... ignored
+test treesitter::rule::tests::test_rule_names_multiple ... ignored
+test treesitter::rule::tests::test_rule_non_skipping_does_not_skip ... ignored
+test treesitter::rule::tests::test_rule_skips_test_files ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_abbreviation_abuse_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_abbreviation_abuse_normal_ok ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_complex_closure_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_deep_nesting_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_deep_nesting_shallow_ok ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_god_function_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_magic_number_const_ok ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_magic_number_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_println_debugging_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_println_debugging_empty ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_single_letter_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_single_letter_loop_counter_ok ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_terrible_naming_detected ... ignored
+test treesitter::rules::complex_rules::complex_rules_tests::test_terrible_naming_good_names_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_abbreviation_abuse_clean_code ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_abbreviation_abuse_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_async_abuse_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_box_abuse_below_threshold ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_complex_closure_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_deep_nesting_clean_code ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_deep_nesting_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_engine_runs_without_panic ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_generic_abuse_detected ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_generic_abuse_few_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_god_function_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_hungarian_notation_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_lifetime_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_long_function_clean_code ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_long_function_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_macro_abuse_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_module_complexity_detected ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_module_complexity_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_module_complexity_flat_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_panic_abuse_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_pattern_matching_below_threshold ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_reference_abuse_below_threshold ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_derive_order_bad ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_derive_order_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_doc_example_missing ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_doc_example_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_error_display_both_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_error_display_detected ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_must_use_detected ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_rust_must_use_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_single_letter_allows_loop_counters ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_single_letter_variable_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_slice_abuse_below_threshold ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_string_abuse_below_threshold ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_terrible_naming_clean_code ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_terrible_naming_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_too_many_params_detected ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_too_many_params_few_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_trait_complexity_check ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_trait_complexity_simple_ok ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_unnecessary_clone_below_threshold ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_unwrap_abuse_detection ... ignored
+test treesitter::rules::rust_rules::rust_rules_tests::test_unwrap_abuse_nuclear ... ignored
+test trend::display::tests::test_diff_arrow ... ignored
+test trend::display::tests::test_format_json ... ignored
+test trend::display::tests::test_format_terminal_empty ... ignored
+test trend::display::tests::test_format_terminal_with_records ... ignored
+test trend::history::tests::test_days_to_ymd_century_boundary ... ignored
+test trend::history::tests::test_days_to_ymd_epoch ... ignored
+test trend::history::tests::test_days_to_ymd_leap_year ... ignored
+test trend::history::tests::test_days_to_ymd_non_leap ... ignored
+test trend::history::tests::test_days_to_ymd_year_2000 ... ignored
+test trend::history::tests::test_epoch_to_datetime_known ... ignored
+test trend::history::tests::test_epoch_to_datetime_leap_day ... ignored
+test trend::history::tests::test_epoch_to_datetime_zero ... ignored
+test trend::history::tests::test_history_record_empty_tools ... ignored
+test trend::history::tests::test_history_record_serde ... ignored
+test trend::history::tests::test_now_timestamp_format ... ignored
+test trend::tests::test_run_empty_history ... ignored
+test trend::tests::test_save_and_load ... ignored
+test utils::tests::test_count_non_comment_matches_excludes_block_comment_start ... ignored
+test utils::tests::test_count_non_comment_matches_excludes_comments ... ignored
+test utils::tests::test_count_non_comment_matches_excludes_doc_comments ... ignored
+test utils::tests::test_count_non_comment_matches_returns_zero_for_absent_target ... ignored
+test utils::tests::test_count_non_import_matches_code_only ... ignored
+test utils::tests::test_count_non_import_matches_excludes_use_and_comments ... ignored
+test utils::tests::test_count_non_import_matches_zero_for_absent_target ... ignored
+test utils::tests::test_find_line_of_str_empty_content_does_not_crash ... ignored
+test utils::tests::test_find_line_of_str_finds_target ... ignored
+test utils::tests::test_find_line_of_str_non_import_skips_comments_and_imports ... ignored
+test utils::tests::test_find_line_of_str_non_import_skips_use_lines ... ignored
+test utils::tests::test_find_line_of_str_non_import_target_only_in_use_not_found ... ignored
+test utils::tests::test_find_line_of_str_returns_fallback_when_missing ... ignored
+test utils::tests::test_find_line_of_str_skips_comments ... ignored
+test utils::tests::test_get_position_at_newline_boundary ... ignored
+test utils::tests::test_get_position_at_start ... ignored
+test utils::tests::test_get_position_beyond_end_does_not_crash ... ignored
+test utils::tests::test_get_position_empty_content_does_not_crash ... ignored
+test utils::tests::test_get_position_mid_line ... ignored
+test utils::tests::test_truncate_appends_ellipsis ... ignored
+test utils::tests::test_truncate_exact_length_kept ... ignored
+test utils::tests::test_truncate_max_one_produces_ellipsis ... ignored
+test utils::tests::test_truncate_max_zero_returns_ellipsis_only ... ignored
+test utils::tests::test_truncate_multi_byte_char_boundary_no_panic ... ignored
+test utils::tests::test_truncate_short_string_unchanged ... ignored
+
+test result: ok. 0 passed; 0 failed; 701 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/release/deps/garbage_code_hunter-4cf64c4ac173bbf7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running benches/performance_tests.rs (target/release/deps/performance_tests-2c446a3b802bae69)
+Gnuplot not found, using plotters backend
+Benchmarking create_analyzer/default
+Benchmarking create_analyzer/default: Warming up for 3.0000 s
+Benchmarking create_analyzer/default: Collecting 100 samples in estimated 5.3903 s (10k iterations)
+Benchmarking create_analyzer/default: Analyzing
+create_analyzer/default time:   [537.98 µs 539.38 µs 540.88 µs]
+                        change: [−5.7473% −5.5470% −5.3559%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+Benchmarking create_analyzer/with_exclusions
+Benchmarking create_analyzer/with_exclusions: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 5.9s, enable flat sampling, or reduce sample count to 60.
+Benchmarking create_analyzer/with_exclusions: Collecting 100 samples in estimated 5.9420 s (5050 iterations)
+Benchmarking create_analyzer/with_exclusions: Analyzing
+create_analyzer/with_exclusions
+                        time:   [1.1823 ms 1.1843 ms 1.1863 ms]
+                        change: [−3.8078% −3.5203% −3.2513%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+Benchmarking analyze_file/clean_rust
+Benchmarking analyze_file/clean_rust: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 6.6s, enable flat sampling, or reduce sample count to 60.
+Benchmarking analyze_file/clean_rust: Collecting 100 samples in estimated 6.6052 s (5050 iterations)
+Benchmarking analyze_file/clean_rust: Analyzing
+analyze_file/clean_rust time:   [1.3007 ms 1.3035 ms 1.3060 ms]
+                        change: [−2.7966% −2.5568% −2.3291%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low severe
+  1 (1.00%) high mild
+
+Benchmarking analyze_file/example_func_rs
+Benchmarking analyze_file/example_func_rs: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 9.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking analyze_file/example_func_rs: Collecting 100 samples in estimated 9.7912 s (5050 iterations)
+Benchmarking analyze_file/example_func_rs: Analyzing
+analyze_file/example_func_rs
+                        time:   [1.9370 ms 1.9394 ms 1.9417 ms]
+                        change: [−1.0841% −0.9118% −0.7483%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking analyze_file/example_ultimate_garbage
+Benchmarking analyze_file/example_ultimate_garbage: Warming up for 3.0000 s
+Benchmarking analyze_file/example_ultimate_garbage: Collecting 100 samples in estimated 7.1935 s (10k iterations)
+Benchmarking analyze_file/example_ultimate_garbage: Analyzing
+analyze_file/example_ultimate_garbage
+                        time:   [710.39 µs 711.30 µs 712.29 µs]
+                        change: [−1.1035% −0.9235% −0.7620%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low severe
+  3 (3.00%) low mild
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking analyze_path/example_directory
+Benchmarking analyze_path/example_directory: Warming up for 3.0000 s
+Benchmarking analyze_path/example_directory: Collecting 100 samples in estimated 5.3597 s (1400 iterations)
+Benchmarking analyze_path/example_directory: Analyzing
+analyze_path/example_directory
+                        time:   [3.8181 ms 3.8275 ms 3.8393 ms]
+                        change: [−0.4757% −0.1854% +0.1564%] (p = 0.26 > 0.05)
+                        No change in performance detected.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+
+Benchmarking parse_file/rust_large/100_functions
+Benchmarking parse_file/rust_large/100_functions: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 6.1s, or reduce sample count to 80.
+Benchmarking parse_file/rust_large/100_functions: Collecting 100 samples in estimated 6.1417 s (100 iterations)
+Benchmarking parse_file/rust_large/100_functions: Analyzing
+parse_file/rust_large/100_functions
+                        time:   [61.534 ms 61.631 ms 61.740 ms]
+                        change: [+0.4239% +0.6759% +0.9260%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking parse_file/python/50_functions
+Benchmarking parse_file/python/50_functions: Warming up for 3.0000 s
+Benchmarking parse_file/python/50_functions: Collecting 100 samples in estimated 5.3917 s (600 iterations)
+Benchmarking parse_file/python/50_functions: Analyzing
+parse_file/python/50_functions
+                        time:   [8.9545 ms 8.9650 ms 8.9765 ms]
+                        change: [−0.0837% +0.1141% +0.3070%] (p = 0.26 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking parse_file/javascript/50_functions
+Benchmarking parse_file/javascript/50_functions: Warming up for 3.0000 s
+Benchmarking parse_file/javascript/50_functions: Collecting 100 samples in estimated 5.8927 s (600 iterations)
+Benchmarking parse_file/javascript/50_functions: Analyzing
+parse_file/javascript/50_functions
+                        time:   [9.7670 ms 9.7789 ms 9.7929 ms]
+                        change: [−0.3544% −0.1623% +0.0438%] (p = 0.10 > 0.05)
+                        No change in performance detected.
+Found 7 outliers among 100 measurements (7.00%)
+  5 (5.00%) high mild
+  2 (2.00%) high severe
+Benchmarking parse_file/go/50_functions
+Benchmarking parse_file/go/50_functions: Warming up for 3.0000 s
+Benchmarking parse_file/go/50_functions: Collecting 100 samples in estimated 5.9770 s (600 iterations)
+Benchmarking parse_file/go/50_functions: Analyzing
+parse_file/go/50_functions
+                        time:   [9.9355 ms 9.9459 ms 9.9569 ms]
+                        change: [−0.5956% −0.3781% −0.1740%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking parse_file/rust_clean/well_written
+Benchmarking parse_file/rust_clean/well_written: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 9.7s, enable flat sampling, or reduce sample count to 50.
+Benchmarking parse_file/rust_clean/well_written: Collecting 100 samples in estimated 9.6838 s (5050 iterations)
+Benchmarking parse_file/rust_clean/well_written: Analyzing
+parse_file/rust_clean/well_written
+                        time:   [1.9135 ms 1.9159 ms 1.9186 ms]
+                        change: [−0.0126% +0.1376% +0.2921%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+Benchmarking analyze_path/mixed_4_languages
+Benchmarking analyze_path/mixed_4_languages: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 10.2s, or reduce sample count to 40.
+Benchmarking analyze_path/mixed_4_languages: Collecting 100 samples in estimated 10.215 s (100 iterations)
+Benchmarking analyze_path/mixed_4_languages: Analyzing
+analyze_path/mixed_4_languages
+                        time:   [102.19 ms 102.28 ms 102.39 ms]
+                        change: [+0.3022% +0.4713% +0.6352%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+Benchmarking analyze_file/single_large_file
+Benchmarking analyze_file/single_large_file: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 6.1s, or reduce sample count to 80.
+Benchmarking analyze_file/single_large_file: Collecting 100 samples in estimated 6.1222 s (100 iterations)
+Benchmarking analyze_file/single_large_file: Analyzing
+analyze_file/single_large_file
+                        time:   [61.394 ms 61.469 ms 61.549 ms]
+                        change: [−0.1186% +0.1126% +0.3024%] (p = 0.31 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+Benchmarking analyze_to_findings/single_large_file
+Benchmarking analyze_to_findings/single_large_file: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 7.0s, or reduce sample count to 70.
+Benchmarking analyze_to_findings/single_large_file: Collecting 100 samples in estimated 6.9561 s (100 iterations)
+Benchmarking analyze_to_findings/single_large_file: Analyzing
+analyze_to_findings/single_large_file
+                        time:   [69.367 ms 69.466 ms 69.580 ms]
+                        change: [+0.2078% +0.4337% +0.6478%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking analyze_path/dir_10_garbage_files
+Benchmarking analyze_path/dir_10_garbage_files: Warming up for 3.0000 s
+Benchmarking analyze_path/dir_10_garbage_files: Collecting 100 samples in estimated 5.2569 s (700 iterations)
+Benchmarking analyze_path/dir_10_garbage_files: Analyzing
+analyze_path/dir_10_garbage_files
+                        time:   [7.4891 ms 7.4988 ms 7.5092 ms]
+                        change: [+0.2347% +0.4371% +0.6305%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking analyze_full/single_large_file
+Benchmarking analyze_full/single_large_file: Warming up for 3.0000 s
+
+Warning: Unable to complete 100 samples in 5.0s. You may wish to increase target time to 7.6s, or reduce sample count to 60.
+Benchmarking analyze_full/single_large_file: Collecting 100 samples in estimated 7.5551 s (100 iterations)
+Benchmarking analyze_full/single_large_file: Analyzing
+analyze_full/single_large_file
+                        time:   [75.631 ms 75.752 ms 75.888 ms]
+                        change: [+0.2368% +0.4627% +0.6856%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking scalability/file_count/1
+Benchmarking scalability/file_count/1: Warming up for 3.0000 s
+Benchmarking scalability/file_count/1: Collecting 100 samples in estimated 7.8003 s (10k iterations)
+Benchmarking scalability/file_count/1: Analyzing
+scalability/file_count/1
+                        time:   [770.56 µs 771.44 µs 772.50 µs]
+                        change: [+0.5244% +0.6846% +0.8585%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scalability/file_count/5
+Benchmarking scalability/file_count/5: Warming up for 3.0000 s
+Benchmarking scalability/file_count/5: Collecting 100 samples in estimated 5.2546 s (1400 iterations)
+Benchmarking scalability/file_count/5: Analyzing
+scalability/file_count/5
+                        time:   [3.7513 ms 3.7557 ms 3.7608 ms]
+                        change: [−0.0622% +0.1233% +0.3083%] (p = 0.20 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scalability/file_count/20
+Benchmarking scalability/file_count/20: Warming up for 3.0000 s
+Benchmarking scalability/file_count/20: Collecting 100 samples in estimated 6.1412 s (400 iterations)
+Benchmarking scalability/file_count/20: Analyzing
+scalability/file_count/20
+                        time:   [15.172 ms 15.244 ms 15.319 ms]
+                        change: [−4.7808% −3.3248% −1.9779%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking scalability/file_count/50
+Benchmarking scalability/file_count/50: Warming up for 3.0000 s
+Benchmarking scalability/file_count/50: Collecting 100 samples in estimated 7.4823 s (200 iterations)
+Benchmarking scalability/file_count/50: Analyzing
+scalability/file_count/50
+                        time:   [37.383 ms 37.449 ms 37.520 ms]
+                        change: [+0.0130% +0.2671% +0.5174%] (p = 0.04 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+Benchmarking scalability/garbage_vs_clean/10_garbage/10
+Benchmarking scalability/garbage_vs_clean/10_garbage/10: Warming up for 3.0000 s
+Benchmarking scalability/garbage_vs_clean/10_garbage/10: Collecting 100 samples in estimated 5.2526 s (700 iterations)
+Benchmarking scalability/garbage_vs_clean/10_garbage/10: Analyzing
+scalability/garbage_vs_clean/10_garbage/10
+                        time:   [7.4891 ms 7.5002 ms 7.5128 ms]
+                        change: [+0.3893% +0.6281% +0.8745%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scalability/garbage_vs_clean/10_clean/10
+Benchmarking scalability/garbage_vs_clean/10_clean/10: Warming up for 3.0000 s
+Benchmarking scalability/garbage_vs_clean/10_clean/10: Collecting 100 samples in estimated 5.0202 s (1100 iterations)
+Benchmarking scalability/garbage_vs_clean/10_clean/10: Analyzing
+scalability/garbage_vs_clean/10_clean/10
+                        time:   [4.5758 ms 4.5849 ms 4.5954 ms]
+                        change: [−0.1164% +0.1205% +0.3943%] (p = 0.37 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking scalability/garbage_vs_clean/50_garbage/50
+Benchmarking scalability/garbage_vs_clean/50_garbage/50: Warming up for 3.0000 s
+Benchmarking scalability/garbage_vs_clean/50_garbage/50: Collecting 100 samples in estimated 7.5036 s (200 iterations)
+Benchmarking scalability/garbage_vs_clean/50_garbage/50: Analyzing
+scalability/garbage_vs_clean/50_garbage/50
+                        time:   [37.526 ms 37.720 ms 37.972 ms]
+                        change: [+0.4800% +1.0240% +1.6499%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) high mild
+  7 (7.00%) high severe
+Benchmarking scalability/garbage_vs_clean/50_clean/50
+Benchmarking scalability/garbage_vs_clean/50_clean/50: Warming up for 3.0000 s
+Benchmarking scalability/garbage_vs_clean/50_clean/50: Collecting 100 samples in estimated 6.8455 s (300 iterations)
+Benchmarking scalability/garbage_vs_clean/50_clean/50: Analyzing
+scalability/garbage_vs_clean/50_clean/50
+                        time:   [22.755 ms 22.793 ms 22.835 ms]
+                        change: [−0.5236% −0.3024% −0.0628%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking project/clean_vs_garbage/garbage/20
+Benchmarking project/clean_vs_garbage/garbage/20: Warming up for 3.0000 s
+Benchmarking project/clean_vs_garbage/garbage/20: Collecting 100 samples in estimated 5.9900 s (400 iterations)
+Benchmarking project/clean_vs_garbage/garbage/20: Analyzing
+project/clean_vs_garbage/garbage/20
+                        time:   [14.978 ms 14.999 ms 15.023 ms]
+                        change: [+0.3714% +0.6186% +0.8451%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking project/clean_vs_garbage/clean/20
+Benchmarking project/clean_vs_garbage/clean/20: Warming up for 3.0000 s
+Benchmarking project/clean_vs_garbage/clean/20: Collecting 100 samples in estimated 5.4796 s (600 iterations)
+Benchmarking project/clean_vs_garbage/clean/20: Analyzing
+project/clean_vs_garbage/clean/20
+                        time:   [9.2432 ms 9.2907 ms 9.3463 ms]
+                        change: [+0.9751% +1.5674% +2.2644%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 17 outliers among 100 measurements (17.00%)
+  8 (8.00%) high mild
+  9 (9.00%) high severe
+
+Benchmarking analyze_path/cross_file_5_similar
+Benchmarking analyze_path/cross_file_5_similar: Warming up for 3.0000 s
+Benchmarking analyze_path/cross_file_5_similar: Collecting 100 samples in estimated 5.0383 s (1600 iterations)
+Benchmarking analyze_path/cross_file_5_similar: Analyzing
+analyze_path/cross_file_5_similar
+                        time:   [3.1779 ms 3.2049 ms 3.2343 ms]
+                        change: [+2.6663% +3.5526% +4.4259%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+

@@ -74,6 +74,23 @@ garbage-code-hunter analyze -f json
 
 Rust、Go、Python、JavaScript、TypeScript、Java、C、C++、Ruby、Swift、Zig。
 
+## 性能基准
+
+Apple Silicon (M 系列) 单文件分析性能：
+
+| 基准测试 | 耗时 |
+|----------|------|
+| `create_analyzer` | 539 µs |
+| `analyze_file/clean_rust` | 1.30 ms |
+| `analyze_file/single_large_file` (100 函数) | 61.5 ms |
+| `analyze_path/mixed_4_languages` | 102 ms |
+| `analyze_path/10_garbage_files` | 7.50 ms |
+| `analyze_path/50_garbage_files` | 37.4 ms |
+| `scalability/20_files` | 15.2 ms |
+| `scalability/50_files` | 37.4 ms |
+
+运行 `cargo bench` 可复现。日志保存在 `./benchs/` 目录。
+
 ## 常用命令
 
 ```bash
@@ -94,11 +111,39 @@ garbage-code-hunter pr --repo owner/repo --state open --token $GITHUB_TOKEN
 
 ## 配置
 
-在项目根目录创建 `.garbage-code-hunter.toml`，可以配置变量名白名单、允许的魔法数字、排除路径和规则阈值。
+在项目根目录创建 `.garbage-code-hunter.toml` 即可自定义分析规则。工具会自动从当前目录向上查找此文件。
 
 ```bash
+# 自动发现（无需指定路径）
+garbage-code-hunter analyze
+
+# 手动指定路径
 garbage-code-hunter analyze --project-config .garbage-code-hunter.toml
 ```
+
+**配置文件名：** `.garbage-code-hunter.toml`（唯一支持的文件名，不支持 `.garbage-hunter.toml` 等其他名称）
+
+**可配置内容：**
+
+```toml
+[whitelists]
+magic-numbers = [800, 1000]
+variable-names = ["ctx", "db"]
+exclude-patterns = ["vendor/*", "third_party/*"]
+
+[rules.magic-number]
+enabled = true
+allowed-numbers = [3000, 86400]
+
+[rules.unwrap]
+threshold = 3
+
+[signals]
+panic-addiction = true
+naming-chaos = false
+```
+
+完整配置说明：[docs/config-reference.md](docs/config-reference.md)
 
 ## 文档
 

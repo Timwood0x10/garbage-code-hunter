@@ -74,6 +74,23 @@ garbage-code-hunter analyze -f json
 
 Rust, Go, Python, JavaScript, TypeScript, Java, C, C++, Ruby, Swift, and Zig.
 
+## Performance
+
+Benchmarked on Apple Silicon (M-series), single-file analysis:
+
+| Benchmark | Time |
+|-----------|------|
+| `create_analyzer` | 539 µs |
+| `analyze_file/clean_rust` | 1.30 ms |
+| `analyze_file/single_large_file` (100 functions) | 61.5 ms |
+| `analyze_path/mixed_4_languages` | 102 ms |
+| `analyze_path/10_garbage_files` | 7.50 ms |
+| `analyze_path/50_garbage_files` | 37.4 ms |
+| `scalability/20_files` | 15.2 ms |
+| `scalability/50_files` | 37.4 ms |
+
+Run `cargo bench` to reproduce. Logs are saved in `./benchs/`.
+
 ## Common Usage
 
 ```bash
@@ -94,11 +111,39 @@ garbage-code-hunter pr --repo owner/repo --state open --token $GITHUB_TOKEN
 
 ## Configuration
 
-Create `.garbage-code-hunter.toml` in your project root to whitelist names, allowed magic numbers, excluded paths, and rule thresholds.
+Create `.garbage-code-hunter.toml` in your project root to customize analysis. The tool auto-discovers this file by walking up from the working directory.
 
 ```bash
+# Auto-discovered (no flag needed)
+garbage-code-hunter analyze
+
+# Explicit path
 garbage-code-hunter analyze --project-config .garbage-code-hunter.toml
 ```
+
+**Config file name:** `.garbage-code-hunter.toml` (canonical). No other names are supported.
+
+**What you can customize:**
+
+```toml
+[whitelists]
+magic-numbers = [800, 1000]
+variable-names = ["ctx", "db"]
+exclude-patterns = ["vendor/*", "third_party/*"]
+
+[rules.magic-number]
+enabled = true
+allowed-numbers = [3000, 86400]
+
+[rules.unwrap]
+threshold = 3
+
+[signals]
+panic-addiction = true
+naming-chaos = false
+```
+
+Full schema: [docs/config-reference.md](docs/config-reference.md)
 
 ## Documentation
 
