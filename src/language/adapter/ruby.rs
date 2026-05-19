@@ -1,7 +1,8 @@
 //! RubyAdapter — Ruby language adapter.
 
 use super::{
-    count_params, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
+    count_params, is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -77,13 +78,18 @@ impl LanguageAdapter for RubyAdapter {
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
         let mut count = 0usize;
+        // Language-idiomatic single-letter names exempt from counting
+        let idiomatic_single: &[&str] = &["e", "i", "j", "k", "x", "n"];
 
         if let Ok(groups) = collect_captures(file, "(assignment left: (identifier) @var)") {
             for group in &groups {
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        count += 1;
+                        if !idiomatic_single.contains(&name) {
+                            count += 1;
+                        }
+                        continue; // skip other checks for single-letter names
                     }
                 }
             }
@@ -201,7 +207,7 @@ impl LanguageAdapter for RubyAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" {
+                    if text != "0" && text != "1" && !is_common_safe_number(text) {
                         count += 1;
                     }
                 }
@@ -394,7 +400,7 @@ end
 
     #[test]
     fn test_ruby_naming_single_letter() {
-        let code = "x = 1\ny = 2\n";
+        let code = "a = 1\nb = 2\n";
         let file = parse_ruby(code);
         let adapter = RubyAdapter;
         assert_eq!(adapter.count_naming_violations(&file), 2);

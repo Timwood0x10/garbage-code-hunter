@@ -1,8 +1,8 @@
 //! GoAdapter — Go language adapter.
 
 use super::{
-    count_nested_blocks, count_params, is_inside_declaration, is_repeating_chars, FunctionNode,
-    LanguageAdapter, MEANINGLESS_NAMES,
+    count_nested_blocks, count_params, is_common_safe_number, is_inside_declaration,
+    is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -84,6 +84,8 @@ impl LanguageAdapter for GoAdapter {
             Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
         });
         let terrible_re = TERRIBLE_RE.as_ref();
+        // Language-idiomatic single-letter names exempt from counting
+        let idiomatic_single: &[&str] = &["e", "g", "i", "j", "k", "n", "c"];
 
         // Single-letter & terrible naming in variables
         if let Ok(groups) = collect_captures(
@@ -95,7 +97,9 @@ impl LanguageAdapter for GoAdapter {
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        count += 1;
+                        if !idiomatic_single.contains(&name) {
+                            count += 1;
+                        }
                         continue;
                     }
                     if let Some(re) = terrible_re {
@@ -170,6 +174,7 @@ impl LanguageAdapter for GoAdapter {
 
     fn count_debug_calls(&self, file: &ParsedFile) -> usize {
         let mut count = 0;
+        let source = file.content.as_bytes();
         if let Ok(groups) = collect_captures(
             file,
             r#"(call_expression
@@ -179,7 +184,28 @@ impl LanguageAdapter for GoAdapter {
   (#match? @pkg "^(fmt|log)$")
   (#match? @method "^(Print|Println|Printf|Fprint|Fprintln|Fprintf|Sprint|Sprintln|Sprintf)$"))"#,
         ) {
-            count += groups.len();
+            'group: for group in &groups {
+                for cap in group {
+                    if cap.name == "pkg" && cap.text == "fmt" {
+                        // Exempt fmt.Print* calls inside func main()
+                        let mut current = Some(cap.node);
+                        while let Some(n) = current {
+                            if n.kind() == "function_declaration" {
+                                if let Some(name_node) = n.child_by_field_name("name") {
+                                    if let Ok(text) = name_node.utf8_text(source) {
+                                        if text == "main" {
+                                            continue 'group;
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                            current = n.parent();
+                        }
+                    }
+                }
+                count += 1;
+            }
         }
         count
     }
@@ -216,7 +242,7 @@ impl LanguageAdapter for GoAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" {
+                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
                         count += 1;
                     }
                 }
@@ -464,7 +490,7 @@ func main() {
         let code = r#"
 package main
 import "fmt"
-func main() {
+func helper() {
     fmt.Println("hello")
     fmt.Printf("x=%d", 1)
 }

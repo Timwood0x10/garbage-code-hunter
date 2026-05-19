@@ -1,36 +1,28 @@
 # Configuration
 
-## Project Config File
+Garbage Code Hunter reads project-level settings from `.garbage-code-hunter.toml`.
+The file is discovered by walking upward from the target path.
 
-Create `.garbage-code-hunter.toml` in your project root. The tool searches upward from the target directory.
-
-### Example
+## Project config example
 
 ```toml
 [project-type]
 web-service = {}
 
 [whitelists]
-# Numbers that are NOT magic numbers
 magic-numbers = [8080, 443, 80, 3000, 5000]
-
-# Variable names that are acceptable
 variable-names = ["ctx", "req", "res", "err", "db", "wg", "mu"]
-
-# Directories to reduce sensitivity (still analyzed, but lower weight)
 directories = ["vendor/", "generated/", "testdata/"]
-
-# Patterns to completely exclude from analysis
 exclude-patterns = [
-    "*.pb.go",
-    "*.pulsar.go",
-    "*_grpc.pb.go",
-    "*.gen.ts",
-    "*.generated.*",
-    "node_modules/",
-    "venv/",
-    "__pycache__/",
-    "vendor/",
+  "*.pb.go",
+  "*.pulsar.go",
+  "*_grpc.pb.go",
+  "*.gen.ts",
+  "*.generated.*",
+  "node_modules/",
+  "venv/",
+  "__pycache__/",
+  "vendor/",
 ]
 
 [rules.naming]
@@ -52,33 +44,55 @@ enabled = true
 
 [[overrides]]
 pattern = "generated/"
-# Override settings for generated code directories
 ```
 
-## Severity Levels
+## Configuration sections
 
-| Level | Weight | Description |
-|-------|--------|-------------|
-| `mild` | 0.5 | Minor issues, can ignore |
-| `spicy` | 1.5 | Should fix |
+- `project-type`: optional project hint for analysis context
+- `whitelists.magic-numbers`: numbers that should not be flagged
+- `whitelists.variable-names`: variable names that are allowed
+- `whitelists.directories`: directories that reduce sensitivity
+- `whitelists.exclude-patterns`: files or paths to skip
+- `rules.*`: per-rule switches and thresholds
+- `signals.*`: detector configuration for special signal checks
+- `overrides`: path-based overrides for generated or special folders
+
+## Severity levels
+
+| Level | Weight | Meaning |
+|---|---:|---|
+| `mild` | 0.5 | Low-priority issue |
+| `spicy` | 1.5 | Should be fixed |
 | `nuclear` | 3.0 | Fix immediately |
 
-## CLI Options
+## CLI flags
 
 ```bash
-# Basic usage
+# Analyze a path
 garbage-code-hunter analyze [PATH]
 
-# Language filter
+# Filter by language
 garbage-code-hunter analyze --lang go
 
-# Exclude patterns
+# Exclude paths
 garbage-code-hunter analyze --exclude "vendor/*" --exclude "*.pb.go"
 
-# LLM mode (requires API key)
-garbage-code-hunter analyze --mode llm
+# Save a scan result
+garbage-code-hunter scan --save
 
 # Output format
 garbage-code-hunter analyze --format json
 garbage-code-hunter analyze --format markdown
+```
+
+## LLM mode
+
+The application can switch to LLM-backed roast generation.
+Use `--llm` together with `--llm-provider`, `--llm-endpoint`, `--llm-model`, `--llm-api-key`, and `--llm-timeout`.
+The supported providers currently include `ollama` and generic OpenAI-style endpoints.
+
+Example:
+
+```bash
+garbage-code-hunter analyze --llm --llm-provider ollama
 ```

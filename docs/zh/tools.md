@@ -1,186 +1,136 @@
 # 工具指南
 
-Garbage Code Hunter 内置 15+ 个分析工具。以下是每个工具的说明。
+这个项目提供了一整套吐槽风格工具。大多数命令都支持 `-f/--format`，在需要本地化文案时也支持 `--lang`。
 
----
+## `analyze`
 
-## `analyze` — 代码品味分析
-
-核心工具。使用 tree-sitter AST 解析扫描源文件，报告代码品味问题。
+核心源码分析命令。
 
 ```bash
-# 分析当前目录
 garbage-code-hunter analyze
-
-# 分析指定路径并过滤语言
-garbage-code-hunter analyze ./src --lang rust
-
-# 多个排除模式
-garbage-code-hunter analyze --exclude "vendor/*" --exclude "*.pb.go"
 ```
 
-**输出内容：**
-- Issue 统计（Nuclear/Spicy/Mild）
-- 质量评分（0-100）
-- 每个文件的 issue 明细
-- 分类评分（命名、复杂度、重复等）
+常用参数：
+- `--harsh`
+- `--verbose`
+- `--top`
+- `--issues`
+- `--summary`
+- `--brief`
+- `--markdown`
+- `--lang`
+- `--exclude`
+- `--educational`
+- `--project-config`
+- `--hall-of-shame`
+- `--suggestions`
+- `--format`
+- `--llm`
+- `--llm-provider`
+- `--llm-endpoint`
+- `--llm-model`
+- `--llm-api-key`
+- `--llm-timeout`
+- `--config`
 
----
+## `commit-roaster` / `cr`
 
-## `commit-roaster` — Commit 消息吐槽
-
-分析 git 提交历史，吐槽烂 commit 消息。
+分析 git 历史，吐槽弱鸡 commit 信息。
 
 ```bash
-garbage-code-hunter commit-roaster
-garbage-code-hunter commit-roaster --limit 50  # 最近 50 条
+garbage-code-hunter commit-roaster --limit 50
 ```
 
-**检测内容：**
-- 空消息、太短（< 5 字符）
-- "WIP"、"fix"、"update" 没有上下文
-- 键盘乱敲（"asdfgh"、"test test test"）
-- 全大写或全小写
-- merge commit 泛滥
+参数：`--limit`、`--author`、`--since`、`--until`、`--branch`、`--format`
 
----
+## `deps-shamer` / `ds`
 
-## `deps-shamer` — 依赖羞耻
+检查依赖文件里是否存在高风险或混乱的依赖选择。
 
-分析项目依赖，羞耻不良实践。
+参数：`--format`
 
-```bash
-garbage-code-hunter deps-shamer
-```
+## `pr-title-hunter` / `pr`
 
-**支持：** Cargo (Rust)、npm (JS/TS)、pip (Python)、Go modules、Maven (Java)
+从本地数据或 GitHub 获取 PR 标题并吐槽。
 
-**检测内容：**
-- 依赖过多
-- 生产环境使用预发布版本
-- git 依赖
-- 过时或废弃的包
+参数：`--limit`、`--repo`、`--state`、`--token`、`--author`、`--format`
 
----
+## `scan`
 
-## `pr-title-hunter` — PR 标题质量
+运行主工具合集并合并结果。
 
-吐槽来自本地分支或 GitHub 的低质量 PR 标题。
+参数：`--lang`、`--format`、`--save`、`--project-config`
 
-```bash
-garbage-code-hunter pr-title-hunter
-garbage-code-hunter pr-title-hunter --repo owner/repo  # GitHub PR
-```
+## `badge`
 
----
+生成 SVG 徽章。
 
-## `scan` — 全量扫描
+参数：`--output`、`--style`、`--score`、`PATH`
 
-并行运行所有工具，输出综合评分。
+## `trend`
 
-```bash
-garbage-code-hunter scan ./my-project
-```
+查看分数历史。
 
----
+参数：`--last`、`--format`
 
-## `last-words` — TODO/FIXME 扫描
+## `last-words` / `lw`
 
-发现遗留的 TODO/FIXME/HACK/BUG 注释，报告它们存活了多久。
+查找陈旧的 TODO/FIXME/HACK 注释。
 
-```bash
-garbage-code-hunter last-words
-```
+参数：`--age`、`--format`、`--lang`
 
----
+## `debt-invoice` / `debt`
 
-## `debt-invoice` — 技术债账单
+估算技术债成本。
 
-生成"技术债账单"，估算维护成本。
+参数：`--format`、`--lang`
 
-```bash
-garbage-code-hunter debt-invoice
-```
+## `personality`
 
----
+根据代码模式推断开发者画像。
 
-## `personality` — 开发者人格
+参数：`--format`、`--lang`
 
-分析代码模式，判断开发者人格类型。
+## `decay`
 
-```bash
-garbage-code-hunter personality
-```
+分析 git 历史中的质量衰减。
 
-**人格类型：** 复制粘贴艺术家、unwrap 狂热者、TODO 梦想家等。
+参数：`--format`、`--lang`
 
----
+## `autopsy`
 
-## `danger-zone` — 危险文件
+输出根因风格的质量报告。
 
-找出代码库中最危险的文件（issue 密度最高）。
+参数：`--format`、`--lang`
 
-```bash
-garbage-code-hunter danger-zone
-```
+## `radar`
 
----
+生成气味雷达图或终端视图。
 
-## `team-roast` — 团队吐槽
+参数：`--format`、`--lang`、`--output`
 
-基于 git blame 的按开发者分析。
+## `ci-bot`
 
-```bash
-garbage-code-hunter team-roast
-```
+输出 CI 风格审查内容。
 
----
+参数：`--format`、`--lang`
 
-## `radar` — 雷达图
+## `persona`
 
-生成 SVG 雷达图，展示代码气味分布。
+按指定人格模式吐槽代码。
 
-```bash
-garbage-code-hunter radar
-```
+参数：`--persona`、`--format`、`--lang`
 
----
+常见人格包括 `linux-kernel`、`silicon-valley`、`japanese-enterprise` 和 `rust-fanatic`。
 
-## `autopsy` — 代码尸检
+## `danger-zone` / `dz`
 
-生成代码尸检报告，含根因分析。
+突出显示最危险的文件。
 
-```bash
-garbage-code-hunter autopsy
-```
+参数：`--format`、`--lang`
 
----
+## `team-roast`
 
-## `decay` — 质量衰减
+按贡献者汇总问题。
 
-展示项目质量随 git 历史的变化。
-
-```bash
-garbage-code-hunter decay
-```
-
----
-
-## `ci-bot` — CI 机器人
-
-生成 CI 风格的 PR 审查评论（用于 GitHub Actions 集成）。
-
-```bash
-garbage-code-hunter ci-bot
-```
-
----
-
-## `persona` — 人格分析
-
-用特定人格模式分析代码。
-
-```bash
-garbage-code-hunter persona --style senior
-garbage-code-hunter persona --style intern
-```
+参数：`--limit`、`--format`、`--lang`

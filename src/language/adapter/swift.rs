@@ -1,7 +1,8 @@
 //! SwiftAdapter — Swift language adapter.
 
 use super::{
-    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -82,6 +83,8 @@ impl LanguageAdapter for SwiftAdapter {
             Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
         });
         let terrible_re = TERRIBLE_RE.as_ref();
+        // Language-idiomatic single-letter names exempt from counting
+        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "e", "x"];
 
         if let Ok(groups) = collect_captures(
             file,
@@ -91,7 +94,9 @@ impl LanguageAdapter for SwiftAdapter {
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        count += 1;
+                        if !idiomatic_single.contains(&name) {
+                            count += 1;
+                        }
                         continue;
                     }
                     if let Some(re) = terrible_re {
@@ -179,7 +184,7 @@ impl LanguageAdapter for SwiftAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" {
+                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
                         count += 1;
                     }
                 }
@@ -237,8 +242,8 @@ func bar(x: Int) -> Int { return x }
     fn test_swift_naming_single_letter() {
         let code = r#"
 func main() {
-    let x = 1
-    var y = 2
+    let a = 1
+    var b = 2
 }
 "#;
         let file = parse_swift(code);

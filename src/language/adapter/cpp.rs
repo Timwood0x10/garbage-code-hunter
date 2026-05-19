@@ -1,8 +1,8 @@
 //! CppAdapter — C++ language adapter.
 
 use super::{
-    count_params, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
-    MEANINGLESS_NAMES,
+    count_params, is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -85,6 +85,8 @@ impl LanguageAdapter for CppAdapter {
             Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
         });
         let terrible_re = TERRIBLE_RE.as_ref();
+        // Language-idiomatic single-letter names exempt from counting
+        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "c", "e"];
 
         if let Ok(groups) =
             collect_captures(file, "(init_declarator declarator: (identifier) @var)")
@@ -93,7 +95,9 @@ impl LanguageAdapter for CppAdapter {
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        count += 1;
+                        if !idiomatic_single.contains(&name) {
+                            count += 1;
+                        }
                         continue;
                     }
                     if let Some(re) = terrible_re {
@@ -177,7 +181,7 @@ impl LanguageAdapter for CppAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" {
+                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
                         count += 1;
                     }
                 }

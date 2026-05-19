@@ -1,186 +1,136 @@
 # Tools Guide
 
-Garbage Code Hunter ships 15+ analysis tools. Here's what each one does.
+This project ships a broad set of roast-style tools. Most commands accept a `-f/--format` flag and a `--lang` flag where localized text is relevant.
 
----
+## `analyze`
 
-## `analyze` — Code Taste Analysis
-
-The core tool. Scans source files using tree-sitter AST parsing and reports code taste issues.
+Core source analysis command.
 
 ```bash
-# Analyze current directory
 garbage-code-hunter analyze
-
-# Analyze specific path with language filter
-garbage-code-hunter analyze ./src --lang rust
-
-# Multiple exclude patterns
-garbage-code-hunter analyze --exclude "vendor/*" --exclude "*.pb.go"
 ```
 
-**Output includes:**
-- Issue statistics (Nuclear/Spicy/Mild)
-- Quality score (0-100)
-- Per-file issue breakdown
-- Category scores (naming, complexity, duplication, etc.)
+Useful flags:
+- `--harsh`
+- `--verbose`
+- `--top`
+- `--issues`
+- `--summary`
+- `--brief`
+- `--markdown`
+- `--lang`
+- `--exclude`
+- `--educational`
+- `--project-config`
+- `--hall-of-shame`
+- `--suggestions`
+- `--format`
+- `--llm`
+- `--llm-provider`
+- `--llm-endpoint`
+- `--llm-model`
+- `--llm-api-key`
+- `--llm-timeout`
+- `--config`
 
----
+## `commit-roaster` / `cr`
 
-## `commit-roaster` — Commit Message Roast
-
-Analyzes git commit history and roasts bad commit messages.
+Analyzes git commit history and roasts weak commit messages.
 
 ```bash
-garbage-code-hunter commit-roaster
-garbage-code-hunter commit-roaster --limit 50  # Last 50 commits
+garbage-code-hunter commit-roaster --limit 50
 ```
 
-**Detects:**
-- Empty messages, too short (< 5 chars)
-- "WIP", "fix", "update" with no context
-- Keyboard mashing ("asdfgh", "test test test")
-- All caps or all lowercase
-- Merge commit spam
+Flags: `--limit`, `--author`, `--since`, `--until`, `--branch`, `--format`
 
----
+## `deps-shamer` / `ds`
 
-## `deps-shamer` — Dependency Shame
+Inspects dependency files for risky or messy dependency choices.
 
-Analyzes project dependencies and shames bad practices.
+Flags: `--format`
 
-```bash
-garbage-code-hunter deps-shamer
-```
+## `pr-title-hunter` / `pr`
 
-**Supports:** Cargo (Rust), npm (JS/TS), pip (Python), Go modules, Maven (Java)
+Roasts PR titles from local data or GitHub.
 
-**Detects:**
-- Too many dependencies
-- Pre-release versions in production
-- Git dependencies
-- Outdated or deprecated packages
+Flags: `--limit`, `--repo`, `--state`, `--token`, `--author`, `--format`
 
----
+## `scan`
 
-## `pr-title-hunter` — PR Title Quality
+Runs the main tool suite and combines the results.
 
-Roasts low-quality PR titles from local branches or GitHub.
+Flags: `--lang`, `--format`, `--save`, `--project-config`
 
-```bash
-garbage-code-hunter pr-title-hunter
-garbage-code-hunter pr-title-hunter --repo owner/repo  # GitHub PRs
-```
+## `badge`
 
----
+Generates an SVG badge.
 
-## `scan` — Full Scan
+Flags: `--output`, `--style`, `--score`, `PATH`
 
-Runs ALL tools in parallel and produces a combined score.
+## `trend`
 
-```bash
-garbage-code-hunter scan ./my-project
-```
+Shows score history.
 
----
+Flags: `--last`, `--format`
 
-## `last-words` — TODO/FIXME Scanner
+## `last-words` / `lw`
 
-Finds legacy TODO/FIXME/HACK/BUG comments and reports how long they've been sitting there.
+Finds stale TODO/FIXME/HACK comments.
 
-```bash
-garbage-code-hunter last-words
-```
+Flags: `--age`, `--format`, `--lang`
 
----
+## `debt-invoice` / `debt`
 
-## `debt-invoice` — Technical Debt Invoice
+Estimates technical debt cost.
 
-Generates a "technical debt invoice" with estimated maintenance costs.
+Flags: `--format`, `--lang`
 
-```bash
-garbage-code-hunter debt-invoice
-```
+## `personality`
 
----
+Infers developer personality from code patterns.
 
-## `personality` — Developer Personality
+Flags: `--format`, `--lang`
 
-Analyzes code patterns to determine developer personality type.
+## `decay`
 
-```bash
-garbage-code-hunter personality
-```
+Analyzes quality decay over git history.
 
-**Personalities:** Copy-Paste Artist, Unwrap Enthusiast, TODO Dreamer, etc.
+Flags: `--format`, `--lang`
 
----
+## `autopsy`
 
-## `danger-zone` — Dangerous Files
+Produces a root-cause style quality report.
 
-Identifies the most dangerous files in the codebase (highest issue density).
+Flags: `--format`, `--lang`
 
-```bash
-garbage-code-hunter danger-zone
-```
+## `radar`
 
----
+Generates a smell radar chart or terminal view.
 
-## `team-roast` — Team Analysis
+Flags: `--format`, `--lang`, `--output`
 
-Per-developer analysis based on git blame.
+## `ci-bot`
 
-```bash
-garbage-code-hunter team-roast
-```
+Produces CI-style review output.
 
----
+Flags: `--format`, `--lang`
 
-## `radar` — Radar Chart
+## `persona`
 
-Generates an SVG radar chart showing code smell distribution.
+Applies a chosen roast persona.
 
-```bash
-garbage-code-hunter radar
-```
+Flags: `--persona`, `--format`, `--lang`
 
----
+Common personas include `linux-kernel`, `silicon-valley`, `japanese-enterprise`, and `rust-fanatic`.
 
-## `autopsy` — Code Autopsy
+## `danger-zone` / `dz`
 
-Generates a code autopsy report with root cause analysis.
+Highlights the highest-risk files.
 
-```bash
-garbage-code-hunter autopsy
-```
+Flags: `--format`, `--lang`
 
----
+## `team-roast`
 
-## `decay` — Quality Decay
+Groups findings by contributor.
 
-Shows how project quality has changed over git history.
-
-```bash
-garbage-code-hunter decay
-```
-
----
-
-## `ci-bot` — CI Bot
-
-Generates a CI-style PR review comment (for GitHub Actions integration).
-
-```bash
-garbage-code-hunter ci-bot
-```
-
----
-
-## `persona` — Persona Analysis
-
-Analyzes code with a specific roast personality.
-
-```bash
-garbage-code-hunter persona --style senior
-garbage-code-hunter persona --style intern
-```
+Flags: `--limit`, `--format`, `--lang`

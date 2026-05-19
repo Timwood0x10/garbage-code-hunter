@@ -476,9 +476,9 @@ fn main() {
     /// Objective: Verify NamingChaosDetector catches single-letter var.
     #[test]
     fn test_detector_naming_single_letter() {
-        let file = parse_rust("fn main() { let x = 1; }");
+        let file = parse_rust("fn main() { let a = 1; }");
         let detector = NamingChaosDetector::new();
-        assert_eq!(detector.count_violations(&file), 1, "single-letter x");
+        assert_eq!(detector.count_violations(&file), 1, "single-letter a");
     }
 
     /// Objective: Verify NamingChaosDetector catches terrible naming.

@@ -1,96 +1,107 @@
 # Garbage Code Hunter 文档
 
-一个幽默的代码质量检测工具集，用最毒舌的方式吐槽你的垃圾代码。
+Garbage Code Hunter 是一个带毒舌风格的 CLI 工具集，用来分析代码品味。
+它面向娱乐和代码可读性检查，不用于找 bug 或做安全审计。
 
-> **灵感来源**: [fuck-u-code](https://github.com/Done-0/fuck-u-code.git)
+> 灵感来源：[fuck-u-code](https://github.com/Done-0/fuck-u-code.git)
 
-## 这是什么？
+## 一句话概览
 
-Garbage Code Hunter 是一个 CLI 工具集，用于代码品味分析。不同于传统 linter 给你干巴巴的警告，我们用**毒舌、机智、毫不留情**的方式告诉你代码有多烂。
+- 使用 tree-sitter 解析源码，尽量做语法级分析
+- 使用 StyleIR 作为核心证据层，把不同语言转换成统一的风格事实
+- 支持 11 种语言：Rust、Go、Python、JavaScript、TypeScript、Java、C、C++、Ruby、Swift、Zig
+- 提供代码、commit、依赖、PR 标题、趋势等多种吐槽工具
+- 同时支持本地固定文案和可选的 LLM 生成模式
 
-这不是静态 bug 检测器。它找的是：
-- 烂命名（`data`、`info`、`tmp`、`foo`、`bar`）
-- 到处散落的魔法数字
-- 深层嵌套的代码迷宫
+## StyleIR
+
+StyleIR 是这个项目最关键的架构改进。它不让每条检测规则直接面对每种语言的 AST，而是先由语言适配器抽取一组紧凑的风格事实：函数、行数、命名违规、嵌套、调试输出、panic 风险调用、魔法数字、TODO、重复 import、unsafe block 以及语言特定计数。
+
+这样报告、评分、JSON 输出和后续检测器都能共享同一层证据，同时把语言差异隔离在 adapter 里。
+
+## 它会检查什么
+
+- 糟糕命名，比如 `data`、`tmp`、`foo`、`bar`
+- 魔法数字和重复常量
+- 过深嵌套和过长函数
 - 什么都干的上帝函数
-- 遗留的 `println`/`fmt.Println` 调试
-- 当宝贝一样留着的注释代码
-- 永远不会完成的 TODO 注释
-- 跨文件复制粘贴的函数
+- 遗留的 `println`、`fmt.Println` 调试语句
+- 被注释掉的代码和过期的 TODO/FIXME/HACK
+- 跨文件重复实现
 
-## 支持语言
+## 安装
 
-Rust、Go、Python、JavaScript、TypeScript、Java、C、C++、Ruby、Swift、Zig（共 11 种）
+```bash
+cargo install garbage-code-hunter
+```
 
 ## 快速开始
 
 ```bash
-# 安装
-cargo install garbage-code-hunter
-
 # 分析当前目录
 garbage-code-hunter analyze
 
-# 分析特定语言项目
+# 分析指定路径和语言
 garbage-code-hunter analyze ./my-go-project --lang go
 
-# 全量扫描
+# 运行全量扫描
 garbage-code-hunter scan ./my-project
 ```
 
-## 工具全家桶
+## 主要命令
 
-| 工具 | 命令 | 功能 |
-|------|------|------|
-| **Code Hunter** | `analyze` | 静态分析：命名、嵌套、重复代码 |
-| **Commit Roaster** | `commit-roaster` | 吐槽烂 commit 消息 |
-| **Deps Shamer** | `deps-shamer` | 羞耻依赖管理 |
-| **PR Title Hunter** | `pr-title-hunter` | 吐槽低质量 PR 标题 |
-| **Full Scan** | `scan` | 跑所有工具，输出综合评分 |
-| **Last Words** | `last-words` | 发现 TODO/FIXME/HACK 注释 |
-| **Debt Invoice** | `debt-invoice` | 生成技术债账单 |
-| **Personality** | `personality` | 分析开发者人格画像 |
-| **Danger Zone** | `danger-zone` | 找出最危险的文件 |
-| **Team Roast** | `team-roast` | 按开发者分析，团队吐槽 |
-| **Radar** | `radar` | 代码气味雷达图（SVG） |
-| **Autopsy** | `autopsy` | 代码尸检报告 |
-| **Decay** | `decay` | 项目质量衰减曲线 |
-| **CI Bot** | `ci-bot` | CI 风格 PR 审查评论 |
-| **Persona** | `persona` | 用特定人格模式吐槽 |
+| 命令 | 别名 | 说明 |
+|---|---|---|
+| `analyze` | - | 核心代码品味分析 |
+| `commit-roaster` | `cr` | 吐槽 git 历史里的 commit 消息 |
+| `deps-shamer` | `ds` | 检查依赖管理习惯 |
+| `pr-title-hunter` | `pr` | 吐槽本地或 GitHub PR 标题 |
+| `scan` | - | 跑完整套工具并汇总分数 |
+| `badge` | - | 生成 SVG 评分徽章 |
+| `trend` | - | 查看分数趋势 |
+| `last-words` | `lw` | 查找陈旧的 TODO/FIXME/HACK 注释 |
+| `debt-invoice` | `debt` | 估算技术债成本 |
+| `personality` | - | 根据代码模式推断开发者画像 |
+| `decay` | - | 分析 git 历史中的质量衰减 |
+| `autopsy` | - | 输出“尸检式”问题报告 |
+| `radar` | - | 生成代码气味雷达图 |
+| `ci-bot` | - | 生成 CI 风格审查评论 |
+| `persona` | - | 使用指定人格模式吐槽代码 |
+| `danger-zone` | `dz` | 找出最危险的文件 |
+| `team-roast` | - | 按作者汇总问题 |
 
-## 文档目录
+## 常用示例
 
-- [规则参考手册](rules.md) — 所有检测规则及语言覆盖
-- [工具指南](tools.md) — 各工具详细说明
-- [配置说明](configuration.md) — 配置文件选项
+```bash
+# 输出 JSON
+garbage-code-hunter analyze -f json
 
-## 真实项目测试结果
+# 排除生成文件
+garbage-code-hunter analyze --exclude "vendor/*" --exclude "*.pb.go"
 
-### Go 项目（interchange，约 47K 行）
+# 保存一次扫描结果
+garbage-code-hunter scan --save
 
-```
-Issue 统计:
-  46 Nuclear | 396 Spicy | 12,332 Mild | 12,774 Total
-
-主要问题: magic-number、single-letter、code-duplication
-问题最多的文件: tx.pulsar.go (1250)、tx.pb.go (1129) ← 生成文件
-```
-
-### Rust 项目（ReChat-server）
-
-```
-Issue 统计:
-  0 Nuclear | 34 Spicy | 2,103 Mild | 2,137 Total
-
-评分: 1.1/100 — Excellent
-主要问题: cross-file-near-duplicate、println-debugging
+# 生成徽章
+garbage-code-hunter badge --output badge.svg
 ```
 
-### Zig 项目（ziglings）
+## 配置
 
-```
-Issue 统计:
-  0 Nuclear | 18 Spicy | 6,101 Mild | 6,119 Total
+- 项目配置文件：`.garbage-code-hunter.toml`
+- 搜索顺序：当前目录，然后向上级目录继续查找
+- 详细配置：[`configuration.md`](configuration.md)
+- 规则说明：[`rules.md`](rules.md)
+- 工具说明：[`tools.md`](tools.md)
 
-主要问题: magic-number (358)、commented-code (102)、single-letter (80)
-```
+## 输出格式
+
+大多数命令都支持 `terminal`、`text`、`json`、`markdown` 等输出格式，具体取决于工具本身。
+部分分析命令还支持 `--lang`，默认值是 `en-US`，用于本地化吐槽文本。
+
+## 备注
+
+- `analyze` 支持 `--harsh`、`--educational`、`--hall-of-shame`、`--suggestions` 和与 LLM 相关的参数
+- `scan` 支持 `--lang`、`--format`、`--save` 和 `--project-config`
+- `badge` 可以直接给分数，也可以根据目标路径自动计算
+- `persona` 支持 `linux-kernel`、`silicon-valley`、`japanese-enterprise`、`rust-fanatic` 等预设人格

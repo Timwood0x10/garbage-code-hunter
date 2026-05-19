@@ -1,8 +1,8 @@
 //! ZigAdapter — Zig language adapter.
 
 use super::{
-    count_params, is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter,
-    MEANINGLESS_NAMES,
+    count_params, is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -83,13 +83,17 @@ impl LanguageAdapter for ZigAdapter {
             Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
         });
         let terrible_re = TERRIBLE_RE.as_ref();
+        // Language-idiomatic single-letter names exempt from counting
+        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "e", "x"];
 
         if let Ok(groups) = collect_captures(file, "(variable_declaration (identifier) @var)") {
             for group in &groups {
                 if let Some(cap) = group.first() {
                     let name = cap.text;
                     if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        count += 1;
+                        if !idiomatic_single.contains(&name) {
+                            count += 1;
+                        }
                         continue;
                     }
                     if let Some(re) = terrible_re {
@@ -171,7 +175,7 @@ impl LanguageAdapter for ZigAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" {
+                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
                         count += 1;
                     }
                 }
@@ -229,8 +233,8 @@ fn bar(x: i32) i32 { return x; }
     fn test_zig_naming_single_letter() {
         let code = r#"
 fn main() void {
-    const x: i32 = 1;
-    var y: i32 = 2;
+    const a: i32 = 1;
+    var b: i32 = 2;
 }
 "#;
         let file = parse_zig(code);

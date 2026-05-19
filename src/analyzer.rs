@@ -83,6 +83,9 @@ impl CodeAnalyzer {
             "out",
             "__pycache__",
             ".DS_Store",
+            ".venv",
+            "venv",
+            "vendor",
         ];
 
         let mut all_patterns: Vec<String> =
@@ -427,6 +430,12 @@ impl CodeAnalyzer {
             || name.contains("\\vendor\\")
         // Minified bundles
             || name.contains("/swagger-ui/")
+        // Generated files from code generators
+            || name.contains(".gen.")
+            || name.contains(".generated.")
+        // Minified / bundled JavaScript
+            || name.ends_with(".min.js")
+            || name.ends_with(".bundle.js")
     }
 
     pub fn analyze_file(&self, file_path: &Path) -> Vec<CodeIssue> {

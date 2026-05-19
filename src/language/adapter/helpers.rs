@@ -74,6 +74,27 @@ pub(crate) const MEANINGLESS_NAMES: &[&str] = &[
     "zzz", "test1", "test2", "test3",
 ];
 
+/// Numbers that are widely understood in context and should not be flagged as magic.
+///
+/// Includes HTTP status codes, standard network ports, powers of two,
+/// and common time constants — all self-explanatory in most contexts.
+pub(crate) fn is_common_safe_number(text: &str) -> bool {
+    matches!(
+        text,
+        // HTTP status codes
+        "200" | "201" | "204" | "301" | "302" | "304" | "307" | "400" | "401" | "403"
+        | "404" | "405" | "408" | "409" | "410" | "412" | "415" | "422" | "429"
+        | "500" | "502" | "503" | "504"
+        // Standard network ports
+        | "22" | "80" | "443" | "3000" | "8080" | "8443" | "5432" | "6379" | "27017"
+        // Powers of 2 (computing fundamentals)
+        | "2" | "4" | "8" | "16" | "32" | "64" | "128" | "256" | "512" | "1024" | "2048"
+        | "4096" | "8192"
+        // Common time constants (seconds in a minute/hour/day)
+        | "60" | "3600" | "86400"
+    )
+}
+
 pub(crate) fn is_inside_declaration(node: tree_sitter::Node) -> bool {
     let mut current = Some(node);
     while let Some(n) = current {

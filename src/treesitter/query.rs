@@ -89,7 +89,9 @@ pub fn collect_captures<'a>(
                 .map_err(|e| format!("Failed to create query: {}", e))?;
             cache.insert(key.clone(), query);
         }
-        let query = cache.get(&key).unwrap();
+        let query = cache
+            .get(&key)
+            .ok_or_else(|| format!("Query cache miss for pattern"))?;
 
         let mut cursor = tree_sitter::QueryCursor::new();
         let root = file.root_node();

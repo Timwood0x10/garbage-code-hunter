@@ -290,7 +290,7 @@ mod tests {
     /// Invariants: A single-letter local variable is counted exactly once.
     #[test]
     fn test_style_ir_naming_count() {
-        let file = parse_rust("fn main() { let x = 1; }");
+        let file = parse_rust("fn main() { let a = 1; }");
         let ir = StyleIr::from_parsed(&file).expect("Rust should have a style adapter");
 
         assert_eq!(ir.naming_violation_count, 1);

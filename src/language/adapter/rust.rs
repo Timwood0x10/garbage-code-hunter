@@ -1,8 +1,8 @@
 //! RustAdapter — Rust language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, count_params, is_inside_declaration,
-    is_repeating_chars, max_scope_depth, FunctionNode, LanguageAdapter,
+    count_block_ancestors, count_nested_blocks, count_params, is_common_safe_number,
+    is_inside_declaration, is_repeating_chars, max_scope_depth, FunctionNode, LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -35,7 +35,7 @@ impl LanguageAdapter for RustAdapter {
         if let Ok(groups) = collect_captures(file, "(macro_invocation macro: (identifier) @m)") {
             for group in groups {
                 if let Some(cap) = group.first() {
-                    if cap.text == "panic" || cap.text == "panic!" {
+                    if matches!(cap.text, "panic" | "assert" | "assert_eq" | "assert_ne") {
                         count += 1;
                     }
                 }
@@ -89,12 +89,20 @@ impl LanguageAdapter for RustAdapter {
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
         let mut count = 0usize;
+        // Language-idiomatic single-letter names exempt from counting
+        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "c", "e", "x", "t", "f"];
 
         if let Ok(groups) = collect_captures(
             file,
             "(let_declaration pattern: (identifier) @var (#match? @var \"^[a-z]$\"))",
         ) {
-            count += groups.len();
+            for group in &groups {
+                if let Some(cap) = group.first() {
+                    if !idiomatic_single.contains(&cap.text) {
+                        count += 1;
+                    }
+                }
+            }
         }
 
         static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
@@ -233,7 +241,7 @@ impl LanguageAdapter for RustAdapter {
             if let Some(cap) = group.first() {
                 if !is_inside_declaration(cap.node) {
                     let text = cap.text;
-                    if text != "0" && text != "1" && text != "-1" {
+                    if text != "0" && text != "1" && text != "-1" && !is_common_safe_number(text) {
                         count += 1;
                     }
                 }

@@ -1,96 +1,107 @@
 # Garbage Code Hunter Documentation
 
-A humorous code quality detector that roasts your garbage code with style.
+Garbage Code Hunter is a CLI toolkit that analyzes code quality with a sarcastic tone.
+It is built for entertainment and code-taste inspection, not for bug finding or security analysis.
 
-> **Inspiration**: [fuck-u-code](https://github.com/Done-0/fuck-u-code.git)
+> Inspiration: [fuck-u-code](https://github.com/Done-0/fuck-u-code.git)
 
-## What is this?
+## At a glance
 
-Garbage Code Hunter is a CLI toolkit for code taste analysis. Unlike traditional linters that give you dry warnings, we tell you how bad your code is in a **sarcastic, witty, and brutally honest** way.
+- Scans source trees with tree-sitter where available
+- Uses StyleIR, a language-neutral style facts layer, as the core evidence model
+- Supports 11 languages: Rust, Go, Python, JavaScript, TypeScript, Java, C, C++, Ruby, Swift, and Zig
+- Ships multiple roast-style tools for code, commits, dependencies, PR titles, trends, and more
+- Supports local roast messages and optional LLM-powered output
 
-This is NOT a static bug detector. It finds:
-- Bad naming (`data`, `info`, `tmp`, `foo`, `bar`)
-- Magic numbers scattered everywhere
-- Deeply nested code mazes
-- God functions that do everything
-- `println`/`fmt.Println` debugging left behind
-- Commented-out code hoarded like ex's photos
-- TODO comments that will never be done
-- Copy-pasted functions across files
+## StyleIR
 
-## Supported Languages
+StyleIR is the main architectural improvement. Instead of making every detector reason directly over every language AST, adapters extract a compact set of style facts first: functions, line counts, naming violations, nesting, debug calls, panic-prone calls, magic numbers, TODOs, duplicate imports, unsafe blocks, and language-specific counters.
 
-Rust, Go, Python, JavaScript, TypeScript, Java, C, C++, Ruby, Swift, Zig (11 total)
+This gives reports, scoring, JSON output, and future detectors a shared evidence layer while keeping language-specific parsing isolated in adapters.
 
-## Quick Start
+## What it detects
+
+- Weak naming such as `data`, `tmp`, `foo`, and `bar`
+- Magic numbers and repeated constants
+- Deep nesting and overly long functions
+- God functions that do too much
+- Leftover debug prints such as `println` and `fmt.Println`
+- Commented-out code and stale TODO/FIXME/HACK comments
+- Duplication across files
+
+## Installation
 
 ```bash
-# Install
 cargo install garbage-code-hunter
+```
 
-# Analyze current directory
+## Quick start
+
+```bash
+# Analyze the current directory
 garbage-code-hunter analyze
 
-# Analyze a specific language project
+# Analyze a specific path and language
 garbage-code-hunter analyze ./my-go-project --lang go
 
-# Full scan with all tools
+# Run a full scan across all tools
 garbage-code-hunter scan ./my-project
 ```
 
-## Tool Collection
+## Main commands
 
-| Tool | Command | What it does |
-|------|---------|-------------|
-| **Code Hunter** | `analyze` | Static analysis: naming, nesting, duplication |
-| **Commit Roaster** | `commit-roaster` | Roast bad commit messages |
-| **Deps Shamer** | `deps-shamer` | Shame bad dependency practices |
-| **PR Title Hunter** | `pr-title-hunter` | Roast low-quality PR titles |
-| **Full Scan** | `scan` | Run all tools, get combined score |
-| **Last Words** | `last-words` | Find TODO/FIXME/HACK comments |
-| **Debt Invoice** | `debt-invoice` | Generate technical debt invoice |
-| **Personality** | `personality` | Analyze developer personality |
-| **Danger Zone** | `danger-zone` | Identify most dangerous files |
-| **Team Roast** | `team-roast` | Per-developer analysis |
-| **Radar** | `radar` | Code smell radar chart (SVG) |
-| **Autopsy** | `autopsy` | Code autopsy report |
-| **Decay** | `decay` | Quality decay over git history |
-| **CI Bot** | `ci-bot` | CI-style PR review comment |
-| **Persona** | `persona` | Analyze with specific personality |
+| Command | Alias | Description |
+|---|---|---|
+| `analyze` | - | Core code taste analysis |
+| `commit-roaster` | `cr` | Roast commit messages from git history |
+| `deps-shamer` | `ds` | Inspect dependency hygiene |
+| `pr-title-hunter` | `pr` | Roast PR titles from GitHub or local data |
+| `scan` | - | Run all tools and combine their scores |
+| `badge` | - | Generate an SVG score badge |
+| `trend` | - | Show score history over time |
+| `last-words` | `lw` | Find stale TODO/FIXME/HACK comments |
+| `debt-invoice` | `debt` | Estimate technical debt cost |
+| `personality` | - | Infer developer personality from code patterns |
+| `decay` | - | Analyze quality decay over git history |
+| `autopsy` | - | Produce a root-cause style report |
+| `radar` | - | Generate a code-smell radar view |
+| `ci-bot` | - | Generate CI-style review comments |
+| `persona` | - | Roast code with a chosen persona |
+| `danger-zone` | `dz` | Find the riskiest files |
+| `team-roast` | - | Summarize quality by author |
 
-## Documentation
+## Common examples
 
-- [Rules Reference](rules.md) — All detection rules with language coverage
-- [Tools Guide](tools.md) — Detailed tool documentation
-- [Configuration](configuration.md) — Config file options
+```bash
+# Output JSON
+garbage-code-hunter analyze -f json
 
-## Real-World Results
+# Restrict scan results
+garbage-code-hunter analyze --exclude "vendor/*" --exclude "*.pb.go"
 
-### Go project (interchange, ~47K lines)
+# Save a scan result
+garbage-code-hunter scan --save
 
-```
-Issue Statistics:
-  46 Nuclear | 396 Spicy | 12,332 Mild | 12,774 Total
-
-Top issues: magic-number, single-letter, code-duplication
-Top files: tx.pulsar.go (1250), tx.pb.go (1129) ← generated files
-```
-
-### Rust project (ReChat-server)
-
-```
-Issue Statistics:
-  0 Nuclear | 34 Spicy | 2,103 Mild | 2,137 Total
-
-Score: 1.1/100 — Excellent
-Top issues: cross-file-near-duplicate, println-debugging
+# Generate a badge
+garbage-code-hunter badge --output badge.svg
 ```
 
-### Zig project (ziglings)
+## Configuration
 
-```
-Issue Statistics:
-  0 Nuclear | 18 Spicy | 6,101 Mild | 6,119 Total
+- Project config: `.garbage-code-hunter.toml`
+- Search order: current directory, then parent directories
+- Main config docs: [`configuration.md`](configuration.md)
+- Rule reference: [`rules.md`](rules.md)
+- Tool reference: [`tools.md`](tools.md)
 
-Top issues: magic-number (358), commented-code (102), single-letter (80)
-```
+## Output formats
+
+Most commands support `terminal`, `text`, `json`, or `markdown` output depending on the tool.
+Several analysis commands also accept a `--lang` flag, defaulting to `en-US` for localized roast text.
+
+## Notes
+
+- `analyze` supports `--harsh`, `--educational`, `--hall-of-shame`, `--suggestions`, and LLM-related flags.
+- `scan` accepts `--lang`, `--format`, `--save`, and `--project-config`.
+- `badge` can use a manually supplied score or compute one from the target path.
+- `persona` supports preset personas such as `linux-kernel`, `silicon-valley`, `japanese-enterprise`, and `rust-fanatic`.
