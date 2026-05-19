@@ -6,9 +6,18 @@ use super::{
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
-use crate::treesitter::query::collect_captures;
+use crate::treesitter::query::QueryCapture;
 use regex::Regex;
 use std::sync::LazyLock;
+
+const ZIG_PATTERNS: &[&str] = &[
+    "(builtin_function (builtin_identifier) @pc_f (#eq? @pc_f \"@panic\"))",
+    "(function_declaration name: (identifier) @ex_name) @ex_fn",
+    "(variable_declaration (identifier) @nv_var)",
+    "(call_expression function: (field_expression member: (identifier) @dp_method (#eq? @dp_method \"print\")))",
+    "(function_declaration (parameters) @ep_params)",
+    "[(integer) @mn_num (float) @mn_num]",
+];
 
 pub struct ZigAdapter;
 
@@ -17,47 +26,16 @@ impl LanguageAdapter for ZigAdapter {
         Language::Zig
     }
 
+    fn query_patterns(&self) -> &[&str] {
+        ZIG_PATTERNS
+    }
+
     fn count_panic_calls(&self, file: &ParsedFile) -> usize {
-        let Ok(groups) = collect_captures(
-            file,
-            r#"(builtin_function (builtin_identifier) @f (#eq? @f "@panic"))"#,
-        ) else {
-            return 0;
-        };
-        groups.len()
+        self.count_panic_from_batch(file, &self.batch_captures(file))
     }
 
     fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
-        let mut functions = Vec::new();
-        let Ok(groups) =
-            collect_captures(file, "(function_declaration name: (identifier) @name) @fn")
-        else {
-            return functions;
-        };
-        for group in &groups {
-            let mut name = String::new();
-            let mut start_line = 0usize;
-            let mut end_line = 0usize;
-            for cap in group {
-                match cap.name.as_str() {
-                    "name" => name = cap.text.to_string(),
-                    "fn" => {
-                        start_line = cap.node.start_position().row + 1;
-                        end_line = cap.node.end_position().row + 1;
-                    }
-                    _ => {}
-                }
-            }
-            if !name.is_empty() {
-                functions.push(FunctionNode {
-                    name,
-                    start_line,
-                    end_line,
-                    nesting_depth: 0,
-                });
-            }
-        }
-        functions
+        self.extract_functions_from_batch(file, &self.batch_captures(file))
     }
 
     fn max_nesting_depth(&self, file: &ParsedFile) -> usize {
@@ -78,38 +56,7 @@ impl LanguageAdapter for ZigAdapter {
     }
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
-        let mut count = 0usize;
-        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
-        });
-        let terrible_re = TERRIBLE_RE.as_ref();
-        // Language-idiomatic single-letter names exempt from counting
-        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "e", "x"];
-
-        if let Ok(groups) = collect_captures(file, "(variable_declaration (identifier) @var)") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        if !idiomatic_single.contains(&name) {
-                            count += 1;
-                        }
-                        continue;
-                    }
-                    if let Some(re) = terrible_re {
-                        if re.is_match(&name.to_lowercase()) {
-                            count += 1;
-                            continue;
-                        }
-                    }
-                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
-                        count += 1;
-                        continue;
-                    }
-                }
-            }
-        }
-        count
+        self.count_naming_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
@@ -138,27 +85,95 @@ impl LanguageAdapter for ZigAdapter {
     }
 
     fn count_debug_calls(&self, file: &ParsedFile) -> usize {
-        let Ok(groups) = collect_captures(
-            file,
-            r#"(call_expression function: (field_expression member: (identifier) @method (#eq? @method "print")))"#,
-        ) else {
-            return 0;
-        };
-        groups.len()
+        self.count_debug_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
-        let Ok(groups) = collect_captures(file, "(function_declaration (parameters) @params)")
-        else {
-            return 0;
-        };
-        let mut count = 0;
-        for group in &groups {
-            for cap in group {
-                if cap.name == "params" {
-                    let param_count = count_params(cap.text);
-                    if param_count > threshold {
+        self.count_excessive_from_batch_with(file, &self.batch_captures(file), threshold)
+    }
+
+    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
+        self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_panic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "pc_f"))
+            .count()
+    }
+
+    fn extract_functions_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> Vec<FunctionNode> {
+        let mut functions = Vec::new();
+        for m in batch {
+            let has_ex = m.iter().any(|c| c.name.starts_with("ex_"));
+            if !has_ex {
+                continue;
+            }
+            let mut name = String::new();
+            let mut start_line = 0usize;
+            let mut end_line = 0usize;
+            for c in m {
+                match c.name.as_str() {
+                    "ex_name" => name = c.text.to_string(),
+                    "ex_fn" => {
+                        start_line = c.node.start_position().row + 1;
+                        end_line = c.node.end_position().row + 1;
+                    }
+                    _ => {}
+                }
+            }
+            if !name.is_empty() {
+                functions.push(FunctionNode {
+                    name,
+                    start_line,
+                    end_line,
+                    nesting_depth: 0,
+                });
+            }
+        }
+        functions
+    }
+
+    fn count_naming_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0usize;
+        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
+        });
+        let terrible_re = TERRIBLE_RE.as_ref();
+        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "e", "x"];
+
+        for m in batch {
+            for c in m {
+                if c.name == "nv_var" {
+                    let name = c.text;
+                    if name.len() == 1 && name.chars().all(|ch| ch.is_ascii_lowercase()) {
+                        if !idiomatic_single.contains(&name) {
+                            count += 1;
+                        }
+                        continue;
+                    }
+                    if let Some(re) = terrible_re {
+                        if re.is_match(&name.to_lowercase()) {
+                            count += 1;
+                            continue;
+                        }
+                    }
+                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
                         count += 1;
+                        continue;
                     }
                 }
             }
@@ -166,15 +181,35 @@ impl LanguageAdapter for ZigAdapter {
         count
     }
 
-    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
-        let Ok(captures) = collect_captures(file, "[(integer) @num (float) @num]") else {
-            return 0;
-        };
+    fn count_debug_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "dp_method"))
+            .count()
+    }
+
+    fn count_excessive_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        self.count_excessive_from_batch_with(_file, batch, 5)
+    }
+
+    fn count_magic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0;
-        for group in &captures {
-            if let Some(cap) = group.first() {
-                if !is_inside_declaration(cap.node) {
-                    let text = cap.text;
+        for m in batch {
+            for c in m {
+                if c.name == "mn_num" && !is_inside_declaration(c.node) {
+                    let text = c.text;
                     if text != "0"
                         && text != "1"
                         && text != "-1"
@@ -183,6 +218,25 @@ impl LanguageAdapter for ZigAdapter {
                     {
                         count += 1;
                     }
+                }
+            }
+        }
+        count
+    }
+}
+
+impl ZigAdapter {
+    fn count_excessive_from_batch_with<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+        threshold: usize,
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "ep_params" && count_params(c.text) > threshold {
+                    count += 1;
                 }
             }
         }

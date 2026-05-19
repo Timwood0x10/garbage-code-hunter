@@ -1,13 +1,13 @@
 //! PythonAdapter — Python language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, count_params, get_node_text, is_boolean_or_null,
+    count_block_ancestors, count_nested_blocks, count_params, is_boolean_or_null,
     is_common_safe_number, is_inside_declaration, is_repeating_chars, max_scope_depth,
     FunctionNode, LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
-use crate::treesitter::query::collect_captures;
+use crate::treesitter::query::QueryCapture;
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -208,6 +208,27 @@ const ACCEPTABLE_WILDCARD_MODULES: &[&str] = &[
     "gi.repository",
 ];
 
+const PYTHON_PATTERNS: &[&str] = &[
+    // pc_ — panic calls (broad except)
+    "(except_clause) @pc_clause",
+    // ex_ / py_ — extract functions + python naming/issues
+    "[(function_definition name: (identifier) @py_name) @py_fn]",
+    // nv_ — naming violations (single-letter)
+    "(assignment left: (identifier) @nv_var (#match? @nv_var \"^[a-z]$\"))",
+    // nv_ — naming violations (all assignment names)
+    "(assignment left: (identifier) @nv_name)",
+    // nv_ — class naming violations
+    "(class_definition name: (identifier) @nv_cls)",
+    // dp_ — debug calls
+    "(call function: (identifier) @dp_fn (#eq? @dp_fn \"print\"))",
+    // ep_ — excessive params
+    "(function_definition parameters: (parameters) @ep_params)",
+    // mn_ — magic numbers
+    "(integer) @mn_num",
+    // py_ — wildcard imports
+    "(wildcard_import) @py_wi",
+];
+
 pub struct PythonAdapter;
 
 impl LanguageAdapter for PythonAdapter {
@@ -215,51 +236,102 @@ impl LanguageAdapter for PythonAdapter {
         Language::Python
     }
 
+    fn query_patterns(&self) -> &[&str] {
+        PYTHON_PATTERNS
+    }
+
     fn count_panic_calls(&self, file: &ParsedFile) -> usize {
-        let Ok(groups) = collect_captures(file, "(except_clause) @e") else {
-            return 0;
-        };
-        let source = file.content.as_bytes();
+        self.count_panic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
+        self.extract_functions_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn max_nesting_depth(&self, file: &ParsedFile) -> usize {
+        max_scope_depth(file.root_node(), 0)
+    }
+
+    fn count_naming_violations(&self, file: &ParsedFile) -> usize {
+        self.count_naming_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
+        let threshold = 5;
         let mut count = 0;
-        for group in &groups {
-            if let Some(cap) = group.first() {
-                let node = cap.node;
-                if let Some(value) = node.child_by_field_name("value") {
-                    let text = get_node_text(value, source);
-                    if text == "BaseException" || text == "Exception" {
+        count_nested_blocks(file.root_node(), 0, threshold, &mut count);
+        count
+    }
+
+    fn count_debug_calls(&self, file: &ParsedFile) -> usize {
+        self.count_debug_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
+        self.count_excessive_from_batch_with(file, &self.batch_captures(file), threshold)
+    }
+
+    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
+        self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_python_issues(&self, file: &ParsedFile) -> usize {
+        self.count_python_from_batch(file, &self.batch_captures(file))
+    }
+
+    // -- _from_batch overrides --
+
+    fn count_panic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "pc_clause" {
+                    if let Some(value) = c.node.child_by_field_name("value") {
+                        if let Ok(vtext) = value.utf8_text(_file.content.as_bytes()) {
+                            if vtext == "BaseException" || vtext == "Exception" {
+                                count += 1;
+                            }
+                        }
+                    } else {
+                        // bare except — no value child
                         count += 1;
                     }
-                } else {
-                    count += 1;
                 }
             }
         }
         count
     }
 
-    fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
-        let Ok(groups) =
-            collect_captures(file, "(function_definition name: (identifier) @name) @fn")
-        else {
-            return vec![];
-        };
+    fn extract_functions_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> Vec<FunctionNode> {
         let mut functions = Vec::new();
-        for group in &groups {
+        for m in batch {
+            let has_py = m.iter().any(|c| c.name.starts_with("py_"));
+            if !has_py {
+                continue;
+            }
             let mut name = String::new();
             let mut start_line = 0usize;
             let mut end_line = 0usize;
-            for cap in group {
-                match cap.name.as_str() {
-                    "name" => name = cap.text.to_string(),
-                    "fn" => {
-                        start_line = cap.node.start_position().row + 1;
-                        end_line = cap.node.end_position().row + 1;
+            for c in m {
+                match c.name.as_str() {
+                    "py_name" => name = c.text.to_string(),
+                    "py_fn" => {
+                        start_line = c.node.start_position().row + 1;
+                        end_line = c.node.end_position().row + 1;
                     }
                     _ => {}
                 }
             }
             if !name.is_empty() {
-                let nesting_depth = count_block_ancestors(group);
+                let nesting_depth = count_block_ancestors(m);
                 functions.push(FunctionNode {
                     name,
                     start_line,
@@ -271,30 +343,18 @@ impl LanguageAdapter for PythonAdapter {
         functions
     }
 
-    fn max_nesting_depth(&self, file: &ParsedFile) -> usize {
-        max_scope_depth(file.root_node(), 0)
-    }
-
-    fn count_naming_violations(&self, file: &ParsedFile) -> usize {
+    fn count_naming_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0usize;
-        // Language-idiomatic single-letter names exempt from counting
         let idiomatic_single: &[&str] = &["e", "x", "i", "j", "k", "f"];
 
-        if let Ok(groups) = collect_captures(
-            file,
-            "(assignment left: (identifier) @var (#match? @var \"^[a-z]$\"))",
-        ) {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    if !idiomatic_single.contains(&cap.text) {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
         static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
+            Regex::new(
+                r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$",
+            ).ok()
         });
         let terrible_re = TERRIBLE_RE.as_ref();
         let meaningless: &[&str] = &[
@@ -302,103 +362,77 @@ impl LanguageAdapter for PythonAdapter {
             "yyy", "zzz", "test1", "test2", "test3",
         ];
 
-        if let Ok(groups) = collect_captures(file, "(assignment left: (identifier) @name)") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    let name_lower = name.to_lowercase();
-                    if let Some(re) = terrible_re {
-                        if re.is_match(&name_lower) {
+        for m in batch {
+            for c in m {
+                match c.name.as_str() {
+                    "nv_var" if !idiomatic_single.contains(&c.text) => {
+                        count += 1;
+                    }
+                    "nv_name" => {
+                        let name = c.text;
+                        let name_lower = name.to_lowercase();
+                        if let Some(re) = terrible_re {
+                            if re.is_match(&name_lower) {
+                                count += 1;
+                                continue;
+                            }
+                        }
+                        if meaningless.contains(&name) || is_repeating_chars(name) {
                             count += 1;
+                        }
+                    }
+                    "nv_cls" if c.text.chars().next().is_some_and(|ch| ch.is_lowercase()) => {
+                        count += 1;
+                    }
+                    "py_name" => {
+                        // snake_case function names with uppercase = naming violation
+                        if count > 2000 {
                             continue;
                         }
-                    }
-                    if meaningless.contains(&name) || is_repeating_chars(name) {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        if let Ok(groups) = collect_captures(file, "(function_definition name: (identifier) @name)")
-        {
-            for group in &groups {
-                if count > 2000 {
-                    break;
-                }
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    if name.starts_with("__") || name.starts_with('_') {
-                        continue;
-                    }
-                    if name.chars().any(|c| c.is_uppercase()) {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        // snake_case class names → not PascalCase
-        if let Ok(groups) = collect_captures(file, "(class_definition name: (identifier) @cls)") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    if cap.text.chars().next().is_some_and(|c| c.is_lowercase()) {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        count
-    }
-
-    fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
-        let threshold = 5;
-        let mut count = 0;
-        count_nested_blocks(file.root_node(), 0, threshold, &mut count);
-        count
-    }
-
-    fn count_debug_calls(&self, file: &ParsedFile) -> usize {
-        let mut count = 0;
-        if let Ok(groups) = collect_captures(
-            file,
-            "(call function: (identifier) @fn (#eq? @fn \"print\"))",
-        ) {
-            count += groups.len();
-        }
-        count
-    }
-
-    fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
-        let mut count = 0;
-        if let Ok(groups) = collect_captures(
-            file,
-            "(function_definition parameters: (parameters) @params)",
-        ) {
-            for group in &groups {
-                for cap in group {
-                    if cap.name == "params" {
-                        let param_count = count_params(cap.text);
-                        if param_count > threshold {
+                        let name = c.text;
+                        if name.starts_with("__") || name.starts_with('_') {
+                            continue;
+                        }
+                        if name.chars().any(|ch| ch.is_uppercase()) {
                             count += 1;
                         }
                     }
+                    _ => {}
                 }
             }
         }
         count
     }
 
-    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
-        let Ok(captures) = collect_captures(file, "(integer) @num") else {
-            return 0;
-        };
+    fn count_debug_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "dp_fn"))
+            .count()
+    }
+
+    fn count_excessive_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        self.count_excessive_from_batch_with(_file, batch, 5)
+    }
+
+    fn count_magic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0;
-        for group in &captures {
-            if let Some(cap) = group.first() {
-                if !is_inside_declaration(cap.node) {
-                    let text = cap.text;
+        for m in batch {
+            for c in m {
+                if c.name == "mn_num" && !is_inside_declaration(c.node) {
+                    let text = c.text;
                     if text != "0"
                         && text != "1"
                         && !is_common_safe_number(text)
@@ -412,27 +446,44 @@ impl LanguageAdapter for PythonAdapter {
         count
     }
 
-    fn count_python_issues(&self, file: &ParsedFile) -> usize {
+    fn count_python_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0;
 
-        // wildcard-import: from module import * (excluding idiomatic libraries)
-        if let Ok(groups) = collect_captures(file, "(wildcard_import) @wi") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let line = cap.node.start_position().row;
-                    let acceptable = file.content.lines().nth(line).is_some_and(|src_line| {
-                        ACCEPTABLE_WILDCARD_MODULES
-                            .iter()
-                            .any(|m| src_line.contains(&format!("from {} import *", m)))
-                    });
-                    if !acceptable {
-                        count += 1;
+        for m in batch {
+            for c in m {
+                match c.name.as_str() {
+                    // wildcard-import: from module import * (excluding idiomatic libraries)
+                    "py_wi" => {
+                        let line = c.node.start_position().row;
+                        let acceptable = file.content.lines().nth(line).is_some_and(|src_line| {
+                            ACCEPTABLE_WILDCARD_MODULES
+                                .iter()
+                                .any(|m| src_line.contains(&format!("from {} import *", m)))
+                        });
+                        if !acceptable {
+                            count += 1;
+                        }
                     }
+                    // python-magic-method: non-standard __dunder__ methods
+                    "py_name" => {
+                        let name = c.text;
+                        if name.starts_with("__")
+                            && name.ends_with("__")
+                            && !STANDARD_DUNDERS.contains(&name)
+                        {
+                            count += 1;
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
 
-        // compared-to-bool, not-is-none, type-ignore, fstring
+        // compared-to-bool, not-is-none, type-ignore, fstring (text scanning)
         for line in file.content.lines() {
             let trimmed = line.trim();
             if trimmed.starts_with('#') {
@@ -467,21 +518,6 @@ impl LanguageAdapter for PythonAdapter {
                 && (trimmed.contains("%s") || trimmed.contains("%d") || trimmed.contains("%r"))
             {
                 count += 1;
-            }
-        }
-
-        // python-magic-method: non-standard __dunder__ methods
-        if let Ok(groups) = collect_captures(file, "(function_definition name: (identifier) @fn)") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = &cap.text;
-                    if name.starts_with("__")
-                        && name.ends_with("__")
-                        && !STANDARD_DUNDERS.contains(name)
-                    {
-                        count += 1;
-                    }
-                }
             }
         }
 
@@ -524,6 +560,25 @@ impl LanguageAdapter for PythonAdapter {
             }
         }
 
+        count
+    }
+}
+
+impl PythonAdapter {
+    fn count_excessive_from_batch_with<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+        threshold: usize,
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "ep_params" && count_params(c.text) > threshold {
+                    count += 1;
+                }
+            }
+        }
         count
     }
 }

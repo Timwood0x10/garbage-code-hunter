@@ -135,6 +135,18 @@ pub fn collect_captures<'a>(
     })
 }
 
+/// Execute a merged multi-pattern query in a single cursor traversal.
+///
+/// Concatenates all patterns with newlines and runs one query pass.
+/// Capture names must be unique across all patterns (use prefixed names).
+pub fn collect_captures_multi<'a>(
+    file: &'a ParsedFile,
+    patterns: &[&str],
+) -> Result<Vec<Vec<QueryCapture<'a>>>, String> {
+    let merged = patterns.join("\n");
+    collect_captures(file, &merged)
+}
+
 /// Run a `QueryRule` against a parsed file and produce issues.
 pub fn run_query_rule(file: &ParsedFile, rule: &QueryRule) -> Vec<IssueCandidate> {
     let captures_group = match collect_captures(file, rule.pattern) {

@@ -134,30 +134,30 @@ impl StyleIr {
     /// keep using legacy rule logic while individual detectors migrate to IR.
     pub fn from_parsed(file: &ParsedFile) -> Option<Self> {
         let adapter = adapter_for(file.language)?;
+        let counts = adapter.compute_all(file);
         Some(Self {
             language: file.language,
             line_count: file.content.lines().count(),
-            functions: adapter.extract_functions(file),
-            panic_call_count: adapter.count_panic_calls(file),
-            naming_violation_count: adapter.count_naming_violations(file),
-            deeply_nested_block_count: adapter.count_deeply_nested_blocks(file),
-            debug_call_count: adapter.count_debug_calls(file),
-            excessive_param_count: adapter
-                .count_excessive_params(file, Self::EXCESSIVE_PARAM_THRESHOLD),
-            unsafe_block_count: adapter.count_unsafe_blocks(file),
-            magic_number_count: adapter.count_magic_numbers(file),
-            commented_out_lines: adapter.count_commented_out_code(file),
-            todo_count: adapter.count_todo_markers(file),
-            goroutine_spawn_count: adapter.count_goroutine_spawns(file),
-            defer_in_loop_count: adapter.count_defer_in_loop(file),
-            go_convention_count: adapter.count_go_convention_violations(file),
-            python_issue_count: adapter.count_python_issues(file),
-            java_issue_count: adapter.count_java_issues(file),
-            ruby_issue_count: adapter.count_ruby_issues(file),
-            c_issue_count: adapter.count_c_issues(file),
-            ts_issue_count: adapter.count_ts_issues(file),
-            dead_code_count: adapter.count_dead_code(file),
-            duplicate_import_count: adapter.count_duplicate_imports(file),
+            functions: counts.functions,
+            panic_call_count: counts.panic_calls,
+            naming_violation_count: counts.naming_violations,
+            deeply_nested_block_count: counts.deeply_nested_blocks,
+            debug_call_count: counts.debug_calls,
+            excessive_param_count: counts.excessive_params,
+            unsafe_block_count: counts.unsafe_blocks,
+            magic_number_count: counts.magic_numbers,
+            commented_out_lines: counts.commented_out_lines,
+            todo_count: counts.todo_markers,
+            goroutine_spawn_count: counts.goroutine_spawns,
+            defer_in_loop_count: counts.defer_in_loop,
+            go_convention_count: counts.go_conventions,
+            python_issue_count: counts.python_issues,
+            java_issue_count: counts.java_issues,
+            ruby_issue_count: counts.ruby_issues,
+            c_issue_count: counts.c_issues,
+            ts_issue_count: counts.ts_issues,
+            dead_code_count: counts.dead_code,
+            duplicate_import_count: counts.duplicate_imports,
         })
     }
 

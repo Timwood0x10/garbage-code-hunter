@@ -8,6 +8,11 @@ use crate::treesitter::engine::ParsedFile;
 
 // ─── Cross-file duplication ──────────────────────────────────────────────────
 
+type TokenSetPair = (
+    std::collections::HashSet<FToken>,
+    std::collections::HashSet<(FToken, FToken)>,
+);
+
 /// Normalized token for function fingerprinting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum FToken {
@@ -138,10 +143,7 @@ fn find_functions_recursive(
     file: &ParsedFile,
     node: tree_sitter::Node,
     fingerprints: &mut Vec<FuncFingerprint>,
-    token_sets: &mut Vec<(
-        std::collections::HashSet<FToken>,
-        std::collections::HashSet<(FToken, FToken)>,
-    )>,
+    token_sets: &mut Vec<TokenSetPair>,
     processed: &mut usize,
 ) {
     let kind = node.kind();
@@ -163,10 +165,7 @@ fn find_functions_recursive(
 /// Cross-file duplication analyzer using tree-sitter fingerprints.
 pub struct CrossFileDupDetector {
     fingerprints: Vec<FuncFingerprint>,
-    token_sets: Vec<(
-        std::collections::HashSet<FToken>,
-        std::collections::HashSet<(FToken, FToken)>,
-    )>,
+    token_sets: Vec<TokenSetPair>,
     processed: usize,
 }
 

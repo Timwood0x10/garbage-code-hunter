@@ -1,9 +1,5 @@
 //! Shared helper functions used across multiple language adapters.
 
-pub(crate) fn get_node_text<'a>(node: tree_sitter::Node, source: &'a [u8]) -> &'a str {
-    node.utf8_text(source).unwrap_or("")
-}
-
 pub(crate) fn count_nested_blocks(
     node: tree_sitter::Node,
     depth: usize,

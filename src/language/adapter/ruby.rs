@@ -6,9 +6,19 @@ use super::{
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
-use crate::treesitter::query::collect_captures;
+use crate::treesitter::query::QueryCapture;
 use regex::Regex;
 use std::sync::LazyLock;
+
+const RUBY_PATTERNS: &[&str] = &[
+    "(call method: (identifier) @pc_raise (#eq? @pc_raise \"raise\"))",
+    "(method name: (identifier) @ex_name) @ex_fn",
+    "(assignment left: (identifier) @nv_var)",
+    "(method parameters: (_) @ep_params)",
+    "[(integer) @mn_num (float) @mn_num]",
+    "(global_variable) @ri_gv",
+    "(call method: (identifier) @dp_method (#match? @dp_method \"^(puts|p|print|byebug|pry)$\"))",
+];
 
 pub struct RubyAdapter;
 
@@ -17,45 +27,16 @@ impl LanguageAdapter for RubyAdapter {
         Language::Ruby
     }
 
+    fn query_patterns(&self) -> &[&str] {
+        RUBY_PATTERNS
+    }
+
     fn count_panic_calls(&self, file: &ParsedFile) -> usize {
-        let Ok(groups) = collect_captures(file, "(call method: (identifier) @method)") else {
-            return 0;
-        };
-        groups
-            .iter()
-            .filter(|g| g.first().is_some_and(|c| c.text == "raise"))
-            .count()
+        self.count_panic_from_batch(file, &self.batch_captures(file))
     }
 
     fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
-        let mut functions = Vec::new();
-        let Ok(groups) = collect_captures(file, "(method name: (identifier) @name) @fn") else {
-            return functions;
-        };
-        for group in &groups {
-            let mut name = String::new();
-            let mut start_line = 0usize;
-            let mut end_line = 0usize;
-            for cap in group {
-                match cap.name.as_str() {
-                    "name" => name = cap.text.to_string(),
-                    "fn" => {
-                        start_line = cap.node.start_position().row + 1;
-                        end_line = cap.node.end_position().row + 1;
-                    }
-                    _ => {}
-                }
-            }
-            if !name.is_empty() {
-                functions.push(FunctionNode {
-                    name,
-                    start_line,
-                    end_line,
-                    nesting_depth: 0,
-                });
-            }
-        }
-        functions
+        self.extract_functions_from_batch(file, &self.batch_captures(file))
     }
 
     fn max_nesting_depth(&self, file: &ParsedFile) -> usize {
@@ -77,23 +58,101 @@ impl LanguageAdapter for RubyAdapter {
     }
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
-        let mut count = 0usize;
-        // Language-idiomatic single-letter names exempt from counting
-        let idiomatic_single: &[&str] = &["e", "i", "j", "k", "x", "n"];
+        self.count_naming_from_batch(file, &self.batch_captures(file))
+    }
 
-        if let Ok(groups) = collect_captures(file, "(assignment left: (identifier) @var)") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        if !idiomatic_single.contains(&name) {
-                            count += 1;
-                        }
-                        continue; // skip other checks for single-letter names
-                    }
+    fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
+        fn walk_body(node: tree_sitter::Node, depth: usize, threshold: usize, count: &mut usize) {
+            if node.kind() == "body_statement" && depth >= threshold {
+                *count += 1;
+            }
+            let child_depth = if node.kind() == "body_statement" {
+                depth + 1
+            } else {
+                depth
+            };
+            for i in 0..node.child_count() {
+                if let Some(child) = node.child(i as u32) {
+                    walk_body(child, child_depth, threshold, count);
                 }
             }
         }
+        let threshold = 5;
+        let mut count = 0;
+        walk_body(file.root_node(), 0, threshold, &mut count);
+        count
+    }
+
+    fn count_debug_calls(&self, file: &ParsedFile) -> usize {
+        self.count_debug_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
+        self.count_excessive_from_batch_with(file, &self.batch_captures(file), threshold)
+    }
+
+    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
+        self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_ruby_issues(&self, file: &ParsedFile) -> usize {
+        self.count_ruby_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_panic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "pc_raise"))
+            .count()
+    }
+
+    fn extract_functions_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> Vec<FunctionNode> {
+        let mut functions = Vec::new();
+        for m in batch {
+            let has_ex = m.iter().any(|c| c.name.starts_with("ex_"));
+            if !has_ex {
+                continue;
+            }
+            let mut name = String::new();
+            let mut start_line = 0usize;
+            let mut end_line = 0usize;
+            for c in m {
+                match c.name.as_str() {
+                    "ex_name" => name = c.text.to_string(),
+                    "ex_fn" => {
+                        start_line = c.node.start_position().row + 1;
+                        end_line = c.node.end_position().row + 1;
+                    }
+                    _ => {}
+                }
+            }
+            if !name.is_empty() {
+                functions.push(FunctionNode {
+                    name,
+                    start_line,
+                    end_line,
+                    nesting_depth: 0,
+                });
+            }
+        }
+        functions
+    }
+
+    fn count_naming_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0usize;
+        let idiomatic_single: &[&str] = &["e", "i", "j", "k", "x", "n"];
 
         static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
             Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
@@ -104,10 +163,16 @@ impl LanguageAdapter for RubyAdapter {
             "yyy", "zzz", "test1", "test2", "test3",
         ];
 
-        if let Ok(groups) = collect_captures(file, "(assignment left: (identifier) @name)") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
+        for m in batch {
+            for c in m {
+                if c.name == "nv_var" {
+                    let name = c.text;
+                    if name.len() == 1 && name.chars().all(|ch| ch.is_ascii_lowercase()) {
+                        if !idiomatic_single.contains(&name) {
+                            count += 1;
+                        }
+                        continue;
+                    }
                     let name_lower = name.to_lowercase();
                     if let Some(re) = terrible_re {
                         if re.is_match(&name_lower) {
@@ -145,68 +210,35 @@ impl LanguageAdapter for RubyAdapter {
         count
     }
 
-    fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
-        fn walk_body(node: tree_sitter::Node, depth: usize, threshold: usize, count: &mut usize) {
-            if node.kind() == "body_statement" && depth >= threshold {
-                *count += 1;
-            }
-            let child_depth = if node.kind() == "body_statement" {
-                depth + 1
-            } else {
-                depth
-            };
-            for i in 0..node.child_count() {
-                if let Some(child) = node.child(i as u32) {
-                    walk_body(child, child_depth, threshold, count);
-                }
-            }
-        }
-        let threshold = 5;
-        let mut count = 0;
-        walk_body(file.root_node(), 0, threshold, &mut count);
-        count
-    }
-
-    fn count_debug_calls(&self, file: &ParsedFile) -> usize {
-        let Ok(groups) = collect_captures(file, "(call method: (identifier) @method)") else {
-            return 0;
-        };
-        groups
+    fn count_debug_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
             .iter()
-            .filter(|g| {
-                g.first()
-                    .is_some_and(|c| matches!(c.text, "puts" | "p" | "print" | "byebug" | "pry"))
-            })
+            .filter(|m| m.iter().any(|c| c.name == "dp_method"))
             .count()
     }
 
-    fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
-        let Ok(groups) = collect_captures(file, "(method parameters: (_) @params)") else {
-            return 0;
-        };
-        let mut count = 0;
-        for group in &groups {
-            for cap in group {
-                if cap.name == "params" {
-                    let param_count = count_params(cap.text);
-                    if param_count > threshold {
-                        count += 1;
-                    }
-                }
-            }
-        }
-        count
+    fn count_excessive_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        self.count_excessive_from_batch_with(_file, batch, 5)
     }
 
-    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
-        let Ok(captures) = collect_captures(file, "[(integer) @num (float) @num]") else {
-            return 0;
-        };
+    fn count_magic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0;
-        for group in &captures {
-            if let Some(cap) = group.first() {
-                if !is_inside_declaration(cap.node) {
-                    let text = cap.text;
+        for m in batch {
+            for c in m {
+                if c.name == "mn_num" && !is_inside_declaration(c.node) {
+                    let text = c.text;
                     if text != "0"
                         && text != "1"
                         && !is_common_safe_number(text)
@@ -220,7 +252,11 @@ impl LanguageAdapter for RubyAdapter {
         count
     }
 
-    fn count_ruby_issues(&self, file: &ParsedFile) -> usize {
+    fn count_ruby_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0;
 
         // global-variable: non-built-in global variables ($xxx)
@@ -258,12 +294,10 @@ impl LanguageAdapter for RubyAdapter {
             "$-w",
             "$-W",
         ];
-        if let Ok(groups) = collect_captures(file, "(global_variable) @gv") {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    if !acceptable.contains(&cap.text.trim()) {
-                        count += 1;
-                    }
+        for m in batch {
+            for c in m {
+                if c.name == "ri_gv" && !acceptable.contains(&c.text.trim()) {
+                    count += 1;
                 }
             }
         }
@@ -317,6 +351,25 @@ impl LanguageAdapter for RubyAdapter {
             }
         }
 
+        count
+    }
+}
+
+impl RubyAdapter {
+    fn count_excessive_from_batch_with<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+        threshold: usize,
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "ep_params" && count_params(c.text) > threshold {
+                    count += 1;
+                }
+            }
+        }
         count
     }
 }

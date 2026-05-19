@@ -1,14 +1,23 @@
 //! CAdapter — C language adapter.
 
 use super::{
-    count_params, is_boolean_or_null, is_common_safe_number, is_inside_declaration,
-    is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    count_block_ancestors, count_params, is_boolean_or_null, is_common_safe_number,
+    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
-use crate::treesitter::query::collect_captures;
+use crate::treesitter::query::QueryCapture;
 use regex::Regex;
 use std::sync::LazyLock;
+
+const C_PATTERNS: &[&str] = &[
+    "(function_definition declarator: (function_declarator declarator: (identifier) @ex_name)) @ex_fn",
+    "(init_declarator declarator: (identifier) @nv_var)",
+    "(call_expression function: (identifier) @dp_func (#match? @dp_func \"^(printf|fprintf|puts|putchar)$\"))",
+    "(function_declarator parameters: (parameter_list) @ep_params)",
+    "(number_literal) @mn_num",
+    "(goto_statement) @ci_goto",
+];
 
 pub struct CAdapter;
 
@@ -17,43 +26,17 @@ impl LanguageAdapter for CAdapter {
         Language::C
     }
 
+    fn query_patterns(&self) -> &[&str] {
+        C_PATTERNS
+    }
+
     fn count_panic_calls(&self, _file: &ParsedFile) -> usize {
         // exit()/abort() are normal C idioms, not anti-patterns
         0
     }
 
     fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
-        let mut functions = Vec::new();
-        let Ok(groups) = collect_captures(
-            file,
-            "(function_definition declarator: (function_declarator declarator: (identifier) @name)) @fn",
-        ) else {
-            return functions;
-        };
-        for group in &groups {
-            let mut name = String::new();
-            let mut start_line = 0usize;
-            let mut end_line = 0usize;
-            for cap in group {
-                match cap.name.as_str() {
-                    "name" => name = cap.text.to_string(),
-                    "fn" => {
-                        start_line = cap.node.start_position().row + 1;
-                        end_line = cap.node.end_position().row + 1;
-                    }
-                    _ => {}
-                }
-            }
-            if !name.is_empty() {
-                functions.push(FunctionNode {
-                    name,
-                    start_line,
-                    end_line,
-                    nesting_depth: 0,
-                });
-            }
-        }
-        functions
+        self.extract_functions_from_batch(file, &self.batch_captures(file))
     }
 
     fn max_nesting_depth(&self, file: &ParsedFile) -> usize {
@@ -74,40 +57,7 @@ impl LanguageAdapter for CAdapter {
     }
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
-        let mut count = 0usize;
-        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
-        });
-        let terrible_re = TERRIBLE_RE.as_ref();
-        // Language-idiomatic single-letter names exempt from counting
-        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "c", "e"];
-
-        if let Ok(groups) =
-            collect_captures(file, "(init_declarator declarator: (identifier) @var)")
-        {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        if !idiomatic_single.contains(&name) {
-                            count += 1;
-                        }
-                        continue;
-                    }
-                    if let Some(re) = terrible_re {
-                        if re.is_match(&name.to_lowercase()) {
-                            count += 1;
-                            continue;
-                        }
-                    }
-                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
-                        count += 1;
-                        continue;
-                    }
-                }
-            }
-        }
-        count
+        self.count_naming_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
@@ -136,29 +86,90 @@ impl LanguageAdapter for CAdapter {
     }
 
     fn count_debug_calls(&self, file: &ParsedFile) -> usize {
-        let mut count = 0;
-        if let Ok(groups) = collect_captures(
-            file,
-            "(call_expression function: (identifier) @f (#match? @f \"^(printf|fprintf|puts|putchar)$\"))",
-        ) {
-            count += groups.len();
-        }
-        count
+        self.count_debug_from_batch(file, &self.batch_captures(file))
     }
 
-    fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
-        let mut count = 0;
-        if let Ok(groups) = collect_captures(
-            file,
-            "(function_declarator parameters: (parameter_list) @params)",
-        ) {
-            for group in &groups {
-                for cap in group {
-                    if cap.name == "params" {
-                        let param_count = count_params(cap.text);
-                        if param_count > threshold {
+    fn count_excessive_params(&self, file: &ParsedFile, _threshold: usize) -> usize {
+        self.count_excessive_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
+        self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_c_issues(&self, file: &ParsedFile) -> usize {
+        self.count_c_from_batch(file, &self.batch_captures(file))
+    }
+
+    // -- _from_batch overrides --
+
+    fn extract_functions_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> Vec<FunctionNode> {
+        let mut functions = Vec::new();
+        for m in batch {
+            let has_ex = m.iter().any(|c| c.name.starts_with("ex_"));
+            if !has_ex {
+                continue;
+            }
+            let mut name = String::new();
+            let mut start_line = 0usize;
+            let mut end_line = 0usize;
+            for c in m {
+                match c.name.as_str() {
+                    "ex_name" => name = c.text.to_string(),
+                    "ex_fn" => {
+                        start_line = c.node.start_position().row + 1;
+                        end_line = c.node.end_position().row + 1;
+                    }
+                    _ => {}
+                }
+            }
+            if !name.is_empty() {
+                let nesting_depth = count_block_ancestors(m);
+                functions.push(FunctionNode {
+                    name,
+                    start_line,
+                    end_line,
+                    nesting_depth,
+                });
+            }
+        }
+        functions
+    }
+
+    fn count_naming_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0usize;
+        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
+        });
+        let terrible_re = TERRIBLE_RE.as_ref();
+        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "c", "e"];
+
+        for m in batch {
+            for c in m {
+                if c.name == "nv_var" {
+                    let name = c.text;
+                    if name.len() == 1 && name.chars().all(|ch| ch.is_ascii_lowercase()) {
+                        if !idiomatic_single.contains(&name) {
                             count += 1;
                         }
+                        continue;
+                    }
+                    if let Some(re) = terrible_re {
+                        if re.is_match(&name.to_lowercase()) {
+                            count += 1;
+                            continue;
+                        }
+                    }
+                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
+                        count += 1;
                     }
                 }
             }
@@ -166,15 +177,43 @@ impl LanguageAdapter for CAdapter {
         count
     }
 
-    fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
-        let Ok(captures) = collect_captures(file, "(number_literal) @num") else {
-            return 0;
-        };
+    fn count_debug_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "dp_func"))
+            .count()
+    }
+
+    fn count_excessive_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0;
-        for group in &captures {
-            if let Some(cap) = group.first() {
-                if !is_inside_declaration(cap.node) {
-                    let text = cap.text;
+        for m in batch {
+            for c in m {
+                if c.name == "ep_params" && count_params(c.text) > 5 {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    fn count_magic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "mn_num" && !is_inside_declaration(c.node) {
+                    let text = c.text;
                     if text != "0"
                         && text != "1"
                         && text != "-1"
@@ -189,15 +228,19 @@ impl LanguageAdapter for CAdapter {
         count
     }
 
-    fn count_c_issues(&self, file: &ParsedFile) -> usize {
+    fn count_c_from_batch<'a>(&self, file: &ParsedFile, batch: &[Vec<QueryCapture<'a>>]) -> usize {
         let mut count = 0;
 
-        // c-goto-abuse
-        if let Ok(groups) = collect_captures(file, "(goto_statement) @goto") {
-            count += groups.len();
+        // c-goto-abuse from batch
+        for m in batch {
+            for c in m {
+                if c.name == "ci_goto" {
+                    count += 1;
+                }
+            }
         }
 
-        // c-sizeof-type: sizeof(type) should be sizeof(expr)
+        // c-sizeof-type: sizeof(type) should be sizeof(expr) — text scanning
         for line in file.content.lines() {
             let trimmed = line.trim();
             if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
@@ -239,7 +282,7 @@ impl LanguageAdapter for CAdapter {
             }
         }
 
-        // c-malloc-check: malloc without NULL check
+        // c-malloc-check: malloc without NULL check — text scanning
         let lines: Vec<&str> = file.content.lines().collect();
         for i in 0..lines.len() {
             let trimmed = lines[i].trim();

@@ -6,9 +6,34 @@ use super::{
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
-use crate::treesitter::query::collect_captures;
+use crate::treesitter::query::QueryCapture;
 use regex::Regex;
 use std::sync::LazyLock;
+
+const GO_PATTERNS: &[&str] = &[
+    // pc_ — panic calls
+    "(call_expression function: (identifier) @pc_fn (#eq? @pc_fn \"panic\"))",
+    // ex_ — extract functions
+    "[(function_declaration name: (identifier) @ex_name) (method_declaration name: (field_identifier) @ex_name)] @ex_fn",
+    // nv_ — naming violations
+    "[(short_var_declaration left: (expression_list (identifier) @nv_var)) (var_spec name: (identifier) @nv_var)]",
+    "(method_declaration receiver: (parameter_list (parameter_declaration name: (identifier) @nv_rec)))",
+    // dp_ — debug calls
+    r#"(call_expression
+  function: (selector_expression
+    operand: (identifier) @dp_pkg
+    field: (field_identifier) @dp_method)
+  (#match? @dp_pkg "^(fmt|log)$")
+  (#match? @dp_method "^(Print|Println|Printf|Fprint|Fprintln|Fprintf|Sprint|Sprintln|Sprintf)$"))"#,
+    // ep_ — excessive params
+    "[(function_declaration parameters: (parameter_list) @ep_params) (method_declaration parameters: (parameter_list) @ep_params)]",
+    // mn_ — magic numbers
+    "[(int_literal) @mn_num (float_literal) @mn_num]",
+    // gs_ — goroutine spawns
+    "(go_statement) @gs_go",
+    // cv_ — convention violations (fmt.Errorf / fmt.New)
+    r#"(call_expression function: (selector_expression operand: (identifier) @cv_pkg field: (field_identifier) @cv_method) (#eq? @cv_pkg "fmt") (#match? @cv_method "^(Errorf|New)$"))"#,
+];
 
 pub struct GoAdapter;
 
@@ -17,48 +42,16 @@ impl LanguageAdapter for GoAdapter {
         Language::Go
     }
 
+    fn query_patterns(&self) -> &[&str] {
+        GO_PATTERNS
+    }
+
     fn count_panic_calls(&self, file: &ParsedFile) -> usize {
-        let Ok(groups) = collect_captures(
-            file,
-            "(call_expression function: (identifier) @f (#eq? @f \"panic\"))",
-        ) else {
-            return 0;
-        };
-        groups.len()
+        self.count_panic_from_batch(file, &self.batch_captures(file))
     }
 
     fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
-        let mut functions = Vec::new();
-        let Ok(groups) = collect_captures(
-            file,
-            "[(function_declaration name: (identifier) @name) (method_declaration name: (field_identifier) @name)] @fn",
-        ) else {
-            return functions;
-        };
-        for group in &groups {
-            let mut name = String::new();
-            let mut start_line = 0usize;
-            let mut end_line = 0usize;
-            for cap in group {
-                match cap.name.as_str() {
-                    "name" => name = cap.text.to_string(),
-                    "fn" => {
-                        start_line = cap.node.start_position().row + 1;
-                        end_line = cap.node.end_position().row + 1;
-                    }
-                    _ => {}
-                }
-            }
-            if !name.is_empty() {
-                functions.push(FunctionNode {
-                    name,
-                    start_line,
-                    end_line,
-                    nesting_depth: 0,
-                });
-            }
-        }
-        functions
+        self.extract_functions_from_batch(file, &self.batch_captures(file))
     }
 
     fn max_nesting_depth(&self, file: &ParsedFile) -> usize {
@@ -79,91 +72,7 @@ impl LanguageAdapter for GoAdapter {
     }
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
-        let mut count = 0usize;
-        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
-        });
-        let terrible_re = TERRIBLE_RE.as_ref();
-        // Language-idiomatic single-letter names exempt from counting
-        let idiomatic_single: &[&str] = &["e", "g", "i", "j", "k", "n", "c"];
-
-        // Single-letter & terrible naming in variables
-        if let Ok(groups) = collect_captures(
-            file,
-            "[(short_var_declaration left: (expression_list (identifier) @var))
-              (var_spec name: (identifier) @var)]",
-        ) {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    if name.len() == 1 && name.chars().all(|c| c.is_ascii_lowercase()) {
-                        if !idiomatic_single.contains(&name) {
-                            count += 1;
-                        }
-                        continue;
-                    }
-                    if let Some(re) = terrible_re {
-                        if re.is_match(&name.to_lowercase()) {
-                            count += 1;
-                            continue;
-                        }
-                    }
-                    if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
-                        count += 1;
-                        continue;
-                    }
-                }
-            }
-        }
-
-        // go-receiver-name: method receivers longer than 2 chars
-        if let Ok(groups) = collect_captures(
-            file,
-            "(method_declaration receiver: (parameter_list (parameter_declaration name: (identifier) @rec)))",
-        ) {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    if cap.text.len() > 2 {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        // go-mixed-caps: snake_case or ALL_CAPS variable names
-        let go_idioms = [
-            "err", "ok", "ctx", "mu", "wg", "ch", "db", "id", "ip", "tx", "rx", "fd", "fs", "ns",
-            "fn", "hp", "os", "rc",
-        ];
-        for line in file.content.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
-                continue;
-            }
-            let name = if let Some(rest) = trimmed.strip_prefix("var ") {
-                rest.split_whitespace().next().unwrap_or("")
-            } else if let Some(idx) = trimmed.find(":=") {
-                trimmed[..idx].split_whitespace().last().unwrap_or("")
-            } else {
-                ""
-            };
-            if name.is_empty() || name.len() < 2 || go_idioms.contains(&name) || name == "_" {
-                continue;
-            }
-            if name.chars().next().is_some_and(|c| c.is_uppercase()) {
-                continue;
-            }
-            let has_underscore = name.contains('_') && name != "_";
-            let is_all_caps = name
-                .chars()
-                .all(|c| c.is_uppercase() || c == '_' || c.is_numeric())
-                && name.chars().any(|c| c.is_uppercase());
-            if has_underscore || is_all_caps {
-                count += 1;
-            }
-        }
-
-        count
+        self.count_naming_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
@@ -173,94 +82,19 @@ impl LanguageAdapter for GoAdapter {
     }
 
     fn count_debug_calls(&self, file: &ParsedFile) -> usize {
-        let mut count = 0;
-        let source = file.content.as_bytes();
-        if let Ok(groups) = collect_captures(
-            file,
-            r#"(call_expression
-  function: (selector_expression
-    operand: (identifier) @pkg
-    field: (field_identifier) @method)
-  (#match? @pkg "^(fmt|log)$")
-  (#match? @method "^(Print|Println|Printf|Fprint|Fprintln|Fprintf|Sprint|Sprintln|Sprintf)$"))"#,
-        ) {
-            'group: for group in &groups {
-                for cap in group {
-                    if cap.name == "pkg" && cap.text == "fmt" {
-                        // Exempt fmt.Print* calls inside func main()
-                        let mut current = Some(cap.node);
-                        while let Some(n) = current {
-                            if n.kind() == "function_declaration" {
-                                if let Some(name_node) = n.child_by_field_name("name") {
-                                    if let Ok(text) = name_node.utf8_text(source) {
-                                        if text == "main" {
-                                            continue 'group;
-                                        }
-                                    }
-                                }
-                                break;
-                            }
-                            current = n.parent();
-                        }
-                    }
-                }
-                count += 1;
-            }
-        }
-        count
+        self.count_debug_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
-        let mut count = 0;
-        let Ok(groups) = collect_captures(
-            file,
-            "[(function_declaration parameters: (parameter_list) @params)
-              (method_declaration parameters: (parameter_list) @params)]",
-        ) else {
-            return 0;
-        };
-        for group in &groups {
-            for cap in group {
-                if cap.name == "params" {
-                    let param_count = count_params(cap.text);
-                    if param_count > threshold {
-                        count += 1;
-                    }
-                }
-            }
-        }
-        count
+        self.count_excessive_from_batch_with(file, &self.batch_captures(file), threshold)
     }
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
-        let Ok(captures) = collect_captures(file, "[(int_literal) @num (float_literal) @num]")
-        else {
-            return 0;
-        };
-        let mut count = 0;
-        for group in &captures {
-            if let Some(cap) = group.first() {
-                if !is_inside_declaration(cap.node) {
-                    let text = cap.text;
-                    if text != "0"
-                        && text != "1"
-                        && text != "-1"
-                        && !is_common_safe_number(text)
-                        && !is_boolean_or_null(text)
-                    {
-                        count += 1;
-                    }
-                }
-            }
-        }
-        count
+        self.count_magic_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_goroutine_spawns(&self, file: &ParsedFile) -> usize {
-        let Ok(groups) = collect_captures(file, "(go_statement) @go") else {
-            return 0;
-        };
-        groups.len()
+        self.count_goroutine_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_defer_in_loop(&self, file: &ParsedFile) -> usize {
@@ -292,17 +126,235 @@ impl LanguageAdapter for GoAdapter {
     }
 
     fn count_go_convention_violations(&self, file: &ParsedFile) -> usize {
+        self.count_go_convention_from_batch(file, &self.batch_captures(file))
+    }
+
+    // -- _from_batch overrides --
+
+    fn count_panic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "pc_fn"))
+            .count()
+    }
+
+    fn extract_functions_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> Vec<FunctionNode> {
+        let mut functions = Vec::new();
+        for m in batch {
+            let has_ex = m.iter().any(|c| c.name.starts_with("ex_"));
+            if !has_ex {
+                continue;
+            }
+            let mut name = String::new();
+            let mut start_line = 0usize;
+            let mut end_line = 0usize;
+            for c in m {
+                match c.name.as_str() {
+                    "ex_name" => name = c.text.to_string(),
+                    "ex_fn" => {
+                        start_line = c.node.start_position().row + 1;
+                        end_line = c.node.end_position().row + 1;
+                    }
+                    _ => {}
+                }
+            }
+            if !name.is_empty() {
+                functions.push(FunctionNode {
+                    name,
+                    start_line,
+                    end_line,
+                    nesting_depth: 0,
+                });
+            }
+        }
+        functions
+    }
+
+    fn count_naming_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0usize;
+        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+            Regex::new(r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$").ok()
+        });
+        let terrible_re = TERRIBLE_RE.as_ref();
+        let idiomatic_single: &[&str] = &["e", "g", "i", "j", "k", "n", "c"];
+
+        for m in batch {
+            for c in m {
+                match c.name.as_str() {
+                    "nv_var" => {
+                        let name = c.text;
+                        if name.len() == 1 && name.chars().all(|ch| ch.is_ascii_lowercase()) {
+                            if !idiomatic_single.contains(&name) {
+                                count += 1;
+                            }
+                            continue;
+                        }
+                        if let Some(re) = terrible_re {
+                            if re.is_match(&name.to_lowercase()) {
+                                count += 1;
+                                continue;
+                            }
+                        }
+                        if MEANINGLESS_NAMES.contains(&name) || is_repeating_chars(name) {
+                            count += 1;
+                        }
+                    }
+                    "nv_rec" if c.text.len() > 2 => {
+                        count += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // go-mixed-caps: snake_case or ALL_CAPS variable names (text scanning)
+        let go_idioms = [
+            "err", "ok", "ctx", "mu", "wg", "ch", "db", "id", "ip", "tx", "rx", "fd", "fs", "ns",
+            "fn", "hp", "os", "rc",
+        ];
+        for line in file.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
+                continue;
+            }
+            let name = if let Some(rest) = trimmed.strip_prefix("var ") {
+                rest.split_whitespace().next().unwrap_or("")
+            } else if let Some(idx) = trimmed.find(":=") {
+                trimmed[..idx].split_whitespace().last().unwrap_or("")
+            } else {
+                ""
+            };
+            if name.is_empty() || name.len() < 2 || go_idioms.contains(&name) || name == "_" {
+                continue;
+            }
+            if name.chars().next().is_some_and(|ch| ch.is_uppercase()) {
+                continue;
+            }
+            let has_underscore = name.contains('_') && name != "_";
+            let is_all_caps = name
+                .chars()
+                .all(|ch| ch.is_uppercase() || ch == '_' || ch.is_numeric())
+                && name.chars().any(|ch| ch.is_uppercase());
+            if has_underscore || is_all_caps {
+                count += 1;
+            }
+        }
+
+        count
+    }
+
+    fn count_debug_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let source = file.content.as_bytes();
+        let mut count = 0;
+        for m in batch {
+            let has_dp = m.iter().any(|c| c.name.starts_with("dp_"));
+            if !has_dp {
+                continue;
+            }
+            let mut exempt = false;
+            for c in m {
+                if c.name == "dp_pkg" && c.text == "fmt" {
+                    let mut current = Some(c.node);
+                    while let Some(n) = current {
+                        if n.kind() == "function_declaration" {
+                            if let Some(name_node) = n.child_by_field_name("name") {
+                                if let Ok(text) = name_node.utf8_text(source) {
+                                    if text == "main" {
+                                        exempt = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        current = n.parent();
+                    }
+                }
+                if exempt {
+                    break;
+                }
+            }
+            if !exempt {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    fn count_excessive_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        self.count_excessive_from_batch_with(_file, batch, 5)
+    }
+
+    fn count_magic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "mn_num" && !is_inside_declaration(c.node) {
+                    let text = c.text;
+                    if text != "0"
+                        && text != "1"
+                        && text != "-1"
+                        && !is_common_safe_number(text)
+                        && !is_boolean_or_null(text)
+                    {
+                        count += 1;
+                    }
+                }
+            }
+        }
+        count
+    }
+
+    fn count_goroutine_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "gs_go"))
+            .count()
+    }
+
+    fn count_go_convention_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
         let mut count = 0;
 
         // go-error-string: fmt.Errorf / fmt.New with uppercase first letter
-        if let Ok(groups) = collect_captures(
-            file,
-            r#"(call_expression function: (selector_expression operand: (identifier) @pkg field: (field_identifier) @method) (#eq? @pkg "fmt") (#match? @method "^(Errorf|New)$"))"#,
-        ) {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let call = cap.node.parent().and_then(|p| p.parent());
-                    if let Some(call_node) = call {
+        for m in batch {
+            if !m.iter().any(|c| c.name == "cv_method") {
+                continue;
+            }
+            for c in m {
+                if c.name == "cv_method" {
+                    if let Some(call_node) = c.node.parent().and_then(|p| p.parent()) {
                         for child in call_node.children(&mut call_node.walk()) {
                             if child.kind() == "argument_list" {
                                 let text = file.node_text(child);
@@ -362,7 +414,7 @@ impl LanguageAdapter for GoAdapter {
             false
         }
 
-        fn check_else_return(_file: &ParsedFile, node: tree_sitter::Node, count: &mut usize) {
+        fn check_else_return(_file: &ParsedFile, node: tree_sitter::Node, cnt: &mut usize) {
             if node.kind() == "if_statement" {
                 let mut cx = node.walk();
                 let has_else = node.children(&mut cx).any(|c| c.kind() == "else");
@@ -371,9 +423,9 @@ impl LanguageAdapter for GoAdapter {
                     for child in node.children(&mut cx2) {
                         if child.kind() == "block" || child.kind() == "compound_statement" {
                             let mut cx3 = child.walk();
-                            let has_return = child.children(&mut cx3).any(has_return_statement);
-                            if has_return {
-                                *count += 1;
+                            let has_ret = child.children(&mut cx3).any(has_return_statement);
+                            if has_ret {
+                                *cnt += 1;
                                 break;
                             }
                         }
@@ -382,7 +434,7 @@ impl LanguageAdapter for GoAdapter {
             }
             let mut cx4 = node.walk();
             for child in node.children(&mut cx4) {
-                check_else_return(_file, child, count);
+                check_else_return(_file, child, cnt);
             }
         }
         check_else_return(file, file.root_node(), &mut count);
@@ -423,6 +475,25 @@ impl LanguageAdapter for GoAdapter {
                 if line_num + 1 >= start {
                     count += 1;
                     dead_start = None;
+                }
+            }
+        }
+        count
+    }
+}
+
+impl GoAdapter {
+    fn count_excessive_from_batch_with<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+        threshold: usize,
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "ep_params" && count_params(c.text) > threshold {
+                    count += 1;
                 }
             }
         }

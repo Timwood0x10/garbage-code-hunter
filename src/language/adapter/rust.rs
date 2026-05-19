@@ -7,9 +7,23 @@ use super::{
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
-use crate::treesitter::query::collect_captures;
+use crate::treesitter::query::QueryCapture;
 use regex::Regex;
 use std::sync::LazyLock;
+
+const RUST_PATTERNS: &[&str] = &[
+    "(field_expression field: (field_identifier) @pc_method)",
+    "(macro_invocation macro: (identifier) @pc_m)",
+    "(function_item name: (identifier) @ex_name) @ex_fn",
+    "(let_declaration pattern: (identifier) @nv_var (#match? @nv_var \"^[a-z]$\"))",
+    "(let_declaration pattern: (identifier) @nv_name)",
+    "(identifier) @nv_id",
+    "(macro_invocation macro: (identifier) @dp_name (#match? @dp_name \"^(println|dbg|eprintln|eprint|todo|unimplemented)$\"))",
+    "(function_item parameters: (parameters) @ep_params)",
+    "(unsafe_block) @ub_unsafe",
+    "(attribute_item (attribute) @at_attr (#eq? @at_attr \"test\"))",
+    "(integer_literal) @mn_num",
+];
 
 pub struct RustAdapter;
 
@@ -18,70 +32,16 @@ impl LanguageAdapter for RustAdapter {
         Language::Rust
     }
 
+    fn query_patterns(&self) -> &[&str] {
+        RUST_PATTERNS
+    }
+
     fn count_panic_calls(&self, file: &ParsedFile) -> usize {
-        let mut count = 0usize;
-
-        if let Ok(groups) =
-            collect_captures(file, "(field_expression field: (field_identifier) @method)")
-        {
-            for group in groups {
-                if let Some(cap) = group.first() {
-                    if cap.text == "unwrap" || cap.text == "expect" {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        if let Ok(groups) = collect_captures(file, "(macro_invocation macro: (identifier) @m)") {
-            for group in groups {
-                if let Some(cap) = group.first() {
-                    if matches!(cap.text, "panic" | "assert" | "assert_eq" | "assert_ne") {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        count
+        self.count_panic_from_batch(file, &self.batch_captures(file))
     }
 
     fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
-        let mut functions = Vec::new();
-
-        let pattern = "(function_item name: (identifier) @name) @fn";
-        let Ok(groups) = collect_captures(file, pattern) else {
-            return functions;
-        };
-
-        for group in &groups {
-            let mut name = String::new();
-            let mut start_line = 0usize;
-            let mut end_line = 0usize;
-
-            for cap in group {
-                match cap.name.as_str() {
-                    "name" => name = cap.text.to_string(),
-                    "fn" => {
-                        start_line = cap.node.start_position().row + 1;
-                        end_line = cap.node.end_position().row + 1;
-                    }
-                    _ => {}
-                }
-            }
-
-            if !name.is_empty() {
-                let nesting_depth = count_block_ancestors(group);
-                functions.push(FunctionNode {
-                    name,
-                    start_line,
-                    end_line,
-                    nesting_depth,
-                });
-            }
-        }
-
-        functions
+        self.extract_functions_from_batch(file, &self.batch_captures(file))
     }
 
     fn max_nesting_depth(&self, file: &ParsedFile) -> usize {
@@ -89,104 +49,7 @@ impl LanguageAdapter for RustAdapter {
     }
 
     fn count_naming_violations(&self, file: &ParsedFile) -> usize {
-        let mut count = 0usize;
-        // Language-idiomatic single-letter names exempt from counting
-        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "c", "e", "x", "t", "f"];
-
-        if let Ok(groups) = collect_captures(
-            file,
-            "(let_declaration pattern: (identifier) @var (#match? @var \"^[a-z]$\"))",
-        ) {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    if !idiomatic_single.contains(&cap.text) {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-            Regex::new(
-                r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$",
-            ).ok()
-        });
-        let terrible_re = TERRIBLE_RE.as_ref();
-        let meaningless: &[&str] = &[
-            "foo", "bar", "baz", "qux", "quux", "quuz", "aaa", "bbb", "ccc", "ddd", "eee", "xxx",
-            "yyy", "zzz", "test1", "test2", "test3",
-        ];
-
-        if let Ok(groups) = collect_captures(file, "(let_declaration pattern: (identifier) @name)")
-        {
-            for group in &groups {
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    let name_lower = name.to_lowercase();
-                    if let Some(re) = terrible_re {
-                        if re.is_match(&name_lower) {
-                            count += 1;
-                            continue;
-                        }
-                    }
-                    if meaningless.contains(&name) || is_repeating_chars(name) {
-                        count += 1;
-                        continue;
-                    }
-                }
-            }
-        }
-
-        let hungarian_prefixes: &[&str] = &[
-            "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
-        ];
-        let scope_prefixes: &[&str] = &["g_", "m_", "s_", "p_"];
-        // Domain-specific prefixes that look like Hungarian but aren't
-        let domain_prefixes: &[&str] = &[
-            "ctx", "req", "res", "err", "db", "kv", "fs", "io", "api", "http", "html", "ssh",
-            "tls", "uid", "uri", "url",
-        ];
-        let bad_abbrevs: &[&str] = &[
-            "mgr", "mngr", "ctrl", "hdlr", "usr", "pwd", "prefs", "btn", "lbl", "pic", "tbl",
-            "col", "cnt",
-        ];
-
-        if let Ok(groups) = collect_captures(file, "(identifier) @id") {
-            for group in &groups {
-                if count > 2000 {
-                    break;
-                }
-                if let Some(cap) = group.first() {
-                    let name = cap.text;
-                    let name_lower = name.to_lowercase();
-
-                    // Skip domain prefixes that look like Hungarian but aren't
-                    if domain_prefixes.iter().any(|p| name_lower.starts_with(p)) {
-                        continue;
-                    }
-
-                    if scope_prefixes.iter().any(|p| name_lower.starts_with(p))
-                        || hungarian_prefixes.iter().any(|p| {
-                            name_lower.starts_with(p)
-                                && name.len() > p.len()
-                                && name.as_bytes()[p.len()].is_ascii_uppercase()
-                        })
-                    {
-                        count += 1;
-                        continue;
-                    }
-
-                    if bad_abbrevs
-                        .iter()
-                        .any(|a| name_lower == *a || name_lower.starts_with(&format!("{}_", a)))
-                    {
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        count
+        self.count_naming_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_deeply_nested_blocks(&self, file: &ParsedFile) -> usize {
@@ -197,73 +60,25 @@ impl LanguageAdapter for RustAdapter {
     }
 
     fn count_debug_calls(&self, file: &ParsedFile) -> usize {
-        let mut count = 0;
-        if let Ok(groups) = collect_captures(
-            file,
-            "(macro_invocation macro: (identifier) @name (#match? @name \"^(println|dbg|eprintln|eprint|todo|unimplemented)$\"))",
-        ) {
-            count += groups.len();
-        }
-        count
+        self.count_debug_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_excessive_params(&self, file: &ParsedFile, threshold: usize) -> usize {
-        let mut count = 0;
-        if let Ok(groups) =
-            collect_captures(file, "(function_item parameters: (parameters) @params)")
-        {
-            for group in &groups {
-                for cap in group {
-                    if cap.name == "params" {
-                        let param_count = count_params(cap.text);
-                        if param_count > threshold {
-                            count += 1;
-                        }
-                    }
-                }
-            }
-        }
-        count
+        self.count_excessive_from_batch_with(file, &self.batch_captures(file), threshold)
     }
 
     fn count_unsafe_blocks(&self, file: &ParsedFile) -> usize {
-        let pattern = "(unsafe_block) @unsafe";
-        collect_captures(file, pattern)
-            .map(|g| g.len())
-            .unwrap_or(0)
+        self.count_unsafe_from_batch(file, &self.batch_captures(file))
     }
 
     fn has_test_nodes(&self, file: &ParsedFile) -> bool {
-        // Detect `#[test]` attribute on individual functions (outside #[cfg(test)] blocks)
-        collect_captures(
-            file,
-            "(attribute_item (attribute) @attr (#eq? @attr \"test\"))",
-        )
-        .map(|g| !g.is_empty())
-        .unwrap_or(false)
+        self.batch_captures(file)
+            .iter()
+            .any(|m| m.iter().any(|c| c.name == "at_attr"))
     }
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
-        let Ok(captures) = collect_captures(file, "(integer_literal) @num") else {
-            return 0;
-        };
-        let mut count = 0;
-        for group in &captures {
-            if let Some(cap) = group.first() {
-                if !is_inside_declaration(cap.node) {
-                    let text = cap.text;
-                    if text != "0"
-                        && text != "1"
-                        && text != "-1"
-                        && !is_common_safe_number(text)
-                        && !is_boolean_or_null(text)
-                    {
-                        count += 1;
-                    }
-                }
-            }
-        }
-        count
+        self.count_magic_from_batch(file, &self.batch_captures(file))
     }
 
     fn count_dead_code(&self, file: &ParsedFile) -> usize {
@@ -308,6 +123,219 @@ impl LanguageAdapter for RustAdapter {
             let trimmed = line.trim();
             if trimmed.starts_with("use ") && !seen.insert(trimmed.to_string()) {
                 count += 1;
+            }
+        }
+        count
+    }
+
+    fn count_panic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if (c.name == "pc_method" && (c.text == "unwrap" || c.text == "expect"))
+                    || (c.name == "pc_m"
+                        && matches!(c.text, "panic" | "assert" | "assert_eq" | "assert_ne"))
+                {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    fn extract_functions_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> Vec<FunctionNode> {
+        let mut functions = Vec::new();
+        for m in batch {
+            let has_ex = m.iter().any(|c| c.name.starts_with("ex_"));
+            if !has_ex {
+                continue;
+            }
+            let mut name = String::new();
+            let mut start_line = 0usize;
+            let mut end_line = 0usize;
+            for c in m {
+                match c.name.as_str() {
+                    "ex_name" => name = c.text.to_string(),
+                    "ex_fn" => {
+                        start_line = c.node.start_position().row + 1;
+                        end_line = c.node.end_position().row + 1;
+                    }
+                    _ => {}
+                }
+            }
+            if !name.is_empty() {
+                let nesting_depth = count_block_ancestors(m);
+                functions.push(FunctionNode {
+                    name,
+                    start_line,
+                    end_line,
+                    nesting_depth,
+                });
+            }
+        }
+        functions
+    }
+
+    fn count_naming_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0usize;
+        let idiomatic_single: &[&str] = &["i", "j", "k", "n", "c", "e", "x", "t", "f"];
+
+        static TERRIBLE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+            Regex::new(
+                r"^(data|info|temp|tmp|val|value|thing|stuff|obj|object|manager|handler|helper|util|utils)(\d+)?$",
+            ).ok()
+        });
+        let terrible_re = TERRIBLE_RE.as_ref();
+        let meaningless: &[&str] = &[
+            "foo", "bar", "baz", "qux", "quux", "quuz", "aaa", "bbb", "ccc", "ddd", "eee", "xxx",
+            "yyy", "zzz", "test1", "test2", "test3",
+        ];
+
+        let hungarian_prefixes: &[&str] = &[
+            "str", "int", "bool", "float", "double", "char", "arr", "vec", "list", "map", "set",
+        ];
+        let scope_prefixes: &[&str] = &["g_", "m_", "s_", "p_"];
+        let domain_prefixes: &[&str] = &[
+            "ctx", "req", "res", "err", "db", "kv", "fs", "io", "api", "http", "html", "ssh",
+            "tls", "uid", "uri", "url",
+        ];
+        let bad_abbrevs: &[&str] = &[
+            "mgr", "mngr", "ctrl", "hdlr", "usr", "pwd", "prefs", "btn", "lbl", "pic", "tbl",
+            "col", "cnt",
+        ];
+
+        for m in batch {
+            for c in m {
+                match c.name.as_str() {
+                    "nv_var" if !idiomatic_single.contains(&c.text) => {
+                        count += 1;
+                    }
+                    "nv_name" => {
+                        let name = c.text;
+                        let name_lower = name.to_lowercase();
+                        if let Some(re) = terrible_re {
+                            if re.is_match(&name_lower) {
+                                count += 1;
+                                continue;
+                            }
+                        }
+                        if meaningless.contains(&name) || is_repeating_chars(name) {
+                            count += 1;
+                        }
+                    }
+                    "nv_id" => {
+                        if count > 2000 {
+                            continue;
+                        }
+                        let name = c.text;
+                        let name_lower = name.to_lowercase();
+                        if domain_prefixes.iter().any(|p| name_lower.starts_with(p)) {
+                            continue;
+                        }
+                        if scope_prefixes.iter().any(|p| name_lower.starts_with(p))
+                            || hungarian_prefixes.iter().any(|p| {
+                                name_lower.starts_with(p)
+                                    && name.len() > p.len()
+                                    && name.as_bytes()[p.len()].is_ascii_uppercase()
+                            })
+                        {
+                            count += 1;
+                            continue;
+                        }
+                        if bad_abbrevs
+                            .iter()
+                            .any(|a| name_lower == *a || name_lower.starts_with(&format!("{}_", a)))
+                        {
+                            count += 1;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        count
+    }
+
+    fn count_debug_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "dp_name"))
+            .count()
+    }
+
+    fn count_excessive_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        self.count_excessive_from_batch_with(_file, batch, 5)
+    }
+
+    fn count_unsafe_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "ub_unsafe"))
+            .count()
+    }
+
+    fn count_magic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "mn_num" && !is_inside_declaration(c.node) {
+                    let text = c.text;
+                    if text != "0"
+                        && text != "1"
+                        && text != "-1"
+                        && !is_common_safe_number(text)
+                        && !is_boolean_or_null(text)
+                    {
+                        count += 1;
+                    }
+                }
+            }
+        }
+        count
+    }
+}
+
+impl RustAdapter {
+    fn count_excessive_from_batch_with<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+        threshold: usize,
+    ) -> usize {
+        let mut count = 0;
+        for m in batch {
+            for c in m {
+                if c.name == "ep_params" && count_params(c.text) > threshold {
+                    count += 1;
+                }
             }
         }
         count
@@ -517,5 +545,25 @@ fn main() {
         let file = parse_rust(code);
         let adapter = RustAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_rust_compute_all() {
+        let code = r#"
+fn main() {
+    let x = foo().unwrap();
+    panic!("boom");
+    println!("debug");
+    unsafe { let p = 42 as *const i32; }
+    foo(100);
+}
+"#;
+        let file = parse_rust(code);
+        let adapter = RustAdapter;
+        let counts = adapter.compute_all(&file);
+        assert!(counts.panic_calls >= 2);
+        assert!(counts.debug_calls >= 1);
+        assert!(counts.unsafe_blocks >= 1);
+        assert!(counts.magic_numbers >= 1);
     }
 }
