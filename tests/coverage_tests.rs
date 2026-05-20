@@ -20,7 +20,8 @@ fn test_analyzer_with_multiple_exclusions() {
     // Test with a directory that should be excluded
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let excluded_file = temp_dir.path().join("test_should_be_excluded.rs");
-    fs::write(&excluded_file, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
+    fs::write(&excluded_file, "mod foo { mod bar {}\n}\nfn main() {}\n")
+        .expect("Failed to write file");
 
     let issues = analyzer.analyze_path(temp_dir.path());
     // Should have no issues because file is excluded
@@ -33,7 +34,25 @@ fn test_analyzer_with_empty_exclusions() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
+    // Use repeated code blocks to trigger intra-file duplication detection
+    let code = r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let x = 0;
+    let y = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let z = 0;
+}
+"#;
+    fs::write(&file_path, code).expect("Failed to write file");
 
     let issues = analyzer.analyze_file(&file_path);
     assert!(
@@ -54,7 +73,25 @@ fn test_analyzer_with_invalid_exclusion_patterns() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let file_path = temp_dir.path().join("test.rs");
-    fs::write(&file_path, "fn main() { let thing = \"test\"; }").expect("Failed to write file");
+    // Use repeated code blocks to trigger intra-file duplication detection
+    let code = r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let x = 0;
+    let y = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let z = 0;
+}
+"#;
+    fs::write(&file_path, code).expect("Failed to write file");
 
     // Should still work even with invalid patterns
     let issues = analyzer.analyze_file(&file_path);
@@ -70,16 +107,17 @@ fn test_reporter_all_combinations() {
     let file_path = temp_dir.path().join("test.rs");
 
     let code = r#"
+mod foo { mod bar {} }
 fn main() {
-    let data = "test";
-    let temp = 42;
-    let a = 10;
-    let result = Some(42).unwrap();
-    let s1 = String::from("test");
-    let s2 = s1.clone();
-    let s3 = s2.clone();
-    let s4 = s3.clone();
-    let s5 = s4.clone();
+    let _ = Box::new(1);
+    let _ = Box::new(2);
+    let _ = Box::new(3);
+    let _ = Box::new(4);
+    let _ = Box::new(5);
+    let _ = Box::new(6);
+    let _ = Box::new(7);
+    let _ = Box::new(8);
+    let _ = Box::new(9);
 }
 "#;
 
@@ -90,27 +128,25 @@ fn main() {
 
     // Test all possible reporter configurations
     let configurations = vec![
-        // (harsh, savage, verbose, top, max_issues, summary, markdown, lang)
-        (true, true, true, 1, 1, false, false, "zh-CN"),
-        (true, true, true, 1, 1, false, true, "zh-CN"),
-        (true, true, true, 1, 1, true, false, "zh-CN"),
-        (true, true, true, 1, 1, true, true, "zh-CN"),
-        (false, false, false, 10, 10, false, false, "en-US"),
-        (false, false, false, 10, 10, false, true, "en-US"),
-        (false, false, false, 10, 10, true, false, "en-US"),
-        (false, false, false, 10, 10, true, true, "en-US"),
-        (true, false, true, 5, 5, false, false, "zh-CN"),
-        (false, true, false, 3, 3, false, false, "en-US"),
+        (true, true, 1, false, false, false, "zh-CN"),
+        (true, true, 1, false, false, true, "zh-CN"),
+        (true, true, 1, true, false, false, "zh-CN"),
+        (true, true, 1, true, false, true, "zh-CN"),
+        (false, false, 10, false, false, false, "en-US"),
+        (false, false, 10, false, false, true, "en-US"),
+        (false, false, 10, true, false, false, "en-US"),
+        (false, false, 10, true, false, true, "en-US"),
+        (true, true, 5, false, false, false, "zh-CN"),
+        (false, false, 3, false, false, false, "en-US"),
     ];
 
-    for (harsh, savage, verbose, top, max_issues, summary, markdown, lang) in configurations {
+    for (harsh, verbose, max_issues, summary, brief, markdown, lang) in configurations {
         let reporter = Reporter::new(
             harsh,
-            savage,
             verbose,
-            top,
             max_issues,
             summary,
+            brief,
             markdown,
             lang,
             Box::new(LocalRoastProvider),
@@ -195,11 +231,15 @@ fn test_analyzer_with_non_rust_files() {
     let analyzer = CodeAnalyzer::new(&[], "en-US");
     let issues = analyzer.analyze_path(temp_dir.path());
 
-    // Now analyzes JS and Python files (tree-sitter multi-language support)
-    // .txt files should still be ignored
+    // JS/Python rules have been migrated to LanguageAdapter pipeline.
+    // analyze_path runs tree-sitter rules only, so non-Rust files may
+    // produce 0 issues here (they are checked by the detector pipeline).
+    // .txt files should still be ignored.
     assert!(
-        !issues.is_empty(),
-        "Should analyze JS and Python files with tree-sitter"
+        issues
+            .iter()
+            .all(|i| i.file_path.extension().unwrap() != "txt"),
+        "TXT files should not produce issues"
     );
 }
 
@@ -207,12 +247,29 @@ fn test_analyzer_with_non_rust_files() {
 fn test_analyzer_with_mixed_files() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
 
-    // Create mixed files
+    // Create mixed files — use a Rust file that triggers intra-file duplication
     let rust_file = temp_dir.path().join("code.rs");
     let txt_file = temp_dir.path().join("readme.txt");
 
-    fs::write(&rust_file, "fn main() { let thing = \"test\"; }")
-        .expect("Failed to write rust file");
+    // Repeated code block triggers intra-file duplication detection
+    let code = r#"
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let x = 0;
+    let y = 0;
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    let d = c * 2;
+    let e = d + 1;
+    let z = 0;
+}
+"#;
+    fs::write(&rust_file, code).expect("Failed to write rust file");
     fs::write(&txt_file, "This is a text file").expect("Failed to write txt file");
 
     let analyzer = CodeAnalyzer::new(&[], "en-US");

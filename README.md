@@ -5,548 +5,173 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Rust Version](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
 
-[English](README.md) | [中文](./README_zh.md)
+[English](README.md) | [中文](README_zh.md)
 
-A humorous code quality detector that roasts your garbage code with style!
+A humorous CLI toolkit that roasts code quality, commit messages, dependencies, PR titles, and technical debt.
 
-> **Inspiration**: https://github.com/Done-0/fuck-u-code.git
+The key improvement is **StyleIR**: a language-neutral style intermediate representation that extracts objective style facts from parsed source, then lets detectors, scoring, reports, and JSON output share the same evidence layer.
 
-## What is this?
+> Inspiration: [fuck-u-code](https://github.com/Done-0/fuck-u-code.git)
 
-Garbage Code Hunter is a CLI toolkit for code quality analysis. Unlike traditional linters that give you dry warnings, we tell you how bad your code is in a **sarcastic witty and brutally honest** way.
+## Important
 
-## Tool Collection
+Garbage Code Hunter is an entertainment and code-taste tool. It checks readability, style, maintainability signals, and amusing project health metrics. It is not a bug finder, security scanner, or replacement for linters such as Clippy, ESLint, Pylint, or static analyzers.
 
-| Tool | Command | Alias | What it does |
-|---|---|---|---|
-| **Code Hunter** | `analyze` (default) | - | Static analysis: naming, nesting, unwrap abuse, duplication |
-| **Commit Roaster** | `commit-roaster` | `cr` | Roast bad commit messages from git history |
-| **Deps Shamer** | `deps-shamer` | `ds` | Shame bad dependency practices |
-| **PR Title Hunter** | `pr-title-hunter` | `pr` | Roast low-quality PR titles |
-| **Full Scan** | `scan` | - | Run all tools, get combined score |
-| **Badge** | `badge` | - | Generate SVG score badge |
-| **Trend** | `trend` | - | Show quality score trend over time |
-| **Last Words** | `last-words` | `lw` | Find legacy TODO/FIXME/HACK comments and their age |
-| **Debt Invoice** | `debt-invoice` | `debt` | Generate a technical debt invoice with cost estimates |
-| **Personality** | `personality` | - | Analyze your developer personality based on code patterns |
-| **Decay** | `decay` | - | Analyze project quality decay over git history |
-| **Autopsy** | `autopsy` | - | Generate a code autopsy report (root cause analysis) |
-| **Radar** | `radar` | - | Generate a code smell radar chart (SVG) |
-| **CI Bot** | `ci-bot` | - | Generate a CI-style PR review comment |
-| **Persona** | `persona` | - | Analyze code with a specific roast personality |
-| **Danger Zone** | `danger-zone` | `dz` | Identify the most dangerous files in the codebase |
-| **Team Roast** | `team-roast` | - | Per-developer team analysis and roasting |
+## Install
 
-## Architecture
-
-```mermaid
-graph TB
-    CLI["garbage-code-hunter<br/>CLI Entry (clap)"]
-
-    subgraph Core["Core Engine"]
-        TS["Tree-Sitter Engine<br/>AST Parsing (11 languages)"]
-        GA["Generic Analyzer<br/>Regex-based fallback"]
-        AN["CodeAnalyzer<br/>Unified analysis pipeline"]
-        CTX["Context System<br/>File type detection"]
-    end
-
-    subgraph Rules["Rule Engine (tree-sitter)"]
-        BR["Base Rules<br/>nesting, naming, length"]
-        CR_R["Complex Rules<br/>god-function, duplication"]
-        RR["Rust Rules<br/>unwrap, lifetime, macro"]
-        REM["Remaining Rules<br/>magic-number, dead-code"]
-    end
-
-    subgraph Tools["18 Analysis Tools"]
-        CH["Code Hunter<br/>Static Analysis"]
-        CMR["Commit Roaster<br/>Git History"]
-        DS["Deps Shamer<br/>5 Ecosystems"]
-        PR["PR Title Hunter<br/>Local + GitHub"]
-    end
-
-    subgraph FunTools["Fun Tools"]
-        LW["Last Words"]
-        DI["Debt Invoice"]
-        PE["Personality"]
-        DC["Decay"]
-        AU["Autopsy"]
-        RD["Radar SVG"]
-        CB["CI Bot"]
-        PA["Persona"]
-        DZ["Danger Zone"]
-        TR["Team Roast"]
-    end
-
-    subgraph Output["Output"]
-        TERM["Terminal<br/>Colored"]
-        JSON["JSON"]
-        SVG["SVG<br/>Badge/Radar"]
-    end
-
-    CLI --> AN
-    AN --> TS
-    AN --> GA
-    TS --> BR & CR_R & RR & REM
-    AN --> CTX
-    CLI --> CH & CMR & DS & PR
-    CLI --> FunTools
-    CH & CMR & DS & PR --> TERM & JSON
-    RD & BADGE --> SVG
-```
-
-```mermaid
-graph LR
-    subgraph DepsShamer["Deps Shamer - Multi-Ecosystem"]
-        direction TB
-        CARGO["Cargo.toml<br/>Rust"]
-        NPM["package.json<br/>Node.js"]
-        GOMOD["go.mod<br/>Go"]
-        PIP["requirements.txt<br/>Python"]
-        PYPROJ["pyproject.toml<br/>Python"]
-    end
-
-    subgraph Rules["Rule Engine"]
-        direction TB
-        TRAIT["DepRule / PrRule / Rule<br/>Trait Interface"]
-        DEFAULT["default_rules()<br/>Built-in Rules"]
-        CUSTOM["TOML Config<br/>Custom Rules"]
-    end
-
-    subgraph PRMode["PR Title Hunter Modes"]
-        direction TB
-        LOCAL["Local Mode<br/>git2 merge commits"]
-        REMOTE["Remote Mode<br/>GitHub API"]
-    end
-
-    DepsShamer --> TRAIT
-    TRAIT --> DEFAULT
-    TRAIT --> CUSTOM
-    PRMode --> LOCAL
-    PRMode --> REMOTE
-```
-
-## Features
-
-- **18 tools**: Static analysis, git roasting, dependency shaming, PR review, and 11 entertainment tools
-- **Multi-ecosystem deps**: Cargo.toml, package.json, go.mod, requirements.txt, pyproject.toml
-- **GitHub API**: PR Title Hunter supports remote repos (`--repo owner/repo`)
-- **Historical trends**: Track quality over time with ASCII charts
-- **SVG badges**: Generate shields.io-style badges for READMEs
-- **Code smell radar**: SVG radar chart for README visualization
-- **Developer personality**: Profile your coding style with fun personas
-- **Technical debt invoice**: Estimate the real cost of your code smells
-- **Code autopsy**: Root cause analysis of codebase problems
-- **Danger zone**: Identify the riskiest files by churn, complexity, and contributors
-- **Team roast**: Per-developer analysis with commit habit roasting
-- **CI comment bot**: Generate PR review comments for GitHub Actions
-- **Multiple personas**: Roast as Linux Kernel Maintainer, Silicon Valley CTO, Japanese Enterprise Engineer, or Rust Evangelist
-- **Context-aware**: Adjusts sensitivity for test/example/UI code
-- **Dual output**: Colored terminal or JSON for all commands
-- **Bilingual**: English and Chinese roasts
-- **LLM powered**: Optional Ollama integration for creative roasts
-- **VSCode extension**: Real-time analysis in your editor
-- **11 languages**: Rust, C, C++, Python, JavaScript, TypeScript, Go, Java, Ruby, Swift, Zig
-
-## How to Play
-
-### Level 1: Quick Roast (30 seconds)
 ```bash
-# Install
 cargo install garbage-code-hunter
-
-# Analyze current project — get roasted immediately
-garbage-code-hunter
-
-# Chinese mode
-garbage-code-hunter --lang zh-CN
-```
-
-### Level 2: Full Scan (2 minutes)
-```bash
-# Run ALL 18 tools — get a combined garbage score
-garbage-code-hunter scan
-
-# Save to history for trend tracking
-garbage-code-hunter scan --save
-
-# Check your score trend
-garbage-code-hunter trend
-```
-
-### Level 3: Deep Dive (5 minutes)
-```bash
-# Roast your commit history
-garbage-code-hunter cr --limit 100
-
-# Shame your dependencies
-garbage-code-hunter ds
-
-# Find your worst files
-garbage-code-hunter dz
-
-# Generate a radar chart
-garbage-code-hunter radar --output radar.svg
-```
-
-### Level 4: Team Battle
-```bash
-# Who's the worst committer?
-garbage-code-hunter team-roast
-
-# What's your developer personality?
-garbage-code-hunter personality
-
-# Generate a technical debt invoice
-garbage-code-hunter debt-invoice
-```
-
-### Level 5: CI Integration
-```bash
-# Generate PR review comments
-garbage-code-hunter ci-bot -f json
-
-# Generate a score badge for your README
-garbage-code-hunter badge -o badge.svg
-```
-
-## Real Project Reports
-
-### Self-Analysis: garbage-code-hunter (this project)
-
-```
-📊 Garbage Scan Report
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  code-hunter       0/100   (44,836 issues in 93 files)
-  commit-roaster   57/100   (50 commits analyzed)
-  deps-shamer     100/100   (29 dependencies — clean!)
-  pr-title-hunter 100/100   (0 PRs checked)
-  last-words       64/100   (7,085 TODO/FIXME found)
-  debt-invoice      0/100   ($89,069 estimated debt)
-  personality       0/100   (The Copy-Paste Artist)
-  decay            50/100   (Declining)
-  autopsy          97/100   (1 root cause found)
-  radar            58/100   (6 dimensions scored)
-  danger-zone      52/100   (10 dangerous files)
-  team-roast       98/100   (2 team members)
-
-  Overall Score: 39/100 (Grade: B)
-```
-
-**Developer Personality**: The Copy-Paste Artist
-> "Ctrl+C, Ctrl+V is your IDE's most used shortcut. Why abstract when you can duplicate?"
-
-**Code Smell Radar**:
-```
-  Complexity         100 ████████████████████
-  Duplication        100 ████████████████████
-  Naming              30 ██████
-  Panic Risk          20 ████
-  Dep Hell             0
-  Legacy Smell       100 ████████████████████
-```
-
-**Team Stats**:
-```
-  #1 Timwood0x10    53 commits | 36% fix rate | worst: "fix ci"
-  #2 Marky-Shi       5 commits | 60% fix rate | worst: "fix: Add debugging..."
-```
-
-**Top 5 Most Dangerous Files**:
-```
-  1. mod.rs           (6,352 issues — i18n roast messages)
-  2. rust_rules.rs    (2,260 issues — tree-sitter rules)
-  3. complex_rules.rs (2,050 issues — complex patterns)
-  4. display.rs       (1,997 issues — report formatting)
-  5. duplication.rs   (1,804 issues — dup detection)
-```
-
-### Example: Rust Project Analysis
-
-```bash
-$ garbage-code-hunter --lang zh-CN src/
-
-🗑️  垃圾代码猎人 🗑️
-正在准备吐槽你的代码...
-
-📊 垃圾代码检测报告
-──────────────────────────────────────────────────
-📈 问题统计:
-   12 🔥 核弹级问题 (需要立即修复)
-  228 🌶️  辣眼睛问题 (建议修复)
-  44596 😐 轻微问题 (可以忽略)
-
-🏆 代码质量评分: 30.0/100 👍 (良好)
-📏 代码行数: 22,946 | 📁 文件: 93 | 🔍 密度: 19 问题/千行
-```
-
-### JSON Output (for CI/CD integration)
-
-```bash
-$ garbage-code-hunter scan -f json | jq '.overall_score'
-39.18
-
-$ garbage-code-hunter cr -f json | jq '.score'
-57.0
-
-$ garbage-code-hunter ds -f json | jq '.issues | length'
-0
 ```
 
 ## Quick Start
 
-### Install
+```bash
+# Analyze current directory
+garbage-code-hunter analyze
+
+# Analyze a project with localized output
+garbage-code-hunter analyze ./my-project --lang zh-CN
+
+# Run the full toolkit
+garbage-code-hunter scan ./my-project
+
+# JSON output
+garbage-code-hunter analyze -f json
+```
+
+## Features
+
+### StyleIR core
+
+- Converts parsed source into stable style facts instead of coupling every rule directly to every language AST
+- Tracks function counts, god functions, panic-prone calls, naming violations, nesting, debug calls, magic numbers, TODOs, duplicate imports, unsafe blocks, and language-specific issue counters
+- Produces JSON-ready summaries for reports, automation, and future rule migration
+- Makes cross-language scoring more consistent while preserving language adapters for Rust, Go, Python, Java, Ruby, C/C++, TypeScript, Swift, Zig, and JavaScript
+
+### Tools
+
+| Feature | Command | Alias | Description |
+|---|---|---|---|
+| Code Hunter | `analyze` | - | Core source analysis for naming, complexity, duplication, debug leftovers, and style smells |
+| Commit Roaster | `commit-roaster` | `cr` | Roasts weak commit messages from git history |
+| Deps Shamer | `deps-shamer` | `ds` | Checks dependency hygiene across common ecosystems |
+| PR Title Hunter | `pr-title-hunter` | `pr` | Roasts low-quality PR titles locally or from GitHub |
+| Full Scan | `scan` | - | Runs the tool suite and produces a combined score |
+| Badge | `badge` | - | Generates an SVG quality badge |
+| Trend | `trend` | - | Shows saved quality score history |
+| Last Words | `last-words` | `lw` | Finds stale TODO/FIXME/HACK comments |
+| Debt Invoice | `debt-invoice` | `debt` | Estimates technical debt cost |
+| Personality | `personality` | - | Infers developer personality from code patterns |
+| Decay | `decay` | - | Analyzes project quality decay over git history |
+| Autopsy | `autopsy` | - | Produces a root-cause style code autopsy report |
+| Radar | `radar` | - | Generates a code-smell radar view or SVG |
+| CI Bot | `ci-bot` | - | Produces CI-style review comments |
+| Persona | `persona` | - | Roasts code with a selected persona |
+| Danger Zone | `danger-zone` | `dz` | Finds the riskiest files in the repository |
+| Team Roast | `team-roast` | - | Summarizes quality and debt by contributor |
+
+## Language Support
+
+Rust, Go, Python, JavaScript, TypeScript, Java, C, C++, Ruby, Swift, and Zig.
+
+| Language | Status | TP Rate | Test Projects | Key Detectors |
+|----------|--------|---------|---------------|---------------|
+| Rust | Stable | ~90% | Finance, ReChat-server | unwrap/expect, panic, assert, debug, unsafe, naming, nesting, magic, dead_code, duplicate_import, `#[cfg(test)]` aware |
+| Go | Stable | ~85% | interchange, gaia, loan, gosec | panic, debug, naming, nesting, goroutine, defer, conventions, unsafe, dead_code, duplicate_import |
+| Python | Stable | ~80% | ZK-bulletproofs | except, print, naming, nesting, magic (int+float), wildcard-import, bool-compare, dead_code, duplicate_import |
+| Ruby | Stable | ~85% | jekyll, Metric | raise, puts/p/warn, naming, nesting, magic, globals, bare-rescue, dead_code, duplicate_import |
+| Java | Stable | ~80% | TestJava.java | throw, println/printStackTrace, naming, nesting, magic, empty-catch, logging frameworks, dead_code, duplicate_import |
+| TypeScript | Beta | ~80% | zod, hono, trpc | throw, console/debugger, naming, nesting, magic, any/enum/alias, @ts-ignore, require, dead_code, duplicate_import |
+| JavaScript | Beta | ~80% | self-tested | throw, console/debugger, naming, nesting, magic, eval/with/alert/var, dead_code, duplicate_import |
+| C | Beta | ~85% | stone-prover | exit/abort/assert, printf, naming, nesting, magic, goto, sizeof, malloc, dead_code, duplicate_import |
+| C++ | Beta | ~85% | stone-prover | exit/abort/terminate/throw, cout/cerr, naming, nesting, magic, goto/new, sizeof, malloc, dead_code, duplicate_import |
+| Swift | Beta | ~80% | Alamofire, SnapKit, vapor | fatalError/assert, print/NSLog, naming, nesting, magic, try!/as!, dead_code, duplicate_import |
+| Zig | Beta | ~90% | ziglings | @panic, @compileLog/warn, naming, nesting, magic, unreachable, dead_code, duplicate_import |
+
+## Performance
+
+Benchmarked on Apple Silicon (M-series), single-file analysis:
+
+| Benchmark | Time |
+|-----------|------|
+| `create_analyzer` | 539 µs |
+| `analyze_file/clean_rust` | 1.30 ms |
+| `analyze_file/single_large_file` (100 functions) | 61.5 ms |
+| `analyze_path/mixed_4_languages` | 102 ms |
+| `analyze_path/10_garbage_files` | 7.50 ms |
+| `analyze_path/50_garbage_files` | 37.4 ms |
+| `scalability/20_files` | 15.2 ms |
+| `scalability/50_files` | 37.4 ms |
+
+Run `cargo bench` to reproduce. Logs are saved in `./benchs/`.
+
+## Common Usage
 
 ```bash
-cargo install garbage-code-hunter
+# Exclude noisy files
+garbage-code-hunter analyze --exclude "vendor/*" --exclude "*.pb.go"
+
+# Save scan history and view trend
+garbage-code-hunter scan --save
+garbage-code-hunter trend
+
+# Generate assets
+garbage-code-hunter badge --output badge.svg
+garbage-code-hunter radar --output radar.svg
+
+# GitHub PR titles
+garbage-code-hunter pr --repo owner/repo --state open --token $GITHUB_TOKEN
 ```
 
-### Subcommands
+## Configuration
 
-#### Code Analysis (default)
+Create `.garbage-code-hunter.toml` in your project root to customize analysis. The tool auto-discovers this file by walking up from the working directory.
+
 ```bash
-garbage-code-hunter                    # Analyze current directory
-garbage-code-hunter src/main.rs        # Analyze specific file
-garbage-code-hunter --lang zh-CN src/  # Chinese roasts
-garbage-code-hunter --markdown src/    # Markdown report for AI tools
-garbage-code-hunter --educational      # Show how-to-fix advice
-garbage-code-hunter --hall-of-shame    # Show worst files ranking
+# Auto-discovered (no flag needed)
+garbage-code-hunter analyze
+
+# Explicit path
+garbage-code-hunter analyze --project-config .garbage-code-hunter.toml
 ```
 
-#### Commit Roaster
-```bash
-garbage-code-hunter commit-roaster              # Last 50 commits
-garbage-code-hunter cr --limit 100              # Last 100 commits
-garbage-code-hunter cr --author "john" --since 2024-01-01
-garbage-code-hunter cr -f json                  # JSON output
+**Config file name:** `.garbage-code-hunter.toml` (canonical). No other names are supported.
+
+**What you can customize:**
+
+```toml
+[whitelists]
+magic-numbers = [800, 1000]
+variable-names = ["ctx", "db"]
+exclude-patterns = ["vendor/*", "third_party/*"]
+
+[rules.magic-number]
+enabled = true
+allowed-numbers = [3000, 86400]
+
+[rules.unwrap]
+threshold = 3
+
+[signals]
+panic-addiction = true
+naming-chaos = false
 ```
 
-#### Deps Shamer
-```bash
-garbage-code-hunter deps-shamer          # Current directory
-garbage-code-hunter ds /path/to/project  # Specific project
-garbage-code-hunter ds -f json           # JSON output
-```
+Full schema: [docs/config-reference.md](docs/config-reference.md)
 
-#### PR Title Hunter
-```bash
-# Local mode (from merge commits)
-garbage-code-hunter pr --limit 100
+## Documentation
 
-# Remote mode (GitHub API)
-garbage-code-hunter pr --repo owner/repo
-garbage-code-hunter pr --repo owner/repo --state open --limit 50
-garbage-code-hunter pr --repo owner/repo --token $GITHUB_TOKEN
-garbage-code-hunter pr --repo owner/repo --author "username"
-```
-
-#### Full Scan
-```bash
-garbage-code-hunter scan              # Run all tools
-garbage-code-hunter scan --save       # Run and save to history
-garbage-code-hunter scan -f json      # JSON output
-```
-
-#### Badge
-```bash
-garbage-code-hunter badge                         # Auto-score + badge.svg
-garbage-code-hunter badge --score 72              # Use specific score
-garbage-code-hunter badge -o quality.svg          # Custom output path
-garbage-code-hunter badge --style plastic         # Plastic style
-```
-
-#### Trend
-```bash
-garbage-code-hunter trend              # Show last 10 scans
-garbage-code-hunter trend --last 20    # Show last 20 scans
-garbage-code-hunter trend -f json      # JSON output
-```
-
-#### Last Words
-```bash
-garbage-code-hunter last-words         # Find TODO/FIXME/HACK comments
-garbage-code-hunter lw --age           # Include age via git blame (slower)
-garbage-code-hunter lw -f json         # JSON output
-```
-
-#### Debt Invoice
-```bash
-garbage-code-hunter debt-invoice       # Generate cost estimate
-garbage-code-hunter debt -f json       # JSON output
-```
-
-#### Personality
-```bash
-garbage-code-hunter personality        # Analyze developer personality
-garbage-code-hunter personality -f json
-```
-
-#### Decay
-```bash
-garbage-code-hunter decay              # Analyze quality over git history
-garbage-code-hunter decay -f json
-```
-
-#### Autopsy
-```bash
-garbage-code-hunter autopsy            # Root cause analysis
-garbage-code-hunter autopsy -f json
-```
-
-#### Radar
-```bash
-garbage-code-hunter radar              # Show code smell radar
-garbage-code-hunter radar --output radar.svg  # Generate SVG chart
-```
-
-#### CI Bot
-```bash
-garbage-code-hunter ci-bot             # Generate PR review comment
-garbage-code-hunter ci-bot -f json     # JSON with Markdown comment
-```
-
-#### Persona
-```bash
-garbage-code-hunter persona --persona linux-kernel
-garbage-code-hunter persona --persona silicon-valley
-garbage-code-hunter persona --persona japanese-enterprise
-garbage-code-hunter persona --persona rust-fanatic
-```
-
-#### Danger Zone
-```bash
-garbage-code-hunter danger-zone        # Find most dangerous files
-garbage-code-hunter dz -f json
-```
-
-#### Team Roast
-```bash
-garbage-code-hunter team-roast         # Per-developer analysis
-garbage-code-hunter team-roast --limit 200
-```
-
-### Output Formats
-
-All subcommands support `terminal` (default, colored) and `json` output:
-```bash
-garbage-code-hunter cr -f json | jq '.score'
-garbage-code-hunter ds -f json | jq '.issues | length'
-garbage-code-hunter trend -f json | jq '.records[-1].overall_score'
-```
-
-## Example Output
-
-### Commit Roaster
-```
-Commit Roast Report
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Scanned 50 commits, found 12 issues
-
-Critical (2)
-  * abc1234 "" -- The commit message is empty. Were you sleepwalking?
-  * def5678 "asdf" -- Keyboard mashing is not a commit strategy.
-
-High (5)
-  * ghi9012 "fix" -- Fix WHAT? 'fix' is not a description, it's a cry for help.
-
-Score: 76/100 (B)
-```
-
-### Trend
-```
-Quality Trend
-  (showing last 5 scans)
-
-  Score
-    85 |   ●
-       |   |
-    80 | --+
-       |
-        05-01  05-08  05-13
-
-Breakdown
-  Overall              75 -> 85 (+10) UP
-  code-hunter          65 -> 78 (+13) UP
-  commit-roaster       80 -> 82 (+2)  RIGHT
-
-Recent Scans
-  2026-05-13T10:00:00  85  .
-  2026-05-08T14:30:00  80  .
-  2026-05-01T09:00:00  75  .
-```
-
-### Full Scan
-```
-Running Full Garbage Scan...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  code-hunter: 72/100 (23 issues in 15 files)
-  commit-roaster: 85/100 (50 commits analyzed)
-  deps-shamer: 90/100 (45 dependencies)
-  pr-title-hunter: 95/100 (30 PRs checked)
-
-Garbage Report
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Tool Summary
-  code-hunter          72/100  (23 items)
-  commit-roaster       85/100  (50 items)
-  deps-shamer          90/100  (45 items)
-  pr-title-hunter      95/100  (30 items)
-
-  Overall Garbage Score: 86/100
-```
-
-## Tool Details
-
-### Code Hunter Rules (Rust)
-- Single-letter variable names
-- Meaningless names (data, temp, foo, bar)
-- Deep nesting (>4 levels)
-- Long functions (>50 lines)
-- `unwrap()` abuse
-- Magic numbers
-- Duplicate code blocks
-- Cross-file duplication detection
-- Context-aware: reduced sensitivity for test/example code
-
-### Commit Roaster Rules
-- Empty messages, single-word commits
-- WIP commits on shared branches
-- Generic messages: "fix", "update", "change"
-- Keyboard mashing (asdf, qwer)
-- ALL CAPS, excessive exclamation marks
-- Version bump only, default merge messages
-- Configurable via TOML rule files
-
-### Deps Shamer Rules
-- Too many dependencies (>50)
-- Git-based dependencies
-- Wildcard or star versions
-- Pre-release versions in production
-- Deprecated packages (per-ecosystem lists)
-- Duplicate dependencies
-- Too many dev/optional deps
-
-### PR Title Hunter Rules
-- Empty or too-short titles (<5 chars)
-- Generic titles ("fix", "update", "WIP")
-- Ticket-only titles ("PROJ-123", "#456")
-- ALL CAPS, excessive exclamation marks
-- Keyboard mashing
-- Lowercase start (skips conventional commits)
+- English docs: [docs/en/index.md](docs/en/index.md)
+- Chinese docs: [docs/zh/index.md](docs/zh/index.md)
+- StyleIR details: [src/style_ir/mod.rs](src/style_ir/mod.rs)
+- Tools guide: [docs/en/tools.md](docs/en/tools.md)
+- Configuration: [docs/en/configuration.md](docs/en/configuration.md)
+- Rules reference: [docs/en/rules.md](docs/en/rules.md)
 
 ## VSCode Extension
 
-Get real-time roasting in VSCode:
-
-1. Install the `garbage-code-hunter` CLI
-2. Search "Garbage Code Hunter" in VSCode marketplace
-3. Analysis triggers automatically when you save Rust files
+A VSCode extension is available under [vscode-extension](vscode-extension/README.md).
 
 ## License
 
-Apache License 2.0
-
----
-
-**Remember**: We roast the code, not you. Let's make code reviews a bit more fun!
+Apache-2.0

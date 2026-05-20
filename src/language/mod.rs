@@ -1,3 +1,5 @@
+pub mod adapter;
+
 use std::path::Path;
 
 /// Programming languages supported by the analyzer.

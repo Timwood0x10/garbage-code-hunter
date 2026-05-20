@@ -62,6 +62,207 @@ impl I18n {
         zh_cn.insert("top_files".to_string(), "🏆 问题最多的文件".to_string());
         zh_cn.insert("detailed_analysis".to_string(), "🔍 详细分析".to_string());
 
+        // Personality section
+        zh_cn.insert("project_personality".to_string(), "🧠 项目人格".to_string());
+        zh_cn.insert("score".to_string(), "评分:".to_string());
+        zh_cn.insert("threat_level".to_string(), "威胁等级:".to_string());
+        zh_cn.insert("corruption".to_string(), "腐化度:".to_string());
+        zh_cn.insert("core_traits".to_string(), "核心特征:".to_string());
+        zh_cn.insert("emotional_state".to_string(), "情绪状态:".to_string());
+        zh_cn.insert("philosophy".to_string(), "代码哲学:".to_string());
+        zh_cn.insert("lore".to_string(), "📜 传说:".to_string());
+
+        // Autopsy section
+        zh_cn.insert(
+            "codebase_autopsy".to_string(),
+            "☠ 代码库尸检报告".to_string(),
+        );
+        zh_cn.insert("cause_of_death".to_string(), "死因:".to_string());
+        zh_cn.insert("condition".to_string(), "状况:".to_string());
+        zh_cn.insert(
+            "high_contamination".to_string(),
+            "☣ 高污染区域:".to_string(),
+        );
+        zh_cn.insert("final_words".to_string(), "遗言:".to_string());
+        zh_cn.insert(
+            "mutation_propagation".to_string(),
+            "🧬 突变传播:".to_string(),
+        );
+        zh_cn.insert("infection_origin".to_string(), "☣ 感染源".to_string());
+        zh_cn.insert("replication_cluster".to_string(), "⚠ 复制集群".to_string());
+
+        // Boss file section
+        zh_cn.insert("final_boss".to_string(), "☠ 最终BOSS".to_string());
+        zh_cn.insert("file".to_string(), "文件:".to_string());
+        zh_cn.insert("corruption_index".to_string(), "腐化指数:".to_string());
+        zh_cn.insert("known_attacks".to_string(), "已知攻击:".to_string());
+        zh_cn.insert("survival_chance".to_string(), "存活几率:".to_string());
+
+        // Behavior distribution
+        zh_cn.insert(
+            "behavior_distribution".to_string(),
+            "🧬 行为分布".to_string(),
+        );
+
+        // Final verdict
+        zh_cn.insert("final_verdict".to_string(), "📊 最终判决".to_string());
+        zh_cn.insert("mutation_density".to_string(), "突变密度:".to_string());
+
+        // Personality types
+        zh_cn.insert(
+            "person_copy_paste".to_string(),
+            "复制粘贴艺术家".to_string(),
+        );
+        zh_cn.insert("person_yolo".to_string(), "YOLO工程师".to_string());
+        zh_cn.insert("person_trait_wizard".to_string(), "Trait巫师".to_string());
+        zh_cn.insert("person_legacy".to_string(), "遗产驱魔人".to_string());
+        zh_cn.insert("person_hotfix".to_string(), "热修复雇佣兵".to_string());
+        zh_cn.insert(
+            "person_enterprise".to_string(),
+            "企业官僚主义者".to_string(),
+        );
+        zh_cn.insert("person_startup".to_string(), "创业幸存者".to_string());
+        zh_cn.insert("person_academic".to_string(), "学术巫师".to_string());
+
+        // Conditions
+        zh_cn.insert(
+            "cond_terminal".to_string(),
+            "晚期——建议姑息治疗".to_string(),
+        );
+        zh_cn.insert("cond_critical".to_string(), "危重但可救治".to_string());
+        zh_cn.insert(
+            "cond_severe".to_string(),
+            "严重——上帝函数威胁可读性".to_string(),
+        );
+        zh_cn.insert(
+            "cond_moderate".to_string(),
+            "中度——部分函数需要拆分".to_string(),
+        );
+        zh_cn.insert("cond_chronic".to_string(), "慢性——需要简化治疗".to_string());
+        zh_cn.insert(
+            "cond_stable_debt".to_string(),
+            "稳定但技术债务利息很高".to_string(),
+        );
+        zh_cn.insert("cond_fair".to_string(), "尚可——建议定期维护".to_string());
+
+        // Cause of death
+        zh_cn.insert(
+            "cod_duplication".to_string(),
+            "失控的重复代码转移".to_string(),
+        );
+        zh_cn.insert("cod_panic".to_string(), "恐慌驱动开发".to_string());
+        zh_cn.insert(
+            "cod_complexity".to_string(),
+            "复杂度坍塌——嵌套层级超过事件视界".to_string(),
+        );
+        zh_cn.insert(
+            "cod_naming".to_string(),
+            "语义饥饿——变量名失去所有意义".to_string(),
+        );
+        zh_cn.insert(
+            "cod_todo".to_string(),
+            "TODO堆积——承诺超出交付能力".to_string(),
+        );
+        zh_cn.insert("cod_growth".to_string(), "不惜代价增长综合症".to_string());
+        zh_cn.insert(
+            "cod_abstraction".to_string(),
+            "抽象过量——复杂度超出理解能力".to_string(),
+        );
+        zh_cn.insert("cod_paper_cuts".to_string(), "千刀万剐式死亡".to_string());
+
+        // Final words
+        zh_cn.insert("fw_hotfix".to_string(), "再修一个热修复".to_string());
+        zh_cn.insert(
+            "fw_error_handling".to_string(),
+            "以后再加错误处理".to_string(),
+        );
+        zh_cn.insert("fw_understand".to_string(), "我还是能看懂的".to_string());
+        zh_cn.insert("fw_temp2".to_string(), "temp2应该能用".to_string());
+        zh_cn.insert("fw_next_sprint".to_string(), "下个冲刺再修".to_string());
+        zh_cn.insert("fw_funding".to_string(), "等下一轮融资再修".to_string());
+        zh_cn.insert(
+            "fw_theory".to_string(),
+            "其实你理解了理论就很简单的".to_string(),
+        );
+        zh_cn.insert("fw_refactor".to_string(), "下个季度再重构".to_string());
+
+        // Survival chances
+        zh_cn.insert("surv_none".to_string(), "无".to_string());
+        zh_cn.insert("surv_low".to_string(), "低".to_string());
+        zh_cn.insert("surv_casualties".to_string(), "可存活但有伤亡".to_string());
+        zh_cn.insert("surv_high".to_string(), "高".to_string());
+
+        // Mutation density
+        zh_cn.insert(
+            "density_extreme".to_string(),
+            "极端——需要紧急干预".to_string(),
+        );
+        zh_cn.insert("density_elevated".to_string(), "升高——建议隔离".to_string());
+        zh_cn.insert("density_low".to_string(), "低——病人状况稳定".to_string());
+
+        // Threat levels
+        zh_cn.insert("threat_apocalyptic".to_string(), "☢ 末日级".to_string());
+        zh_cn.insert("threat_critical".to_string(), "💀 危险级".to_string());
+        zh_cn.insert("threat_high".to_string(), "⚠ 高危".to_string());
+        zh_cn.insert("threat_elevated".to_string(), "⚠ 升高".to_string());
+        zh_cn.insert("threat_moderate".to_string(), "🟢 中等".to_string());
+
+        // Emotional states
+        zh_cn.insert("emotion_numb".to_string(), "对重复工作麻木".to_string());
+        zh_cn.insert("emotion_denial".to_string(), "否认".to_string());
+        zh_cn.insert("emotion_proud".to_string(), "为复杂度感到自豪".to_string());
+        zh_cn.insert(
+            "emotion_confident".to_string(),
+            "对自己的缩写充满信心".to_string(),
+        );
+        zh_cn.insert(
+            "emotion_overwhelmed".to_string(),
+            "不堪重负但保持乐观".to_string(),
+        );
+        zh_cn.insert("emotion_professional".to_string(), "职业性疏离".to_string());
+        zh_cn.insert(
+            "emotion_battle_scarred".to_string(),
+            "身经百战但仍在上线".to_string(),
+        );
+        zh_cn.insert(
+            "emotion_intellectual".to_string(),
+            "智识上满足，实践上迷失".to_string(),
+        );
+
+        // Philosophies
+        zh_cn.insert(
+            "phil_copy_paste".to_string(),
+            "成功过一次，就会再成功一次".to_string(),
+        );
+        zh_cn.insert("phil_yolo".to_string(), "生产环境不会崩的".to_string());
+        zh_cn.insert("phil_trait".to_string(), "不嵌套就不够高级".to_string());
+        zh_cn.insert(
+            "phil_legacy".to_string(),
+            "注释是给看不懂代码的人准备的".to_string(),
+        );
+        zh_cn.insert("phil_hotfix".to_string(), "未来的我会处理的".to_string());
+        zh_cn.insert("phil_enterprise".to_string(), "能编译就能上线".to_string());
+        zh_cn.insert("phil_startup".to_string(), "快速行动，必然出错".to_string());
+        zh_cn.insert(
+            "phil_academic".to_string(),
+            "理论很美，实践其次".to_string(),
+        );
+
+        // Core traits
+        zh_cn.insert(
+            "trait_dup_1".to_string(),
+            "Ctrl+C、Ctrl+V是你IDE最常用的快捷键".to_string(),
+        );
+        zh_cn.insert("trait_dup_2".to_string(), "能复制为什么要抽象".to_string());
+        zh_cn.insert(
+            "trait_dup_3".to_string(),
+            "同一个bug出现在5个地方=5倍的调试乐趣".to_string(),
+        );
+        zh_cn.insert(
+            "trait_dup_4".to_string(),
+            "DRY代表'不要重...算了，来不及了'".to_string(),
+        );
+
         // english messages
         let mut en_us = HashMap::new();
         en_us.insert(

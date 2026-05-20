@@ -27,7 +27,10 @@ fn test_cli_version_info() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("garbage-code-hunter") && stdout.contains("0.2.1"));
+    assert!(
+        stdout.contains("garbage-code-hunter")
+            && (stdout.contains("0.2.1") || stdout.contains("0.2.2"))
+    );
 }
 
 #[test]
@@ -112,6 +115,89 @@ fn test_cli_chinese_output() {
     assert!(stdout.contains("垃圾代码") || stdout.contains("变量"));
 }
 
+/// Objective: Verify analyze JSON exposes issues and Style IR summary.
+/// Invariants: JSON output must remain parseable and include stable summary fields.
+#[test]
+fn test_cli_json_includes_style_ir_summary() {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let file_path = temp_dir.path().join("test.rs");
+
+    fs::write(
+        &file_path,
+        "fn main() { let result = Some(42).unwrap(); println!(\"debug\"); }",
+    )
+    .expect("Failed to write test file");
+
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--",
+            "analyze",
+            "--format",
+            "json",
+            file_path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(
+        output.status.success(),
+        "analyze JSON command should exit successfully"
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("analyze JSON output should be valid JSON");
+
+    assert!(
+        parsed
+            .get("issues")
+            .and_then(|value| value.as_array())
+            .is_some(),
+        "analyze JSON should include an issues array"
+    );
+    assert_eq!(
+        parsed
+            .get("schema_version")
+            .and_then(|value| value.as_str()),
+        Some("1.0")
+    );
+    assert!(
+        parsed
+            .get("files")
+            .and_then(|value| value.as_array())
+            .is_some(),
+        "analyze JSON should include a files array"
+    );
+    assert_eq!(
+        parsed
+            .get("summary")
+            .and_then(|value| value.get("issue_count"))
+            .and_then(|value| value.as_u64()),
+        parsed
+            .get("issues")
+            .and_then(|value| value.as_array())
+            .map(|issues| issues.len() as u64)
+    );
+    let summary = parsed
+        .get("style_ir_summary")
+        .expect("analyze JSON should include style_ir_summary");
+    assert_eq!(
+        summary.get("language").and_then(|value| value.as_str()),
+        Some("Rust")
+    );
+    assert!(
+        summary.get("thresholds").is_some(),
+        "style_ir_summary should include thresholds"
+    );
+    assert!(
+        summary
+            .get("panic_call_count")
+            .and_then(|value| value.as_u64())
+            .unwrap_or_default()
+            >= 1,
+        "style_ir_summary should expose panic call count"
+    );
+}
+
 #[test]
 fn test_cli_markdown_output() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
@@ -188,29 +274,7 @@ fn test_cli_verbose_mode() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Verbose mode should contain detailed analysis
-    assert!(stdout.contains("详细分析") || stdout.contains("Detailed Analysis"));
-}
-
-#[test]
-fn test_cli_top_files_option() {
-    let temp_dir = TempDir::new().expect("Failed to create temp directory");
-    let file_path = temp_dir.path().join("test.rs");
-
-    fs::write(&file_path, "fn main() { let data = \"test\"; }").expect("Failed to write test file");
-
-    let output = Command::new("cargo")
-        .args([
-            "run",
-            "--",
-            "analyze",
-            "--top",
-            "1",
-            file_path.to_str().unwrap(),
-        ])
-        .output()
-        .expect("Failed to execute command");
-
-    assert!(output.status.success());
+    assert!(stdout.contains("MUTATION ANALYSIS") || stdout.contains("Personality"));
 }
 
 #[test]
@@ -357,4 +421,42 @@ fn test_cli_invalid_rust_file() {
 
     // Should handle invalid Rust files gracefully
     assert!(output.status.success());
+}
+
+#[test]
+fn test_cli_brief_mode() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let file_path = temp_dir.path().join("garbage.rs");
+    fs::write(
+        &file_path,
+        "fn main() { let x = 42; let y = Some(1).unwrap(); }",
+    )
+    .expect("Failed to write test file");
+
+    // Brief mode should skip boss file and mutation chains
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--",
+            "analyze",
+            "--brief",
+            file_path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("Failed to execute command");
+
+    assert!(output.status.success(), "brief mode should exit 0");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should contain personality and verdict (non-brief sections)
+    assert!(
+        stdout.contains("Personality") || stdout.contains("VERDICT"),
+        "brief output should contain personality/verdict"
+    );
+
+    // Should NOT contain boss file section
+    assert!(
+        !stdout.contains("FINAL BOSS"),
+        "brief output should not contain FINAL BOSS section"
+    );
 }

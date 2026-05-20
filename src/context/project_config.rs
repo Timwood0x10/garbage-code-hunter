@@ -18,6 +18,10 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub rules: RulesConfig,
 
+    /// Signal detector configuration
+    #[serde(default)]
+    pub signals: SignalsConfig,
+
     /// File and directory-level override configuration
     #[serde(default)]
     pub overrides: Vec<OverrideConfig>,
@@ -108,7 +112,7 @@ pub struct RulesConfig {
     pub unwrap: UnwrapRuleConfig,
 
     /// Magic Number rule configuration
-    #[serde(default)]
+    #[serde(default, rename = "magic_number")]
     pub magic_number: MagicNumberRuleConfig,
 
     /// Println rule configuration
@@ -209,9 +213,19 @@ impl Default for PrintlnRuleConfig {
         Self {
             enabled: true,
             allow_in_main_files: true,
-            threshold: 3,
+            threshold: 1,
         }
     }
+}
+
+/// Signal detector configuration.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct SignalsConfig {
+    /// Whether to skip signal detection in test files (default: false).
+    /// Set to `true` to suppress signals in test files.
+    #[serde(default)]
+    pub skip_tests: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -273,7 +287,7 @@ fn default_true() -> bool {
     true
 }
 fn default_println_threshold() -> usize {
-    3
+    1
 }
 fn default_one() -> f64 {
     1.0
@@ -289,6 +303,7 @@ mod tests {
         assert!(config.rules.naming.enabled);
         assert_eq!(config.rules.unwrap.threshold, 1);
         assert!(config.rules.println.allow_in_main_files);
+        assert!(!config.signals.skip_tests);
     }
 
     #[test]
@@ -335,5 +350,25 @@ threshold = 5
         assert_eq!(config.rules.unwrap.nuclear_threshold, 20);
         assert_eq!(config.rules.println.threshold, 5);
         // Note: overrides parsing tested separately to isolate potential issues
+    }
+
+    #[test]
+    fn test_magic_number_config_parse() {
+        let toml_content = r#"
+[rules.magic_number]
+allowed-numbers = [3000, 1500, 86400]
+ui-layout-numbers = [100, 200, 300]
+"#;
+        let config: ProjectConfig =
+            toml::from_str(toml_content).expect("Failed to parse magic number config");
+        assert_eq!(
+            config.rules.magic_number.allowed_numbers,
+            vec![3000, 1500, 86400]
+        );
+        assert_eq!(
+            config.rules.magic_number.ui_layout_numbers,
+            vec![100, 200, 300]
+        );
+        assert!(config.rules.magic_number.enabled);
     }
 }

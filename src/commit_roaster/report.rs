@@ -125,9 +125,9 @@ pub fn format_terminal(report: &Report) -> String {
                 a.severity
                     .weight()
                     .partial_cmp(&b.severity.weight())
-                    .unwrap()
+                    .expect("f64 partial_cmp is always Some for non-NaN severity weights")
             })
-            .unwrap();
+            .expect("sc.issues is non-empty: guarded by is_empty check above");
         by_severity
             .entry(max_sev.severity.label())
             .or_default()

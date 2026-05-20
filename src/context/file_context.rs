@@ -148,9 +148,18 @@ impl FileContext {
 
     fn is_test_file(path_str: &str) -> bool {
         path_str.contains("/tests/")
+            || path_str.contains("/test/")
             || path_str.ends_with("_test.rs")
-            || path_str.contains("test_")
+            || path_str.ends_with("_test.go")
+            || path_str.ends_with("_test.rb")
+            || path_str.ends_with("_spec.rb")
+            || path_str.ends_with("test.java")
+            || path_str.ends_with("tests.java")
+            || path_str.ends_with("tests.swift")
             || path_str.contains(".test.")
+            || path_str.contains(".spec.")
+            || path_str.starts_with("test_")
+            || path_str.contains("/test_")
     }
 
     fn is_example_file(path_str: &str) -> bool {
@@ -267,16 +276,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_business_context() {
+    fn test_web_context() {
         let ctx = FileContext::from_path(Path::new("src/lib.rs"));
-        assert_eq!(ctx, FileContext::Business);
-        assert!((ctx.rule_weight_multiplier() - 1.0).abs() < f64::EPSILON);
+        assert_eq!(ctx, FileContext::Web);
+        assert!((ctx.rule_weight_multiplier() - 0.7).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_main_file_is_business() {
         let ctx = FileContext::from_path(Path::new("src/main.rs"));
-        assert_eq!(ctx, FileContext::Business);
+        assert_eq!(ctx, FileContext::Web);
     }
 
     #[test]

@@ -1,0 +1,41 @@
+# Garbage Code Hunter Configuration
+# ==================================
+# This config excludes modules that intentionally use "bad" patterns
+# (like reporter/ which uses println for output, display modules, etc.)
+
+[exclude]
+# Additional directories to exclude (beyond defaults like target/, node_modules/):
+directories = []
+
+# File patterns to skip:
+files = [
+    # "*.min.js",     # Minified files
+    # "*.generated.rs", # Generated code
+]
+
+# Specific paths to skip (partial match):
+paths = [
+    "reporter/",       # Skip reporter module (uses println intentionally)
+    "display/",        # Skip all display modules (formatting output)
+    "deps_shamer/",    # Skip deps_shamer (template-heavy)
+    "ci_bot/",         # Skip ci_bot (template-heavy)
+    "trend/display",   # Skip trend display module
+    "last_words/display", # Skip last_words display module
+    "debt_invoice/display", # Skip debt_invoice display module
+]
+
+[rules]
+# Disable specific rules entirely:
+disabled = [
+    # "println-debugging",  # Don't care about debug prints
+]
+
+# Override default thresholds:
+[rules.thresholds]
+# max_function_length = 120    # Allow longer functions (default: 80)
+
+[output]
+# show_paths = true          # Show file paths in output
+# show_severity = true        # Show severity levels
+language = "zh-CN"         # Message language: "zh-CN" or "en"
+roast_mode = true           # Enable roast buddy style (funny messages)

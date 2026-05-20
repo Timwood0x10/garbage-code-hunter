@@ -1,13 +1,30 @@
 use regex::Regex;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use crate::context::{FileContext, ProjectConfig};
+use crate::context::ProjectConfig;
+use crate::finding::StyleFinding;
 use crate::language::{Language, SUPPORTED_EXTENSIONS};
-use crate::rules::generic::GenericRuleEngine;
+use crate::signals::{aggregate_detector_scores, SignalDetector, StyleSignal};
+use crate::style_ir::{StyleIr, StyleIrSummary};
 use crate::treesitter::duplication::{CrossFileDupDetector, IntraFileDupDetector};
-use crate::treesitter::{TreeSitterEngine, TreeSitterRuleEngine};
+use crate::treesitter::engine::{ParsedFile, TreeSitterEngine};
+
+pub struct StyleIrFileInfo {
+    pub file_path: String,
+    pub summary: StyleIrSummary,
+    pub is_test: bool,
+}
+
+pub struct FullAnalysisResult {
+    pub findings: Vec<StyleFinding>,
+    pub file_count: usize,
+    pub total_lines: usize,
+    pub style_ir_files: Vec<StyleIrFileInfo>,
+}
 
 #[derive(Debug, Clone)]
 pub struct CodeIssue {
@@ -27,23 +44,24 @@ pub enum Severity {
 }
 
 pub struct CodeAnalyzer {
-    generic_engine: GenericRuleEngine,
     ts_engine: TreeSitterEngine,
-    ts_rule_engine: TreeSitterRuleEngine,
     exclude_patterns: Vec<Regex>,
-    lang: String,
+    project_config: ProjectConfig,
+    cross_detector: RefCell<CrossFileDupDetector>,
+    detectors: Vec<Box<dyn SignalDetector>>,
+    direct_scores: RefCell<HashMap<StyleSignal, f64>>,
 }
 
 impl CodeAnalyzer {
-    pub fn rule_names(&self) -> Vec<&'static str> {
-        self.ts_rule_engine.rule_names()
-    }
-
     pub fn new(exclude_patterns: &[String], lang: &str) -> Self {
         Self::with_config(exclude_patterns, lang, ProjectConfig::default())
     }
 
-    pub fn with_config(exclude_patterns: &[String], lang: &str, config: ProjectConfig) -> Self {
+    pub fn infection_spread(&self) -> HashMap<String, Vec<(String, usize, Vec<String>)>> {
+        self.cross_detector.borrow().infection_spread()
+    }
+
+    pub fn with_config(exclude_patterns: &[String], _lang: &str, config: ProjectConfig) -> Self {
         // Default exclude patterns for common build/dependency directories
         let default_excludes = [
             "target",
@@ -56,6 +74,9 @@ impl CodeAnalyzer {
             "out",
             "__pycache__",
             ".DS_Store",
+            ".venv",
+            "venv",
+            "vendor",
         ];
 
         let mut all_patterns: Vec<String> =
@@ -68,25 +89,34 @@ impl CodeAnalyzer {
         let patterns = all_patterns
             .iter()
             .filter_map(|pattern| {
-                // Convert glob patterns to regular expressions
-                let regex_pattern = pattern
+                // Convert glob patterns to regular expressions with path-boundary anchoring.
+                // Without anchors, "build" would match "mybuild/foo.o" — a substring false positive.
+                let glob_pattern = pattern
                     .replace(".", r"\.")
                     .replace("*", ".*")
                     .replace("?", ".");
+                let regex_pattern = format!(r"(?:^|/){}(?:/|$)", glob_pattern);
                 Regex::new(&regex_pattern).ok()
             })
             .collect();
 
-        let mut ts_rule_engine = TreeSitterRuleEngine::new();
-        crate::treesitter::rules::rust_rules::register_rust_rules(&mut ts_rule_engine);
-
         Self {
-            generic_engine: GenericRuleEngine::new(),
             ts_engine: TreeSitterEngine::new(),
-            ts_rule_engine,
             exclude_patterns: patterns,
-            lang: lang.to_string(),
+            project_config: config,
+            cross_detector: RefCell::new(CrossFileDupDetector::new()),
+            detectors: Vec::new(),
+            direct_scores: RefCell::new(HashMap::new()),
         }
+    }
+
+    pub fn with_detectors(mut self, detectors: Vec<Box<dyn SignalDetector>>) -> Self {
+        self.detectors = detectors;
+        self
+    }
+
+    pub fn direct_signal_scores(&self) -> HashMap<StyleSignal, f64> {
+        self.direct_scores.borrow().clone()
     }
 
     fn should_exclude(&self, path: &Path) -> bool {
@@ -96,23 +126,22 @@ impl CodeAnalyzer {
             .any(|pattern| pattern.is_match(&path_str))
     }
 
-    pub fn analyze_path(&self, path: &Path) -> Vec<CodeIssue> {
+    /// Collect source files from a path (file or directory). Excludes
+    /// unsupported extensions and should_exclude paths. Includes generated files.
+    fn collect_source_files(&self, path: &Path) -> Vec<PathBuf> {
         if path.is_file() {
             if !self.should_exclude(path) {
                 let lang = Language::from_path(path);
                 if lang != Language::Unknown {
-                    return self.analyze_file(path);
+                    return vec![path.to_path_buf()];
                 }
             }
             return Vec::new();
         }
-
         if !path.is_dir() {
             return Vec::new();
         }
-
-        // Collect all supported source files
-        let files: Vec<PathBuf> = WalkDir::new(path)
+        WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| !self.should_exclude(e.path()))
@@ -123,71 +152,280 @@ impl CodeAnalyzer {
                     .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext))
             })
             .map(|e| e.path().to_path_buf())
-            .collect();
+            .collect()
+    }
 
-        // Phase 1: Parallel single-file analysis for all languages
-        let mut issues: Vec<CodeIssue> = files
-            .iter()
-            .flat_map(|file_path| self.analyze_file(file_path))
-            .collect();
+    /// Compatibility wrapper — runs the full pipeline and converts back to `CodeIssue`s.
+    pub fn analyze_path(&self, path: &Path) -> Vec<CodeIssue> {
+        self.analyze_to_findings(path)
+            .into_iter()
+            .map(|f| f.to_code_issue())
+            .collect()
+    }
 
-        // Phase 2: Cross-file duplication detection (tree-sitter based)
-        let mut cross_detector = CrossFileDupDetector::new();
+    /// Full analysis pipeline returning `StyleFinding`s.
+    ///
+    /// - Phase 1: Parse all files and cache `ParsedFile`s
+    /// - Phase 2: Cross-file duplication detection
+    /// - Phase 3: Intra-file duplication detection
+    /// - Phase 4: Direct signal detection (scores + findings)
+    ///
+    /// Also populates `self.direct_scores` for downstream consumers.
+    pub fn analyze_to_findings(&self, path: &Path) -> Vec<StyleFinding> {
+        let files = self.collect_source_files(path);
+        if files.is_empty() {
+            return Vec::new();
+        }
+
+        // Phase 1: Parse all files and cache for downstream phases
+        let mut parsed_files: Vec<(ParsedFile, PathBuf, bool)> = Vec::new();
+
         for file_path in &files {
-            if let Ok(content) = fs::read_to_string(file_path) {
-                if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                    cross_detector.process_file(&parsed);
-                }
+            if Self::is_generated_file(file_path) {
+                continue;
+            }
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let lang = Language::from_path(file_path);
+            if lang == Language::Unknown {
+                continue;
+            }
+            let is_test_file = Self::is_test_file(file_path);
+
+            if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
+                parsed_files.push((parsed, file_path.clone(), is_test_file));
             }
         }
-        issues.extend(cross_detector.find_duplicates());
-        issues.extend(cross_detector.find_near_duplicates());
+
+        // Phase 2: Cross-file duplication detection
+        let mut issues: Vec<CodeIssue> = Vec::new();
+        *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
+        for (parsed, _, is_test) in &parsed_files {
+            if *is_test && self.project_config.signals.skip_tests {
+                continue;
+            }
+            self.cross_detector.borrow_mut().process_file(parsed);
+        }
+        issues.extend(self.cross_detector.borrow().find_duplicates());
+        issues.extend(self.cross_detector.borrow().find_near_duplicates());
 
         // Phase 3: Intra-file code duplication
-        for file_path in &files {
-            if let Ok(content) = fs::read_to_string(file_path) {
-                if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-                    issues.extend(IntraFileDupDetector::check(&parsed));
+        for (parsed, _, is_test) in &parsed_files {
+            if *is_test && self.project_config.signals.skip_tests {
+                continue;
+            }
+            issues.extend(IntraFileDupDetector::check(parsed));
+        }
+
+        // Phase 4: Direct signal detection (scores + findings)
+        let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
+        if !self.detectors.is_empty() && !parsed_files.is_empty() {
+            let parsed_for_scores: Vec<ParsedFile> =
+                parsed_files.iter().map(|(p, _, _)| p.clone()).collect();
+            let test_flags: Vec<bool> = parsed_files
+                .iter()
+                .map(|(_, _, is_test)| *is_test)
+                .collect();
+            let skip_tests_config = self.project_config.signals.skip_tests;
+            *self.direct_scores.borrow_mut() = aggregate_detector_scores(
+                &self.detectors,
+                &parsed_for_scores,
+                &test_flags,
+                skip_tests_config,
+            );
+
+            for (parsed, file_path, is_test_file) in &parsed_files {
+                let lang = parsed.language;
+                let ir = StyleIr::from_parsed(parsed);
+                for detector in &self.detectors {
+                    if !detector.supported_languages().contains(&lang) {
+                        continue;
+                    }
+                    let findings_iter = if let Some(ref ir) = ir {
+                        detector.detect_findings_with_ir(
+                            ir,
+                            parsed,
+                            *is_test_file,
+                            skip_tests_config,
+                        )
+                    } else {
+                        detector.detect_findings(parsed, *is_test_file, skip_tests_config)
+                    };
+                    for (signal, count) in findings_iter {
+                        let count = if *is_test_file {
+                            (count as f64 * 0.2).round() as usize
+                        } else {
+                            count
+                        };
+                        if count > 0 {
+                            findings.push(StyleFinding::for_signal(
+                                signal,
+                                count,
+                                file_path.clone(),
+                            ));
+                        }
+                    }
                 }
             }
         }
 
-        issues
+        findings
+    }
+
+    pub fn analyze_full(&self, path: &Path) -> FullAnalysisResult {
+        let files = self.collect_source_files(path);
+        if files.is_empty() {
+            return FullAnalysisResult {
+                findings: Vec::new(),
+                file_count: 0,
+                total_lines: 0,
+                style_ir_files: Vec::new(),
+            };
+        }
+
+        let mut parsed_files: Vec<(ParsedFile, PathBuf, bool)> = Vec::new();
+        let mut style_ir_files: Vec<StyleIrFileInfo> = Vec::new();
+        let mut file_count: usize = 0;
+        let mut total_lines: usize = 0;
+
+        for file_path in &files {
+            if Self::is_generated_file(file_path) {
+                continue;
+            }
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let lang = Language::from_path(file_path);
+            if lang == Language::Unknown {
+                continue;
+            }
+            file_count += 1;
+            total_lines += content.lines().count();
+            let is_test_file = Self::is_test_file(file_path);
+
+            if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
+                if let Some(ir) = StyleIr::from_parsed(&parsed) {
+                    style_ir_files.push(StyleIrFileInfo {
+                        file_path: file_path.to_string_lossy().to_string(),
+                        summary: ir.summary(),
+                        is_test: is_test_file,
+                    });
+                }
+                parsed_files.push((parsed, file_path.clone(), is_test_file));
+            }
+        }
+
+        // Phase 2-3: Duplication detection
+        let mut issues: Vec<CodeIssue> = Vec::new();
+        *self.cross_detector.borrow_mut() = CrossFileDupDetector::new();
+        for (parsed, _, _) in &parsed_files {
+            self.cross_detector.borrow_mut().process_file(parsed);
+        }
+        issues.extend(self.cross_detector.borrow().find_duplicates());
+        issues.extend(self.cross_detector.borrow().find_near_duplicates());
+
+        for (parsed, _, _) in &parsed_files {
+            issues.extend(IntraFileDupDetector::check(parsed));
+        }
+
+        let mut findings: Vec<StyleFinding> = issues.iter().map(From::from).collect();
+
+        if !self.detectors.is_empty() && !parsed_files.is_empty() {
+            let parsed_for_scores: Vec<ParsedFile> =
+                parsed_files.iter().map(|(p, _, _)| p.clone()).collect();
+            let test_flags: Vec<bool> = parsed_files
+                .iter()
+                .map(|(_, _, is_test)| *is_test)
+                .collect();
+            let skip_tests_config = self.project_config.signals.skip_tests;
+            *self.direct_scores.borrow_mut() = aggregate_detector_scores(
+                &self.detectors,
+                &parsed_for_scores,
+                &test_flags,
+                skip_tests_config,
+            );
+
+            for (parsed, file_path, is_test_file) in &parsed_files {
+                let lang = parsed.language;
+                let ir = StyleIr::from_parsed(parsed);
+                for detector in &self.detectors {
+                    if !detector.supported_languages().contains(&lang) {
+                        continue;
+                    }
+                    let findings_iter = if let Some(ref ir) = ir {
+                        detector.detect_findings_with_ir(
+                            ir,
+                            parsed,
+                            *is_test_file,
+                            skip_tests_config,
+                        )
+                    } else {
+                        detector.detect_findings(parsed, *is_test_file, skip_tests_config)
+                    };
+                    for (signal, count) in findings_iter {
+                        let count = if *is_test_file {
+                            (count as f64 * 0.2).round() as usize
+                        } else {
+                            count
+                        };
+                        if count > 0 {
+                            findings.push(StyleFinding::for_signal(
+                                signal,
+                                count,
+                                file_path.clone(),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        FullAnalysisResult {
+            findings,
+            file_count,
+            total_lines,
+            style_ir_files,
+        }
+    }
+
+    fn is_generated_file(path: &Path) -> bool {
+        let name = path.to_string_lossy();
+        // Protobuf generated files
+        name.ends_with(".pb.go")
+            || name.contains("_grpc.pb.go")
+            || name.ends_with(".pb.gw.go")
+            || name.ends_with(".pulsar.go")
+            || name.ends_with(".pb.cc")
+            || name.ends_with(".pb.h")
+        // Dependencies
+            || name.contains("/node_modules/")
+            || name.contains("\\node_modules\\")
+            || name.contains("/vendor/")
+            || name.contains("\\vendor\\")
+        // Minified bundles
+            || name.contains("/swagger-ui/")
+        // Generated files from code generators
+            || name.contains(".gen.")
+            || name.contains(".generated.")
+        // Minified / bundled JavaScript
+            || name.ends_with(".min.js")
+            || name.ends_with(".bundle.js")
     }
 
     pub fn analyze_file(&self, file_path: &Path) -> Vec<CodeIssue> {
-        let content = match fs::read_to_string(file_path) {
-            Ok(content) => content,
-            Err(_) => return vec![],
-        };
-
-        let lang = Language::from_path(file_path);
-        let is_test_file = Self::is_test_file(file_path, &content);
-
-        // Use tree-sitter for all languages with grammar support
-        if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
-            let context = FileContext::from_path(file_path);
-            self.ts_rule_engine.check_file_with_context(
-                &parsed,
-                is_test_file,
-                &context,
-                &ProjectConfig::default(),
-            )
-        } else if lang == Language::C || lang == Language::Cpp {
-            // Fallback to generic text-based rules for C/C++
-            self.generic_engine
-                .check_file(file_path, &content, &self.lang)
-        } else {
-            vec![]
+        if Self::is_generated_file(file_path) {
+            return vec![];
         }
+        self.analyze_path(file_path)
     }
 
-    fn is_test_file(path: &Path, content: &str) -> bool {
+    fn is_test_file(path: &Path) -> bool {
         let path_str = path.to_string_lossy();
-        // Normalize: strip leading "./" for consistent matching
         let normalized = path_str.strip_prefix("./").unwrap_or(&path_str);
 
-        // Check file path patterns (Rust + C/C++)
         if normalized.contains("/tests/")
             || normalized.contains("\\tests\\")
             || normalized.starts_with("tests/")
@@ -199,6 +437,22 @@ impl CodeAnalyzer {
             || normalized.ends_with("_test.c")
             || normalized.ends_with("_test.cpp")
             || normalized.ends_with("_test.cc")
+            || normalized.ends_with("_test.go")
+            || normalized.ends_with(".test.js")
+            || normalized.ends_with(".spec.js")
+            || normalized.ends_with(".test.jsx")
+            || normalized.ends_with(".spec.jsx")
+            || normalized.ends_with(".test.ts")
+            || normalized.ends_with(".spec.ts")
+            || normalized.ends_with(".test.tsx")
+            || normalized.ends_with(".spec.tsx")
+            || normalized.ends_with("_test.rb")
+            || normalized.ends_with("_spec.rb")
+            || normalized.ends_with("Test.java")
+            || normalized.ends_with("Tests.java")
+            || normalized.ends_with("Tests.swift")
+            || normalized.ends_with("Test.swift")
+            || normalized.ends_with("_test.zig")
             || normalized.starts_with("test_")
         {
             return true;
@@ -245,7 +499,296 @@ impl CodeAnalyzer {
         {
             return true;
         }
-        // Check for #[cfg(test)] module in content (Rust)
-        content.contains("#[cfg(test)]")
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    // ── is_generated_file ────────────────────────────────────────
+
+    /// Objective: Verify that protobuf-generated files (.pb.go, _grpc.pb.go, .pb.gw.go,
+    ///            .pulsar.go, .pb.cc, .pb.h) are correctly identified as generated.
+    /// Invariants: All protobuf suffix patterns must be detected regardless of path prefix.
+    #[test]
+    fn test_is_generated_file_detects_all_protobuf_suffixes() {
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("api.pb.go")),
+            "expected .pb.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("service_grpc.pb.go")),
+            "expected _grpc.pb.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("gateway.pb.gw.go")),
+            "expected .pb.gw.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("topic.pulsar.go")),
+            "expected .pulsar.go to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("types.pb.cc")),
+            "expected .pb.cc to be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("types.pb.h")),
+            "expected .pb.h to be generated"
+        );
+    }
+
+    /// Objective: Verify that dependency/vendor directories are detected.
+    /// Invariants: Paths containing /node_modules/, /vendor/, or /swagger-ui/ are generated,
+    ///             regardless of the file extension.
+    #[test]
+    fn test_is_generated_file_detects_dependency_directories() {
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("/project/node_modules/foo/index.js")),
+            "node_modules should be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("/project/vendor/bar/main.rs")),
+            "vendor should be generated"
+        );
+        assert!(
+            CodeAnalyzer::is_generated_file(Path::new("/project/swagger-ui/index.html")),
+            "swagger-ui should be generated"
+        );
+    }
+
+    /// Objective: Verify that user-written source files are NOT marked as generated.
+    /// Invariants: Any path that does not match a generated suffix or generated directory
+    ///             pattern must return false.
+    #[test]
+    fn test_is_generated_file_does_not_flag_user_code() {
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("src/main.rs")),
+            "src/main.rs should not be generated"
+        );
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("src/server.go")),
+            "src/server.go (Go source) should not be generated"
+        );
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("app.py")),
+            "app.py should not be generated"
+        );
+    }
+
+    /// Objective: Verify that a file ending in .go but not matching any protobuf pattern
+    ///            is correctly treated as user code, even in a path containing "vendor"
+    ///            as a substring (not the /vendor/ directory).
+    /// Invariants: Only exact /vendor/ path component must match, not partial substring.
+    #[test]
+    fn test_is_generated_file_does_not_false_positive_go_source() {
+        assert!(
+            !CodeAnalyzer::is_generated_file(Path::new("src/vendor_service.go")),
+            "vendor_service.go should not be treated as generated just because 'vendor' appears in the name"
+        );
+    }
+
+    // ── is_test_file ─────────────────────────────────────────────
+
+    #[test]
+    fn test_is_test_file_detects_test_directories() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("src/tests/helper.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("examples/hello.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("benches/perf.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "tests/fixtures/data.rs"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "tests/mocks/service.rs"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "test-files/input.txt"
+        )));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_rust_c_cpp() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("src/foo_test.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("src/foo_tests.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("test_main.c")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("foo_test.c")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("foo_test.cpp")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("foo_test.cc")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_go() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("handler_test.go")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("pkg/service_test.go")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("handler.go")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_js_ts() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.js")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.js")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.jsx")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.jsx")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.ts")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.ts")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.tsx")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.tsx")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("app.js")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("app.ts")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_java() {
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTest.java"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTests.java"
+        )));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("UserService.java")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_ruby() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("user_test.rb")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("user_spec.rb")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("user.rb")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_swift() {
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTests.swift"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTest.swift"
+        )));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("UserService.swift")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_zig() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("main_test.zig")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("main.zig")));
+    }
+
+    #[test]
+    fn test_is_test_file_does_not_flag_normal_source() {
+        assert!(!CodeAnalyzer::is_test_file(Path::new("src/main.rs")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("src/lib.rs")));
+    }
+
+    #[test]
+    fn test_is_test_file_strips_leading_dot_slash() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("./tests/test.rs")));
+    }
+
+    // ── should_exclude ───────────────────────────────────────────
+
+    /// Objective: Verify that default exclude patterns (target, node_modules, .git etc.)
+    ///            are applied automatically even without custom patterns.
+    /// Invariants: CodeAnalyzer::new with empty custom patterns still excludes common dirs.
+    #[test]
+    fn test_should_exclude_applies_default_patterns() {
+        let analyzer = CodeAnalyzer::new(&[], "en");
+        assert!(
+            analyzer.should_exclude(Path::new("node_modules/foo")),
+            "node_modules should be excluded by default"
+        );
+        assert!(
+            analyzer.should_exclude(Path::new("target/debug/build")),
+            "target/ should be excluded by default"
+        );
+        assert!(
+            !analyzer.should_exclude(Path::new("src/main.rs")),
+            "src/ should not be excluded"
+        );
+    }
+
+    /// Objective: Verify that custom exclude patterns are added alongside defaults.
+    /// Invariants: Both custom and default patterns are checked.
+    #[test]
+    fn test_should_exclude_combines_custom_and_default_patterns() {
+        let analyzer = CodeAnalyzer::new(&["generated".to_string()], "en");
+        assert!(
+            analyzer.should_exclude(Path::new("build/generated/code.rs")),
+            "custom pattern 'generated' should match"
+        );
+        assert!(
+            analyzer.should_exclude(Path::new("target/release/exe")),
+            "default pattern 'target' should still match"
+        );
+    }
+
+    /// Objective: Verify that a pattern does NOT match unrelated directories.
+    /// Invariants: Glob-to-regex conversion creates "build" => "build.*", which should
+    ///             match "build/..." but not "src/main.rs".
+    #[test]
+    fn test_should_exclude_only_matches_intended_directories() {
+        let analyzer = CodeAnalyzer::new(&["build".to_string()], "en");
+        assert!(
+            analyzer.should_exclude(Path::new("build/foo.o")),
+            "'build' pattern should match build/ path"
+        );
+        assert!(
+            !analyzer.should_exclude(Path::new("src/main.rs")),
+            "'build' pattern should NOT match src/ path"
+        );
+    }
+
+    // ── analyze_to_findings ───────────────────────────────────────
+
+    /// Objective: Verify that `analyze_to_findings()` produces both rule-based
+    /// findings (from CodeIssue conversion) AND direct detector signal findings.
+    /// Invariants: With a file containing panics + naming issues, the output must
+    /// include at least some PanicAddiction findings and some findings with a signal
+    /// other than Duplication (the default when no signal is recognized).
+    #[test]
+    fn test_analyze_to_findings_includes_detector_findings() {
+        use crate::detectors::PanicAddictionDetector;
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file_path = dir.path().join("code.rs");
+        let mut f = std::fs::File::create(&file_path).expect("create temp file");
+        write!(
+            f,
+            "fn main() {{
+    let _ = foo.unwrap();
+    let _ = bar.expect(\"msg\");
+    panic!(\"boom\");
+    let x = 1;
+}}
+"
+        )
+        .expect("write");
+
+        let analyzer = CodeAnalyzer::new(&[], "en")
+            .with_detectors(vec![
+                Box::new(PanicAddictionDetector::new()) as Box<dyn SignalDetector>
+            ]);
+
+        let findings = analyzer.analyze_to_findings(dir.path());
+
+        // Must have at least one finding with PanicAddiction signal
+        let panic_signal_findings: Vec<_> = findings
+            .iter()
+            .filter(|f| f.signal == StyleSignal::PanicAddiction)
+            .collect();
+        assert!(
+            !panic_signal_findings.is_empty(),
+            "expected at least one PanicAddiction finding from detector, got {} total findings",
+            findings.len()
+        );
+
+        // Verify at least 1 finding exists from the detector
+        assert!(
+            !findings.is_empty(),
+            "expected at least 1 total finding, got {}",
+            findings.len()
+        );
     }
 }
