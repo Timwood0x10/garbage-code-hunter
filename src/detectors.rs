@@ -429,13 +429,13 @@ mod tests {
         assert_eq!(count, 2, "should find 2 unwrap calls, got {count}");
     }
 
-    /// Objective: Verify PanicAddictionDetector finds .expect() calls.
+    /// Objective: Verify PanicAddictionDetector does NOT flag .expect() calls.
     #[test]
-    fn test_detector_panic_expect() {
+    fn test_detector_panic_expect_allowed() {
         let file = parse_rust("fn main() { let x = val.expect(\"msg\"); }");
         let detector = PanicAddictionDetector::new();
         let count = detector.count_violations(&file);
-        assert_eq!(count, 1, "should find 1 expect call, got {count}");
+        assert_eq!(count, 0, "expect() is allowed, got {count}");
     }
 
     /// Objective: Verify PanicAddictionDetector finds panic!() macro calls.
@@ -454,7 +454,7 @@ fn main() {
         assert_eq!(count, 2, "should find 2 panic!() calls, got {count}");
     }
 
-    /// Objective: Verify detector finds mixed unwrap + expect + panic calls.
+    /// Objective: Verify detector finds unwrap + panic but not expect.
     #[test]
     fn test_detector_panic_mixed() {
         let file = parse_rust(
@@ -468,7 +468,10 @@ fn main() {
         );
         let detector = PanicAddictionDetector::new();
         let count = detector.count_violations(&file);
-        assert_eq!(count, 3, "should find 3 total violations, got {count}");
+        assert_eq!(
+            count, 2,
+            "unwrap + panic = 2, expect is allowed, got {count}"
+        );
     }
 
     // ── SignalDetector — NamingChaosDetector ─────────────────────

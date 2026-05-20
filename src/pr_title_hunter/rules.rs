@@ -65,7 +65,8 @@ impl PrRule for TooShortRule {
 
 /// Generic / meaningless single-word title.
 static GENERIC_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)^(fix|update|change|modify|refactor|patch|chore|misc|wip|tmp|test)$").unwrap()
+    Regex::new(r"(?i)^(fix|update|change|modify|refactor|patch|chore|misc|wip|tmp|test)$")
+        .expect("GENERIC_RE: hardcoded regex pattern is valid")
 });
 
 pub struct GenericTitleRule;
@@ -95,8 +96,9 @@ impl PrRule for GenericTitleRule {
 }
 
 /// Title is only a ticket/issue number (e.g., "PROJ-123", "#456").
-static TICKET_ONLY_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^([A-Z]+-\d+|#\d+)$").unwrap());
+static TICKET_ONLY_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^([A-Z]+-\d+|#\d+)$").expect("TICKET_ONLY_RE: hardcoded regex pattern is valid")
+});
 
 pub struct TicketOnlyRule;
 
@@ -125,8 +127,10 @@ impl PrRule for TicketOnlyRule {
 }
 
 /// WIP / Draft PR title.
-static WIP_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^(wip|draft|do not merge|dnm|work.in.progress)").unwrap());
+static WIP_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(wip|draft|do not merge|dnm|work.in.progress)")
+        .expect("WIP_RE: hardcoded regex pattern is valid")
+});
 
 pub struct WipTitleRule;
 
@@ -201,8 +205,10 @@ impl PrRule for AllCapsRule {
 }
 
 /// Keyboard mash detection (asdf, qwer, etc.).
-static MASH_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^(asdf|qwer|zxcv| hjkl|aaaa+|xxx+|zzz+)$").unwrap());
+static MASH_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(asdf|qwer|zxcv| hjkl|aaaa+|xxx+|zzz+)$")
+        .expect("MASH_RE: hardcoded regex pattern is valid")
+});
 
 pub struct KeyboardMashRule;
 
@@ -230,7 +236,7 @@ impl PrRule for KeyboardMashRule {
 /// Title starts with lowercase letter (excluding conventional commits).
 static CONVENTIONAL_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?:\s")
-        .unwrap()
+        .expect("CONVENTIONAL_RE: hardcoded regex pattern is valid")
 });
 
 pub struct LowercaseStartRule;

@@ -113,10 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[test]
     fn test_rust_panic_detection() {
         let count = count_violations(&PanicAddictionDetector::new(), garbage_code(), "test.rs");
-        assert!(
-            count >= 3,
-            "Rust panic: unwrap + expect + panic! = >=3, got {count}"
-        );
+        assert!(count >= 2, "Rust panic: unwrap + panic! = >=2, got {count}");
     }
 
     #[test]

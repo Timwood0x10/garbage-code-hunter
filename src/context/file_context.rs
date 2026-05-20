@@ -148,9 +148,18 @@ impl FileContext {
 
     fn is_test_file(path_str: &str) -> bool {
         path_str.contains("/tests/")
+            || path_str.contains("/test/")
             || path_str.ends_with("_test.rs")
-            || path_str.contains("test_")
+            || path_str.ends_with("_test.go")
+            || path_str.ends_with("_test.rb")
+            || path_str.ends_with("_spec.rb")
+            || path_str.ends_with("test.java")
+            || path_str.ends_with("tests.java")
+            || path_str.ends_with("tests.swift")
             || path_str.contains(".test.")
+            || path_str.contains(".spec.")
+            || path_str.starts_with("test_")
+            || path_str.contains("/test_")
     }
 
     fn is_example_file(path_str: &str) -> bool {

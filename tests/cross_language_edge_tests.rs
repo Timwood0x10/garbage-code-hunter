@@ -408,9 +408,9 @@ fn main() {
     let c = z.unwrap_or_default();
 }
 "#;
-        // unwrap_or_default is not a panic call, so 3 violations
+        // unwrap_or_default is not a panic call; expect() is allowed
         let count = count_violations(&PanicAddictionDetector::new(), code, "test.rs");
-        assert_eq!(count, 3, "unwrap + expect + panic! = 3");
+        assert_eq!(count, 2, "unwrap + panic! = 2, expect is allowed");
     }
 
     #[test]

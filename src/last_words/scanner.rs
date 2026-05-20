@@ -139,30 +139,45 @@ pub fn try_get_age(file: &Path, line: usize) -> Option<u64> {
 
 fn build_patterns() -> Vec<(LastWordKind, Regex)> {
     vec![
-        (LastWordKind::Fixme, Regex::new(r"(?i)\bFIXME\b").unwrap()),
-        (LastWordKind::Todo, Regex::new(r"(?i)\bTODO\b").unwrap()),
-        (LastWordKind::Hack, Regex::new(r"(?i)\bHACK\b").unwrap()),
+        (
+            LastWordKind::Fixme,
+            Regex::new(r"(?i)\bFIXME\b").expect("FIXME regex is a valid hardcoded literal"),
+        ),
+        (
+            LastWordKind::Todo,
+            Regex::new(r"(?i)\bTODO\b").expect("TODO regex is a valid hardcoded literal"),
+        ),
+        (
+            LastWordKind::Hack,
+            Regex::new(r"(?i)\bHACK\b").expect("HACK regex is a valid hardcoded literal"),
+        ),
         (
             LastWordKind::Temp,
-            Regex::new(r"(?i)\bTEMP(ORARY)?\b").unwrap(),
+            Regex::new(r"(?i)\bTEMP(ORARY)?\b").expect("TEMP regex is a valid hardcoded literal"),
         ),
         (
             LastWordKind::QuickFix,
-            Regex::new(r"(?i)\bquick\s*fix\b").unwrap(),
+            Regex::new(r"(?i)\bquick\s*fix\b")
+                .expect("quick-fix regex is a valid hardcoded literal"),
         ),
         (
             LastWordKind::Wontfix,
-            Regex::new(r"(?i)\bWONT\s*FIX\b").unwrap(),
+            Regex::new(r"(?i)\bWONT\s*FIX\b").expect("wontfix regex is a valid hardcoded literal"),
         ),
         (
             LastWordKind::Workaround,
-            Regex::new(r"(?i)\bworkaround\b").unwrap(),
+            Regex::new(r"(?i)\bworkaround\b")
+                .expect("workaround regex is a valid hardcoded literal"),
         ),
         (
             LastWordKind::Deprecated,
-            Regex::new(r"(?i)\bDEPRECATED?\b").unwrap(),
+            Regex::new(r"(?i)\bDEPRECATED?\b")
+                .expect("deprecated regex is a valid hardcoded literal"),
         ),
-        (LastWordKind::Safety, Regex::new(r"(?i)\bSAFETY\b").unwrap()),
+        (
+            LastWordKind::Safety,
+            Regex::new(r"(?i)\bSAFETY\b").expect("SAFETY regex is a valid hardcoded literal"),
+        ),
     ]
 }
 

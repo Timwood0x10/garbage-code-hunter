@@ -11,8 +11,42 @@ use crate::treesitter::query::QueryCapture;
 use regex::Regex;
 use std::sync::LazyLock;
 
+/// Returns byte ranges of `#[cfg(test)]` modules in Rust source.
+/// Each range covers from the opening brace of the module block to its closing brace.
+fn cfg_test_ranges(content: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut search_from = 0;
+    while let Some(attr_pos) = content[search_from..].find("#[cfg(test)]") {
+        let attr_start = search_from + attr_pos;
+        let after_attr = attr_start + "#[cfg(test)]".len();
+        if let Some(brace_offset) = content[after_attr..].find('{') {
+            let open_brace = after_attr + brace_offset;
+            let mut depth = 1i32;
+            let mut j = open_brace + 1;
+            for ch in content[open_brace + 1..].chars() {
+                match ch {
+                    '{' => depth += 1,
+                    '}' => depth -= 1,
+                    _ => {}
+                }
+                j += ch.len_utf8();
+                if depth == 0 {
+                    break;
+                }
+            }
+            if depth == 0 {
+                ranges.push((open_brace, j));
+            }
+            search_from = j;
+        } else {
+            search_from = after_attr;
+        }
+    }
+    ranges
+}
+
 const RUST_PATTERNS: &[&str] = &[
-    "(field_expression field: (field_identifier) @pc_method)",
+    "(field_expression field: (field_identifier) @pc_method (#eq? @pc_method \"unwrap\"))",
     "(macro_invocation macro: (identifier) @pc_m)",
     "(function_item name: (identifier) @ex_name) @ex_fn",
     "(let_declaration pattern: (identifier) @nv_var (#match? @nv_var \"^[a-z]$\"))",
@@ -123,16 +157,24 @@ impl LanguageAdapter for RustAdapter {
 
     fn count_panic_from_batch<'a>(
         &self,
-        _file: &ParsedFile,
+        file: &ParsedFile,
         batch: &[Vec<QueryCapture<'a>>],
     ) -> usize {
+        let test_ranges = cfg_test_ranges(&file.content);
         let mut count = 0;
         for m in batch {
             for c in m {
-                if (c.name == "pc_method" && (c.text == "unwrap" || c.text == "expect"))
+                if (c.name == "pc_method" && c.text == "unwrap")
                     || (c.name == "pc_m"
                         && matches!(c.text, "panic" | "assert" | "assert_eq" | "assert_ne"))
                 {
+                    let byte_offset = c.node.start_byte();
+                    if test_ranges
+                        .iter()
+                        .any(|&(s, e)| byte_offset >= s && byte_offset < e)
+                    {
+                        continue;
+                    }
                     count += 1;
                 }
             }
@@ -263,12 +305,23 @@ impl LanguageAdapter for RustAdapter {
 
     fn count_debug_from_batch<'a>(
         &self,
-        _file: &ParsedFile,
+        file: &ParsedFile,
         batch: &[Vec<QueryCapture<'a>>],
     ) -> usize {
+        let test_ranges = cfg_test_ranges(&file.content);
         batch
             .iter()
-            .filter(|m| m.iter().any(|c| c.name == "dp_name"))
+            .filter(|m| {
+                m.iter().any(|c| {
+                    if c.name != "dp_name" {
+                        return false;
+                    }
+                    let byte_offset = c.node.start_byte();
+                    !test_ranges
+                        .iter()
+                        .any(|&(s, e)| byte_offset >= s && byte_offset < e)
+                })
+            })
             .count()
     }
 
@@ -345,11 +398,11 @@ mod tests {
     }
 
     #[test]
-    fn test_rust_count_panic_unwrap_expect() {
+    fn test_rust_count_panic_unwrap_only() {
         let code = "fn main() { let x = foo().unwrap(); let y = bar().expect(\"msg\"); }";
         let file = parse_rust(code);
         let adapter = RustAdapter;
-        assert_eq!(adapter.count_panic_calls(&file), 2);
+        assert_eq!(adapter.count_panic_calls(&file), 1);
     }
 
     #[test]

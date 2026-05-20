@@ -254,7 +254,18 @@ impl CodeAnalyzer {
                         detector.detect_findings(parsed, *is_test_file, skip_tests_config)
                     };
                     for (signal, count) in findings_iter {
-                        findings.push(StyleFinding::for_signal(signal, count, file_path.clone()));
+                        let count = if *is_test_file {
+                            (count as f64 * 0.2).round() as usize
+                        } else {
+                            count
+                        };
+                        if count > 0 {
+                            findings.push(StyleFinding::for_signal(
+                                signal,
+                                count,
+                                file_path.clone(),
+                            ));
+                        }
                     }
                 }
             }
@@ -355,7 +366,18 @@ impl CodeAnalyzer {
                         detector.detect_findings(parsed, *is_test_file, skip_tests_config)
                     };
                     for (signal, count) in findings_iter {
-                        findings.push(StyleFinding::for_signal(signal, count, file_path.clone()));
+                        let count = if *is_test_file {
+                            (count as f64 * 0.2).round() as usize
+                        } else {
+                            count
+                        };
+                        if count > 0 {
+                            findings.push(StyleFinding::for_signal(
+                                signal,
+                                count,
+                                file_path.clone(),
+                            ));
+                        }
                     }
                 }
             }

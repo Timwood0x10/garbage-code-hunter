@@ -31,8 +31,12 @@ pub fn format_terminal(records: &[HistoryRecord], last_n: usize) -> String {
         out.push_str(&format!("{}\n", "\u{1f4ca} Breakdown".bold()));
         out.push_str(&format!("  {}\n", "\u{2500}".repeat(40)));
 
-        let first = display_records.first().unwrap();
-        let last = display_records.last().unwrap();
+        let first = display_records
+            .first()
+            .expect("display_records has at least 2 entries: guarded by len >= 2 check above");
+        let last = display_records
+            .last()
+            .expect("display_records has at least 2 entries: guarded by len >= 2 check above");
 
         // Compare overall
         let overall_diff = last.overall_score - first.overall_score;

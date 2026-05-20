@@ -219,19 +219,13 @@ impl Default for PrintlnRuleConfig {
 }
 
 /// Signal detector configuration.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct SignalsConfig {
-    /// Whether to skip signal detection in test files (default: true).
-    /// Set to `false` to report signals in test files.
-    #[serde(default = "default_true")]
+    /// Whether to skip signal detection in test files (default: false).
+    /// Set to `true` to suppress signals in test files.
+    #[serde(default)]
     pub skip_tests: bool,
-}
-
-impl Default for SignalsConfig {
-    fn default() -> Self {
-        Self { skip_tests: true }
-    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -309,7 +303,7 @@ mod tests {
         assert!(config.rules.naming.enabled);
         assert_eq!(config.rules.unwrap.threshold, 1);
         assert!(config.rules.println.allow_in_main_files);
-        assert!(config.signals.skip_tests);
+        assert!(!config.signals.skip_tests);
     }
 
     #[test]

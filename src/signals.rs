@@ -105,12 +105,17 @@ pub fn aggregate_detector_scores(
             }
             let signal = detector.signal();
             let skip = is_test && detector.skips_test_files() && skip_tests_config;
-            let count = if skip {
+            let raw = if skip {
                 0
             } else if let Some(ref ir) = ir {
                 detector.count_violations_with_ir(ir, file)
             } else {
                 detector.count_violations(file)
+            };
+            let count = if is_test {
+                (raw as f64 * 0.2).round() as usize
+            } else {
+                raw
             };
             *total_counts.entry(signal).or_insert(0) += count;
             *total_lines.entry(signal).or_insert(0) += file.content.lines().count();
