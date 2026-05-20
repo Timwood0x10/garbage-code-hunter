@@ -21,7 +21,6 @@ const RUST_PATTERNS: &[&str] = &[
     "(macro_invocation macro: (identifier) @dp_name (#match? @dp_name \"^(println|dbg|eprintln|eprint|todo|unimplemented)$\"))",
     "(function_item parameters: (parameters) @ep_params)",
     "(unsafe_block) @ub_unsafe",
-    "(attribute_item (attribute) @at_attr (#eq? @at_attr \"test\"))",
     "(integer_literal) @mn_num",
 ];
 
@@ -69,12 +68,6 @@ impl LanguageAdapter for RustAdapter {
 
     fn count_unsafe_blocks(&self, file: &ParsedFile) -> usize {
         self.count_unsafe_from_batch(file, &self.batch_captures(file))
-    }
-
-    fn has_test_nodes(&self, file: &ParsedFile) -> bool {
-        self.batch_captures(file)
-            .iter()
-            .any(|m| m.iter().any(|c| c.name == "at_attr"))
     }
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {

@@ -100,14 +100,6 @@ pub trait LanguageAdapter: Send + Sync {
         0
     }
 
-    /// Whether the file contains test-specific AST nodes
-    /// (e.g., `#[test]` in Rust, `def test_` in Python).
-    /// Default returns false — override for language-specific detection.
-    fn has_test_nodes(&self, file: &ParsedFile) -> bool {
-        let _ = file;
-        false
-    }
-
     /// Count goroutine spawns (Go-specific).
     fn count_goroutine_spawns(&self, file: &ParsedFile) -> usize {
         let _ = file;

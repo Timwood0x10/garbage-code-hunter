@@ -192,7 +192,7 @@ impl CodeAnalyzer {
             if lang == Language::Unknown {
                 continue;
             }
-            let is_test_file = Self::is_test_file(file_path, &content);
+            let is_test_file = Self::is_test_file(file_path);
 
             if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
                 parsed_files.push((parsed, file_path.clone(), is_test_file));
@@ -293,7 +293,7 @@ impl CodeAnalyzer {
             }
             file_count += 1;
             total_lines += content.lines().count();
-            let is_test_file = Self::is_test_file(file_path, &content);
+            let is_test_file = Self::is_test_file(file_path);
 
             if let Some(parsed) = self.ts_engine.parse_file(file_path, &content) {
                 if let Some(ir) = StyleIr::from_parsed(&parsed) {
@@ -400,12 +400,10 @@ impl CodeAnalyzer {
         self.analyze_path(file_path)
     }
 
-    fn is_test_file(path: &Path, _content: &str) -> bool {
+    fn is_test_file(path: &Path) -> bool {
         let path_str = path.to_string_lossy();
-        // Normalize: strip leading "./" for consistent matching
         let normalized = path_str.strip_prefix("./").unwrap_or(&path_str);
 
-        // Check file path patterns (Rust + C/C++)
         if normalized.contains("/tests/")
             || normalized.contains("\\tests\\")
             || normalized.starts_with("tests/")
@@ -417,6 +415,22 @@ impl CodeAnalyzer {
             || normalized.ends_with("_test.c")
             || normalized.ends_with("_test.cpp")
             || normalized.ends_with("_test.cc")
+            || normalized.ends_with("_test.go")
+            || normalized.ends_with(".test.js")
+            || normalized.ends_with(".spec.js")
+            || normalized.ends_with(".test.jsx")
+            || normalized.ends_with(".spec.jsx")
+            || normalized.ends_with(".test.ts")
+            || normalized.ends_with(".spec.ts")
+            || normalized.ends_with(".test.tsx")
+            || normalized.ends_with(".spec.tsx")
+            || normalized.ends_with("_test.rb")
+            || normalized.ends_with("_spec.rb")
+            || normalized.ends_with("Test.java")
+            || normalized.ends_with("Tests.java")
+            || normalized.ends_with("Tests.swift")
+            || normalized.ends_with("Test.swift")
+            || normalized.ends_with("_test.zig")
             || normalized.starts_with("test_")
         {
             return true;
@@ -557,81 +571,97 @@ mod tests {
 
     // ── is_test_file ─────────────────────────────────────────────
 
-    /// Objective: Verify that paths containing /tests/, /test/, /examples/, /benches/,
-    ///            /fixtures/, /mocks/, /test-files/ are classified as test files.
-    /// Invariants: Path-based heuristics take precedence over content analysis.
     #[test]
     fn test_is_test_file_detects_test_directories() {
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("src/tests/helper.rs"), ""),
-            "path containing /tests/ should be test"
-        );
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("examples/hello.rs"), ""),
-            "examples/ should be test"
-        );
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("benches/perf.rs"), ""),
-            "benches/ should be test"
-        );
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("tests/fixtures/data.rs"), ""),
-            "fixtures/ should be test"
-        );
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("tests/mocks/service.rs"), ""),
-            "mocks/ should be test"
-        );
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("test-files/input.txt"), ""),
-            "test-files/ should be test"
-        );
+        assert!(CodeAnalyzer::is_test_file(Path::new("src/tests/helper.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("examples/hello.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("benches/perf.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "tests/fixtures/data.rs"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "tests/mocks/service.rs"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "test-files/input.txt"
+        )));
     }
 
-    /// Objective: Verify that file names with test suffixes (_test.rs, _tests.rs)
-    ///            or test prefix (test_) are classified as test files.
     #[test]
-    fn test_is_test_file_detects_test_naming_conventions() {
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("src/foo_test.rs"), ""),
-            "*_test.rs should be test"
-        );
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("test_main.go"), ""),
-            "test_* prefix should be test"
-        );
+    fn test_is_test_file_detects_rust_c_cpp() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("src/foo_test.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("src/foo_tests.rs")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("test_main.c")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("foo_test.c")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("foo_test.cpp")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("foo_test.cc")));
     }
 
-    /// Objective: Verify that a file with only path-based test indicators (like
-    ///            src/tests/ or _test.rs) is classified as test; content-based
-    ///            #[cfg(test)] alone is NOT sufficient.
-    /// Invariants: Test file detection is purely path-based.
     #[test]
-    fn test_is_test_file_rejects_content_only_cfg_test() {
-        assert!(
-            !CodeAnalyzer::is_test_file(Path::new("src/foo.rs"), "#[cfg(test)]\nmod tests {}"),
-            "#[cfg(test)] in content alone should NOT mark src/ file as test"
-        );
+    fn test_is_test_file_detects_go() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("handler_test.go")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("pkg/service_test.go")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("handler.go")));
     }
 
-    /// Objective: Verify that normal source files (no test dir, no test suffix, no #[cfg(test)])
-    ///            are NOT classified as test files.
+    #[test]
+    fn test_is_test_file_detects_js_ts() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.js")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.js")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.jsx")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.jsx")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.ts")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.ts")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.test.tsx")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("app.spec.tsx")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("app.js")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("app.ts")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_java() {
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTest.java"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTests.java"
+        )));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("UserService.java")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_ruby() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("user_test.rb")));
+        assert!(CodeAnalyzer::is_test_file(Path::new("user_spec.rb")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("user.rb")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_swift() {
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTests.swift"
+        )));
+        assert!(CodeAnalyzer::is_test_file(Path::new(
+            "UserServiceTest.swift"
+        )));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("UserService.swift")));
+    }
+
+    #[test]
+    fn test_is_test_file_detects_zig() {
+        assert!(CodeAnalyzer::is_test_file(Path::new("main_test.zig")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("main.zig")));
+    }
+
     #[test]
     fn test_is_test_file_does_not_flag_normal_source() {
-        assert!(
-            !CodeAnalyzer::is_test_file(Path::new("src/main.rs"), "fn main() {}"),
-            "src/main.rs without #[cfg(test)] should not be test"
-        );
+        assert!(!CodeAnalyzer::is_test_file(Path::new("src/main.rs")));
+        assert!(!CodeAnalyzer::is_test_file(Path::new("src/lib.rs")));
     }
 
-    /// Objective: Verify that leading ./ is stripped before path pattern matching.
-    /// Invariants: "./tests/test.rs" normalizes to "tests/test.rs" => matches /tests/.
     #[test]
     fn test_is_test_file_strips_leading_dot_slash() {
-        assert!(
-            CodeAnalyzer::is_test_file(Path::new("./tests/test.rs"), ""),
-            "leading './' should be stripped and path should match /tests/"
-        );
+        assert!(CodeAnalyzer::is_test_file(Path::new("./tests/test.rs")));
     }
 
     // ── should_exclude ───────────────────────────────────────────

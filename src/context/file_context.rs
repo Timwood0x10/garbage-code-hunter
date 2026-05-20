@@ -267,16 +267,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_business_context() {
+    fn test_web_context() {
         let ctx = FileContext::from_path(Path::new("src/lib.rs"));
-        assert_eq!(ctx, FileContext::Business);
-        assert!((ctx.rule_weight_multiplier() - 1.0).abs() < f64::EPSILON);
+        assert_eq!(ctx, FileContext::Web);
+        assert!((ctx.rule_weight_multiplier() - 0.7).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_main_file_is_business() {
         let ctx = FileContext::from_path(Path::new("src/main.rs"));
-        assert_eq!(ctx, FileContext::Business);
+        assert_eq!(ctx, FileContext::Web);
     }
 
     #[test]

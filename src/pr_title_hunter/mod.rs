@@ -75,7 +75,7 @@ fn extract_prs_from_merges(repo_path: &Path, limit: usize) -> Result<Vec<PrEntry
         }
 
         let short_hash = format!("{:.7}", commit.id());
-        let author = commit.author().name().map(|s| s.to_string());
+        let author = commit.author().name().ok().map(|s| s.to_string());
 
         prs.push(PrEntry {
             id: short_hash,
