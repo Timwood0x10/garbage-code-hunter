@@ -34,6 +34,9 @@ const GO_PATTERNS: &[&str] = &[
     "(go_statement) @gs_go",
     // cv_ — convention violations (fmt.Errorf / fmt.New)
     r#"(call_expression function: (selector_expression operand: (identifier) @cv_pkg field: (field_identifier) @cv_method) (#eq? @cv_pkg "fmt") (#match? @cv_method "^(Errorf|New)$"))"#,
+    // ui_ — unsafe operations
+    r#"(selector_expression operand: (identifier) @ui_pkg (#eq? @ui_pkg "unsafe"))"#,
+    "(import_spec path: (interpreted_string_literal) @ui_import (#match? @ui_import \"unsafe\"))",
 ];
 
 pub struct GoAdapter;
@@ -440,6 +443,14 @@ impl LanguageAdapter for GoAdapter {
         }
         check_else_return(file, file.root_node(), &mut count);
 
+        for m in batch {
+            for c in m {
+                if c.name == "ui_pkg" || c.name == "ui_import" {
+                    count += 1;
+                }
+            }
+        }
+
         count
     }
 
@@ -614,5 +625,19 @@ func main() {
         let file = parse_go(code);
         let adapter = GoAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_go_unsafe_pointer() {
+        let code = r#"
+package main
+import "unsafe"
+func main() {
+    p := unsafe.Pointer(nil)
+}
+"#;
+        let file = parse_go(code);
+        let adapter = GoAdapter;
+        assert!(adapter.count_go_convention_violations(&file) >= 2);
     }
 }

@@ -13,6 +13,8 @@ const C_PATTERNS: &[&str] = &[
     "(function_declarator parameters: (parameter_list) @ep_params)",
     "(number_literal) @mn_num",
     "(goto_statement) @ci_goto",
+    "(sizeof_expression) @ci_sizeof",
+    "(call_expression function: (identifier) @ci_malloc (#match? @ci_malloc \"^(malloc|calloc|realloc)$\"))",
     "(call_expression function: (identifier) @pc_func (#match? @pc_func \"^(exit|abort|assert|_Exit|quick_exit|longjmp)$\"))",
 ];
 
@@ -261,5 +263,26 @@ int foo() {
         let file = parse_c(code);
         let adapter = CAdapter;
         assert_eq!(adapter.count_dead_code(&file), 1);
+    }
+
+    #[test]
+    fn test_c_sizeof_type() {
+        let code = "void main() { int x = sizeof(int); }\n";
+        let file = parse_c(code);
+        let adapter = CAdapter;
+        assert!(adapter.count_c_issues(&file) >= 1);
+    }
+
+    #[test]
+    fn test_c_malloc_no_check() {
+        let code = r#"
+void main() {
+    int *p = malloc(100);
+    *p = 42;
+}
+"#;
+        let file = parse_c(code);
+        let adapter = CAdapter;
+        assert!(adapter.count_c_issues(&file) >= 1);
     }
 }

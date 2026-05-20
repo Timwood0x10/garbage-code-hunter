@@ -149,74 +149,36 @@ pub fn count_c_issues_from_batch<'a>(
     extra_captures: &[&str],
 ) -> usize {
     let mut count = 0;
+    let mut malloc_lines: Vec<usize> = Vec::new();
 
     for m in batch {
         for c in m {
-            if c.name == "ci_goto" || extra_captures.contains(&c.name.as_str()) {
-                count += 1;
-            }
-        }
-    }
-
-    for line in file.content.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
-            continue;
-        }
-        if trimmed.contains("sizeof(") {
-            let start = trimmed.find("sizeof(").unwrap() + 7;
-            let rest = &trimmed[start..];
-            let mut depth = 1u32;
-            let mut inner = String::new();
-            for ch in rest.chars() {
-                if ch == '(' {
-                    depth += 1;
-                } else if ch == ')' {
-                    depth -= 1;
-                }
-                if depth == 0 {
-                    break;
-                }
-                inner.push(ch);
-            }
-            let inner = inner.trim().trim_end_matches(')');
-            if inner.starts_with(|c: char| c.is_alphabetic() || c == '_')
-                && !inner.contains(['+', '-', '*', '/', '('])
-            {
-                let type_keywords = [
-                    "int", "char", "float", "double", "long", "short", "unsigned", "signed",
-                    "void", "size_t", "bool", "struct", "union", "enum",
-                ];
-                if type_keywords.iter().any(|t| inner.starts_with(t)) {
+            match c.name.as_str() {
+                "ci_goto" | "ci_sizeof" => count += 1,
+                "ci_malloc" => {
+                    malloc_lines.push(c.node.start_position().row);
                     count += 1;
                 }
-                if inner.ends_with("_t") && inner.len() > 2 {
-                    count += 1;
-                }
+                name if extra_captures.contains(&name) => count += 1,
+                _ => {}
             }
         }
     }
 
     let lines: Vec<&str> = file.content.lines().collect();
-    for i in 0..lines.len() {
-        let trimmed = lines[i].trim();
-        if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
-            continue;
-        }
-        if trimmed.contains("malloc(") && trimmed.ends_with(';') {
-            let check_range = (i + 1).min(lines.len())..(i + 4).min(lines.len());
-            let has_null_check = lines[check_range].iter().any(|l| {
-                let l = l.trim();
-                l.contains("== NULL")
-                    || l.contains("!= NULL")
-                    || l.contains("== 0")
-                    || l.contains("!= 0")
-                    || l.contains("if (!")
-                    || l.contains("if (NULL")
-            });
-            if !has_null_check {
-                count += 1;
-            }
+    for &row in &malloc_lines {
+        let check_range = (row + 1).min(lines.len())..(row + 4).min(lines.len());
+        let has_null_check = lines[check_range].iter().any(|l| {
+            let l = l.trim();
+            l.contains("== NULL")
+                || l.contains("!= NULL")
+                || l.contains("== 0")
+                || l.contains("!= 0")
+                || l.contains("if (!")
+                || l.contains("if (NULL")
+        });
+        if has_null_check {
+            count -= 1;
         }
     }
 

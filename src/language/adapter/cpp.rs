@@ -13,6 +13,8 @@ const CPP_PATTERNS: &[&str] = &[
     "(function_declarator parameters: (parameter_list) @ep_params)",
     "(number_literal) @mn_num",
     "(goto_statement) @ci_goto",
+    "(sizeof_expression) @ci_sizeof",
+    "(call_expression function: (identifier) @ci_malloc (#match? @ci_malloc \"^(malloc|calloc|realloc)$\"))",
     "(new_expression) @ci_new",
     "(call_expression function: (identifier) @pc_func (#match? @pc_func \"^(exit|abort|assert|terminate|_Exit|quick_exit)$\"))",
     "(throw_statement) @pc_throw",
