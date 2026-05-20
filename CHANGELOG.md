@@ -116,7 +116,7 @@ Replaced ad-hoc personality inference with data-driven profiling:
 #### Swift & Zig Support (NEW)
 
 - **SwiftAdapter** — `extract_functions`, `count_panic_calls` (force-unwrap `!`, `fatalError`, `preconditionFailure`), `count_naming_violations`, `count_deeply_nested_blocks`, `count_debug_calls` (print, debugPrint, dump)
-- **ZigAdapter** — `extract_functions`, `count_panic_calls` (unreachable, @panic, catch unreachable), `count_naming_violations`, `count_deeply_nested_blocks`, `count_debug_calls` (@import("std").debug.print, std.log)
+- **ZigAdapter** — `extract_functions`, `count_panic_calls` (unreachable, `@panic`, catch unreachable), `count_naming_violations`, `count_deeply_nested_blocks`, `count_debug_calls` (`@import`("std").debug.print, std.log)
 - All detectors extended to support 11 languages (Rust/Python/JS/TS/Go/Java/Ruby/C/C++/Swift/Zig)
 
 ### Analysis Pipeline

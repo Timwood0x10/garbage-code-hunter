@@ -86,7 +86,7 @@ Rust, Go, Python, JavaScript, TypeScript, Java, C, C++, Ruby, Swift, and Zig.
 | C | Beta | ~85% | stone-prover | exit/abort/assert, printf, naming, nesting, magic, goto, sizeof, malloc, dead_code, duplicate_import |
 | C++ | Beta | ~85% | stone-prover | exit/abort/terminate/throw, cout/cerr, naming, nesting, magic, goto/new, sizeof, malloc, dead_code, duplicate_import |
 | Swift | Beta | ~80% | Alamofire, SnapKit, vapor | fatalError/assert, print/NSLog, naming, nesting, magic, try!/as!, dead_code, duplicate_import |
-| Zig | Beta | ~90% | ziglings | @panic, @compileLog/warn, naming, nesting, magic, unreachable, dead_code, duplicate_import |
+| Zig | Beta | ~90% | ziglings | `@panic`, `@compileLog`/warn, naming, nesting, magic, unreachable, dead_code, duplicate_import |
 
 ## Performance
 
