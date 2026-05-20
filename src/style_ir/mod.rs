@@ -34,6 +34,8 @@ pub struct StyleIrSummary {
     pub ruby_issue_count: usize,
     pub c_issue_count: usize,
     pub ts_issue_count: usize,
+    pub js_issue_count: usize,
+    pub swift_issue_count: usize,
     pub dead_code_count: usize,
     pub duplicate_import_count: usize,
     pub excessive_param_count: usize,
@@ -117,6 +119,12 @@ pub struct StyleIr {
     /// Count of TypeScript code issues (any-type, prefer-interface, no-enum).
     pub ts_issue_count: usize,
 
+    /// Count of JavaScript code issues (eval, with, ==, var, alert).
+    pub js_issue_count: usize,
+
+    /// Count of Swift code issues (force-unwrap, try!, implicitly unwrapped optionals).
+    pub swift_issue_count: usize,
+
     /// Count of dead code blocks — unreachable code after return/break/continue/panic.
     pub dead_code_count: usize,
 
@@ -156,6 +164,8 @@ impl StyleIr {
             ruby_issue_count: counts.ruby_issues,
             c_issue_count: counts.c_issues,
             ts_issue_count: counts.ts_issues,
+            js_issue_count: counts.js_issues,
+            swift_issue_count: counts.swift_issues,
             dead_code_count: counts.dead_code,
             duplicate_import_count: counts.duplicate_imports,
         })
@@ -187,6 +197,8 @@ impl StyleIr {
             + self.ruby_issue_count
             + self.c_issue_count
             + self.ts_issue_count
+            + self.js_issue_count
+            + self.swift_issue_count
             + self.dead_code_count
             + self.duplicate_import_count
     }
@@ -215,6 +227,8 @@ impl StyleIr {
             ruby_issue_count: self.ruby_issue_count,
             c_issue_count: self.c_issue_count,
             ts_issue_count: self.ts_issue_count,
+            js_issue_count: self.js_issue_count,
+            swift_issue_count: self.swift_issue_count,
             dead_code_count: self.dead_code_count,
             duplicate_import_count: self.duplicate_import_count,
             over_engineering_count: self.over_engineering_count(),
@@ -246,6 +260,8 @@ impl StyleIr {
             && self.ruby_issue_count == 0
             && self.c_issue_count == 0
             && self.ts_issue_count == 0
+            && self.js_issue_count == 0
+            && self.swift_issue_count == 0
             && self.dead_code_count == 0
             && self.duplicate_import_count == 0
     }

@@ -1,8 +1,9 @@
 //! JSAdapter — JavaScript language adapter.
 
 use super::{
-    count_nested_blocks, count_params, is_boolean_or_null, is_common_safe_number,
-    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    count_dead_code_with, count_duplicate_imports_with, count_nested_blocks, count_params,
+    is_boolean_or_null, is_common_safe_number, is_inside_declaration, is_repeating_chars,
+    FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -82,6 +83,42 @@ impl LanguageAdapter for JSAdapter {
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return;", "break;", "continue;", "throw;"],
+            &["return ", "throw ", "process.exit("],
+            "//",
+        )
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["import "])
+    }
+
+    fn count_js_issues(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+        for line in file.content.lines() {
+            let t = line.trim();
+            if t.starts_with("//") || t.starts_with("/*") || t.starts_with("*") {
+                continue;
+            }
+            if t.contains("eval(") || t.contains("eval (") {
+                count += 1;
+            }
+            if t.starts_with("with ") || t.starts_with("with(") {
+                count += 1;
+            }
+            if t.contains("alert(") || t.contains("alert (") {
+                count += 1;
+            }
+            if t.starts_with("var ") {
+                count += 1;
+            }
+        }
+        count
     }
 
     // -- _from_batch overrides --
@@ -336,5 +373,58 @@ function main() {
         let file = parse_js(code);
         let adapter = JSAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_js_issues_eval() {
+        let code = "function main() { eval('code'); }\n";
+        let file = parse_js(code);
+        let adapter = JSAdapter;
+        assert_eq!(adapter.count_js_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_js_issues_var() {
+        let code = "var x = 1;\nlet y = 2;\n";
+        let file = parse_js(code);
+        let adapter = JSAdapter;
+        assert_eq!(adapter.count_js_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_js_issues_alert() {
+        let code = "function main() { alert('hi'); }\n";
+        let file = parse_js(code);
+        let adapter = JSAdapter;
+        assert_eq!(adapter.count_js_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_js_issues_clean() {
+        let code = "const x = 1;\nconsole.log(x);\n";
+        let file = parse_js(code);
+        let adapter = JSAdapter;
+        assert_eq!(adapter.count_js_issues(&file), 0);
+    }
+
+    #[test]
+    fn test_js_dead_code_after_return() {
+        let code = r#"
+function foo() {
+    return 42;
+    console.log("dead");
+}
+"#;
+        let file = parse_js(code);
+        let adapter = JSAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
+    }
+
+    #[test]
+    fn test_js_duplicate_imports() {
+        let code = "import fs from 'fs';\nimport os from 'os';\nimport fs from 'fs';\n";
+        let file = parse_js(code);
+        let adapter = JSAdapter;
+        assert_eq!(adapter.count_duplicate_imports(&file), 1);
     }
 }

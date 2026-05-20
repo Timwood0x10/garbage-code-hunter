@@ -1,7 +1,7 @@
 //! CAdapter — C language adapter.
 
 use super::c_cpp_common;
-use super::{FunctionNode, LanguageAdapter};
+use super::{count_dead_code_with, count_duplicate_imports_with, FunctionNode, LanguageAdapter};
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
 use crate::treesitter::query::QueryCapture;
@@ -13,6 +13,7 @@ const C_PATTERNS: &[&str] = &[
     "(function_declarator parameters: (parameter_list) @ep_params)",
     "(number_literal) @mn_num",
     "(goto_statement) @ci_goto",
+    "(call_expression function: (identifier) @pc_func (#match? @pc_func \"^(exit|abort|assert|_Exit|quick_exit|longjmp)$\"))",
 ];
 
 pub struct CAdapter;
@@ -26,8 +27,8 @@ impl LanguageAdapter for CAdapter {
         C_PATTERNS
     }
 
-    fn count_panic_calls(&self, _file: &ParsedFile) -> usize {
-        0
+    fn count_panic_calls(&self, file: &ParsedFile) -> usize {
+        self.count_panic_from_batch(file, &self.batch_captures(file))
     }
 
     fn extract_functions(&self, file: &ParsedFile) -> Vec<FunctionNode> {
@@ -58,6 +59,26 @@ impl LanguageAdapter for CAdapter {
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return;", "break;", "continue;"],
+            &[
+                "return ",
+                "exit(",
+                "abort(",
+                "_Exit(",
+                "quick_exit(",
+                "goto ",
+            ],
+            "//",
+        )
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["#include"])
     }
 
     fn count_c_issues(&self, file: &ParsedFile) -> usize {
@@ -109,6 +130,17 @@ impl LanguageAdapter for CAdapter {
     fn count_c_from_batch<'a>(&self, file: &ParsedFile, batch: &[Vec<QueryCapture<'a>>]) -> usize {
         c_cpp_common::count_c_issues_from_batch(file, batch, &[])
     }
+
+    fn count_panic_from_batch<'a>(
+        &self,
+        _file: &ParsedFile,
+        batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        batch
+            .iter()
+            .filter(|m| m.iter().any(|c| c.name == "pc_func"))
+            .count()
+    }
 }
 
 #[cfg(test)]
@@ -130,7 +162,15 @@ void main() {
 "#;
         let file = parse_c(code);
         let adapter = CAdapter;
-        assert_eq!(adapter.count_panic_calls(&file), 0);
+        assert_eq!(adapter.count_panic_calls(&file), 2);
+    }
+
+    #[test]
+    fn test_c_count_panic_assert() {
+        let code = "void main() { assert(x > 0); }\n";
+        let file = parse_c(code);
+        let adapter = CAdapter;
+        assert_eq!(adapter.count_panic_calls(&file), 1);
     }
 
     #[test]
@@ -208,5 +248,18 @@ void main() {
         let file = parse_c(code);
         let adapter = CAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_c_dead_code_after_return() {
+        let code = r#"
+int foo() {
+    return 42;
+    printf("dead");
+}
+"#;
+        let file = parse_c(code);
+        let adapter = CAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
     }
 }

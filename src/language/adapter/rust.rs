@@ -144,15 +144,7 @@ impl LanguageAdapter for RustAdapter {
     }
 
     fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
-        let mut seen = std::collections::HashSet::new();
-        let mut count = 0;
-        for line in file.content.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("use ") && !seen.insert(trimmed.to_string()) {
-                count += 1;
-            }
-        }
-        count
+        super::count_duplicate_imports_with(file, &["use "])
     }
 
     fn count_panic_from_batch<'a>(

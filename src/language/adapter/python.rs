@@ -1,9 +1,9 @@
 //! PythonAdapter — Python language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, count_params, is_boolean_or_null,
-    is_common_safe_number, is_inside_declaration, is_repeating_chars, max_scope_depth,
-    FunctionNode, LanguageAdapter,
+    count_block_ancestors, count_dead_code_with, count_duplicate_imports_with, count_nested_blocks,
+    count_params, is_boolean_or_null, is_common_safe_number, is_inside_declaration,
+    is_repeating_chars, max_scope_depth, FunctionNode, LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -224,7 +224,7 @@ const PYTHON_PATTERNS: &[&str] = &[
     // ep_ — excessive params
     "(function_definition parameters: (parameters) @ep_params)",
     // mn_ — magic numbers
-    "(integer) @mn_num",
+    "[(integer) @mn_num (float) @mn_num]",
     // py_ — wildcard imports
     "(wildcard_import) @py_wi",
 ];
@@ -273,6 +273,19 @@ impl LanguageAdapter for PythonAdapter {
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return", "return None", "raise", "break", "continue"],
+            &["return ", "raise ", "sys.exit(", "exit(", "quit("],
+            "#",
+        )
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["import ", "from "])
     }
 
     fn count_python_issues(&self, file: &ParsedFile) -> usize {
@@ -703,5 +716,37 @@ print(x)
         let file = parse_python(code);
         let adapter = PythonAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0, "0 and 1 skipped");
+    }
+
+    #[test]
+    fn test_python_dead_code_after_return() {
+        let code = r#"
+def foo():
+    return 42
+    print("dead")
+"#;
+        let file = parse_python(code);
+        let adapter = PythonAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
+    }
+
+    #[test]
+    fn test_python_dead_code_after_raise() {
+        let code = r#"
+def foo():
+    raise ValueError("bad")
+    x = 1
+"#;
+        let file = parse_python(code);
+        let adapter = PythonAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
+    }
+
+    #[test]
+    fn test_python_duplicate_imports() {
+        let code = "import os\nimport sys\nimport os\n";
+        let file = parse_python(code);
+        let adapter = PythonAdapter;
+        assert_eq!(adapter.count_duplicate_imports(&file), 1);
     }
 }

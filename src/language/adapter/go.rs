@@ -1,8 +1,9 @@
 //! GoAdapter — Go language adapter.
 
 use super::{
-    count_nested_blocks, count_params, is_boolean_or_null, is_common_safe_number,
-    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    count_duplicate_imports_with, count_nested_blocks, count_params, is_boolean_or_null,
+    is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -479,6 +480,10 @@ impl LanguageAdapter for GoAdapter {
             }
         }
         count
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["import ", "import ("])
     }
 }
 

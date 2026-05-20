@@ -455,6 +455,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
     let mut ruby_issue_count = 0usize;
     let mut c_issue_count = 0usize;
     let mut ts_issue_count = 0usize;
+    let mut js_issue_count = 0usize;
+    let mut swift_issue_count = 0usize;
     let mut dead_code_count = 0usize;
     let mut duplicate_import_count = 0usize;
     let thresholds = non_test[0].style_ir_summary.thresholds;
@@ -481,6 +483,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         ruby_issue_count += summary.ruby_issue_count;
         c_issue_count += summary.c_issue_count;
         ts_issue_count += summary.ts_issue_count;
+        js_issue_count += summary.js_issue_count;
+        swift_issue_count += summary.swift_issue_count;
         dead_code_count += summary.dead_code_count;
         duplicate_import_count += summary.duplicate_import_count;
     }
@@ -506,6 +510,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
         ruby_issue_count,
         c_issue_count,
         ts_issue_count,
+        js_issue_count,
+        swift_issue_count,
         dead_code_count,
         duplicate_import_count,
         over_engineering_count: god_function_count + excessive_param_count + goroutine_spawn_count,
@@ -517,6 +523,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
             + ruby_issue_count
             + c_issue_count
             + ts_issue_count
+            + js_issue_count
+            + swift_issue_count
             + dead_code_count
             + duplicate_import_count,
         is_clean_signal_baseline: panic_call_count == 0
@@ -536,6 +544,8 @@ pub fn summarize_style_ir_files(files: &[AnalyzeJsonFile]) -> Option<StyleIrSumm
             && ruby_issue_count == 0
             && c_issue_count == 0
             && ts_issue_count == 0
+            && js_issue_count == 0
+            && swift_issue_count == 0
             && dead_code_count == 0
             && duplicate_import_count == 0,
         thresholds,

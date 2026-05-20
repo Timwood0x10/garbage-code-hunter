@@ -1,5 +1,7 @@
 # Zig Accuracy Report
 
+> **Status: Beta** — Zig syntax is evolving and not yet mainstream. Tree-sitter grammar coverage may lag behind language changes. Detection results should be treated as indicative, not authoritative.
+
 > Generated: 2026-05-15 | Projects: 1
 
 ## Tested Projects

@@ -64,6 +64,8 @@ pub struct AdapterCounts {
     pub ruby_issues: usize,
     pub c_issues: usize,
     pub ts_issues: usize,
+    pub js_issues: usize,
+    pub swift_issues: usize,
     pub dead_code: usize,
     pub duplicate_imports: usize,
 }
@@ -149,6 +151,18 @@ pub trait LanguageAdapter: Send + Sync {
 
     /// Count TypeScript code issues: any-type, prefer-interface, no-enum.
     fn count_ts_issues(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count JavaScript code issues: eval, with, ==/var, alert.
+    fn count_js_issues(&self, file: &ParsedFile) -> usize {
+        let _ = file;
+        0
+    }
+
+    /// Count Swift code issues: force-unwrap, try!, implicitly unwrapped optionals.
+    fn count_swift_issues(&self, file: &ParsedFile) -> usize {
         let _ = file;
         0
     }
@@ -282,6 +296,8 @@ pub trait LanguageAdapter: Send + Sync {
             ruby_issues: self.count_ruby_from_batch(file, &batch),
             c_issues: self.count_c_from_batch(file, &batch),
             ts_issues: self.count_ts_from_batch(file, &batch),
+            js_issues: self.count_js_from_batch(file, &batch),
+            swift_issues: self.count_swift_from_batch(file, &batch),
             dead_code: self.count_dead_code(file),
             duplicate_imports: self.count_duplicate_imports(file),
         }
@@ -394,6 +410,22 @@ pub trait LanguageAdapter: Send + Sync {
     ) -> usize {
         self.count_ts_issues(file)
     }
+
+    fn count_js_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        _batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        self.count_js_issues(file)
+    }
+
+    fn count_swift_from_batch<'a>(
+        &self,
+        file: &ParsedFile,
+        _batch: &[Vec<QueryCapture<'a>>],
+    ) -> usize {
+        self.count_swift_issues(file)
+    }
 }
 
 const CODEC_PATTERNS: &[&str] = &[
@@ -401,6 +433,56 @@ const CODEC_PATTERNS: &[&str] = &[
     "mod ", "break", "continue", "{", "}", "(", ")", "[", "]", ";", "=", "==", "!=", "&&", "||",
     "->", "::",
 ];
+
+/// Shared dead-code detection: count unreachable lines after terminating statements.
+pub(crate) fn count_dead_code_with(
+    file: &ParsedFile,
+    bare_terminators: &[&str],
+    prefix_terminators: &[&str],
+    line_comment: &str,
+) -> usize {
+    let mut count = 0;
+    let mut dead_start: Option<usize> = None;
+    for (line_num, line) in file.content.lines().enumerate() {
+        let trimmed = line.trim();
+        if bare_terminators.contains(&trimmed)
+            || prefix_terminators.iter().any(|p| trimmed.starts_with(p))
+        {
+            dead_start = Some(line_num + 2);
+            continue;
+        }
+        if let Some(start) = dead_start {
+            if trimmed.is_empty() || trimmed.starts_with(line_comment) {
+                continue;
+            }
+            if line_comment == "//" && (trimmed.starts_with("/*") || trimmed.starts_with("*")) {
+                continue;
+            }
+            if trimmed == "}" || trimmed.starts_with("} else") || trimmed.starts_with("} else if") {
+                dead_start = None;
+                continue;
+            }
+            if line_num + 1 >= start {
+                count += 1;
+                dead_start = None;
+            }
+        }
+    }
+    count
+}
+
+/// Shared duplicate-import detection: count duplicate lines matching any prefix.
+pub(crate) fn count_duplicate_imports_with(file: &ParsedFile, prefixes: &[&str]) -> usize {
+    let mut seen = std::collections::HashSet::new();
+    let mut count = 0;
+    for line in file.content.lines() {
+        let trimmed = line.trim();
+        if prefixes.iter().any(|p| trimmed.starts_with(p)) && !seen.insert(trimmed.to_string()) {
+            count += 1;
+        }
+    }
+    count
+}
 
 /// Dispatch to the correct LanguageAdapter for a given language.
 pub fn adapter_for(lang: Language) -> Option<&'static dyn LanguageAdapter> {

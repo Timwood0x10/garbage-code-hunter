@@ -1,8 +1,9 @@
 //! RubyAdapter — Ruby language adapter.
 
 use super::{
-    count_params, is_boolean_or_null, is_common_safe_number, is_inside_declaration,
-    is_repeating_chars, FunctionNode, LanguageAdapter,
+    count_dead_code_with, count_duplicate_imports_with, count_params, is_boolean_or_null,
+    is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -17,7 +18,7 @@ const RUBY_PATTERNS: &[&str] = &[
     "(method parameters: (_) @ep_params)",
     "[(integer) @mn_num (float) @mn_num]",
     "(global_variable) @ri_gv",
-    "(call method: (identifier) @dp_method (#match? @dp_method \"^(puts|p|print|byebug|pry)$\"))",
+    "(call method: (identifier) @dp_method (#match? @dp_method \"^(puts|p|print|warn|byebug|pry)$\"))",
 ];
 
 pub struct RubyAdapter;
@@ -93,6 +94,19 @@ impl LanguageAdapter for RubyAdapter {
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return", "return;", "break", "break;", "next", "next;"],
+            &["return ", "raise ", "exit", "abort"],
+            "#",
+        )
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["require ", "require_relative "])
     }
 
     fn count_ruby_issues(&self, file: &ParsedFile) -> usize {
@@ -212,13 +226,22 @@ impl LanguageAdapter for RubyAdapter {
 
     fn count_debug_from_batch<'a>(
         &self,
-        _file: &ParsedFile,
+        file: &ParsedFile,
         batch: &[Vec<QueryCapture<'a>>],
     ) -> usize {
-        batch
+        let base = batch
             .iter()
             .filter(|m| m.iter().any(|c| c.name == "dp_method"))
-            .count()
+            .count();
+        let stderr = file
+            .content
+            .lines()
+            .filter(|l| {
+                let t = l.trim();
+                !t.starts_with("#") && t.contains("STDERR.puts")
+            })
+            .count();
+        base + stderr
     }
 
     fn count_excessive_from_batch<'a>(
@@ -547,5 +570,26 @@ byebug
         let file = parse_ruby(code);
         let adapter = RubyAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_ruby_dead_code_after_return() {
+        let code = r#"
+def foo
+  return 42
+  puts "dead"
+end
+"#;
+        let file = parse_ruby(code);
+        let adapter = RubyAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
+    }
+
+    #[test]
+    fn test_ruby_duplicate_imports() {
+        let code = "require 'json'\nrequire 'yaml'\nrequire 'json'\n";
+        let file = parse_ruby(code);
+        let adapter = RubyAdapter;
+        assert_eq!(adapter.count_duplicate_imports(&file), 1);
     }
 }

@@ -1,8 +1,9 @@
 //! JavaAdapter — Java language adapter.
 
 use super::{
-    count_nested_blocks, count_params, is_boolean_or_null, is_common_safe_number,
-    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    count_dead_code_with, count_duplicate_imports_with, count_nested_blocks, count_params,
+    is_boolean_or_null, is_common_safe_number, is_inside_declaration, is_repeating_chars,
+    FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -90,6 +91,19 @@ impl LanguageAdapter for JavaAdapter {
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return;", "break;", "continue;"],
+            &["return ", "throw ", "System.exit("],
+            "//",
+        )
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["import "])
     }
 
     fn count_java_issues(&self, file: &ParsedFile) -> usize {
@@ -287,13 +301,31 @@ impl LanguageAdapter for JavaAdapter {
 
     fn count_debug_from_batch<'a>(
         &self,
-        _file: &ParsedFile,
+        file: &ParsedFile,
         batch: &[Vec<QueryCapture<'a>>],
     ) -> usize {
-        batch
+        let base = batch
             .iter()
             .filter(|m| m.iter().any(|c| c.name == "dp_method"))
-            .count()
+            .count();
+        let log_calls = file
+            .content
+            .lines()
+            .filter(|l| {
+                let t = l.trim();
+                if t.starts_with("//") || t.starts_with("/*") || t.starts_with("*") {
+                    return false;
+                }
+                t.contains(".info(")
+                    || t.contains(".debug(")
+                    || t.contains(".warn(")
+                    || t.contains(".error(")
+                    || t.contains(".fine(")
+                    || t.contains(".finest(")
+                    || t.contains(".severe(")
+            })
+            .count();
+        base + log_calls
     }
 
     fn count_excessive_from_batch<'a>(
@@ -486,5 +518,34 @@ class Test {
         let file = parse_java(code);
         let adapter = JavaAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_java_dead_code_after_return() {
+        let code = r#"
+void foo() {
+    return;
+    System.out.println("dead");
+}
+"#;
+        let file = parse_java(code);
+        let adapter = JavaAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
+    }
+
+    #[test]
+    fn test_java_debug_logging() {
+        let code = r#"
+class Test {
+    void main() {
+        logger.info("started");
+        log.debug("step 1");
+        log.error("failed");
+    }
+}
+"#;
+        let file = parse_java(code);
+        let adapter = JavaAdapter;
+        assert_eq!(adapter.count_debug_calls(&file), 3);
     }
 }

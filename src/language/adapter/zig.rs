@@ -1,8 +1,9 @@
 //! ZigAdapter — Zig language adapter.
 
 use super::{
-    count_params, is_boolean_or_null, is_common_safe_number, is_inside_declaration,
-    is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    count_dead_code_with, count_duplicate_imports_with, count_params, is_boolean_or_null,
+    is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
+    LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -14,7 +15,8 @@ const ZIG_PATTERNS: &[&str] = &[
     "(builtin_function (builtin_identifier) @pc_f (#eq? @pc_f \"@panic\"))",
     "(function_declaration name: (identifier) @ex_name) @ex_fn",
     "(variable_declaration (identifier) @nv_var)",
-    "(call_expression function: (field_expression member: (identifier) @dp_method (#eq? @dp_method \"print\")))",
+    "(call_expression function: (field_expression member: (identifier) @dp_method (#match? @dp_method \"^(print|warn)$\")))",
+    "(builtin_function (builtin_identifier) @dp_bl (#eq? @dp_bl \"@compileLog\"))",
     "(function_declaration (parameters) @ep_params)",
     "[(integer) @mn_num (float) @mn_num]",
 ];
@@ -96,15 +98,37 @@ impl LanguageAdapter for ZigAdapter {
         self.count_magic_from_batch(file, &self.batch_captures(file))
     }
 
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["@import("])
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return;", "break;", "continue;"],
+            &["return ", "@panic(", "unreachable "],
+            "//",
+        )
+    }
+
     fn count_panic_from_batch<'a>(
         &self,
-        _file: &ParsedFile,
+        file: &ParsedFile,
         batch: &[Vec<QueryCapture<'a>>],
     ) -> usize {
-        batch
+        let base = batch
             .iter()
             .filter(|m| m.iter().any(|c| c.name == "pc_f"))
-            .count()
+            .count();
+        let unreach = file
+            .content
+            .lines()
+            .filter(|l| {
+                let t = l.trim();
+                !t.starts_with("//") && t.contains("unreachable")
+            })
+            .count();
+        base + unreach
     }
 
     fn extract_functions_from_batch<'a>(
@@ -188,7 +212,7 @@ impl LanguageAdapter for ZigAdapter {
     ) -> usize {
         batch
             .iter()
-            .filter(|m| m.iter().any(|c| c.name == "dp_method"))
+            .filter(|m| m.iter().any(|c| c.name == "dp_method" || c.name == "dp_bl"))
             .count()
     }
 
@@ -341,5 +365,34 @@ fn main() void {
         let file = parse_zig(code);
         let adapter = ZigAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_zig_panic_unreachable() {
+        let code = "fn main() void { unreachable; }\n";
+        let file = parse_zig(code);
+        let adapter = ZigAdapter;
+        assert_eq!(adapter.count_panic_calls(&file), 1);
+    }
+
+    #[test]
+    fn test_zig_debug_compile_log() {
+        let code = "fn main() void { @compileLog(\"debug\"); }\n";
+        let file = parse_zig(code);
+        let adapter = ZigAdapter;
+        assert_eq!(adapter.count_debug_calls(&file), 1);
+    }
+
+    #[test]
+    fn test_zig_dead_code_after_return() {
+        let code = r#"
+fn foo() i32 {
+    return 42;
+    var x: i32 = 1;
+}
+"#;
+        let file = parse_zig(code);
+        let adapter = ZigAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
     }
 }

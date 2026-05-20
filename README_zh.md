@@ -74,6 +74,20 @@ garbage-code-hunter analyze -f json
 
 Rust、Go、Python、JavaScript、TypeScript、Java、C、C++、Ruby、Swift、Zig。
 
+| 语言 | 状态 | 覆盖度 |
+|------|------|--------|
+| Rust | 稳定 | 全量 — 所有检测器，`#[cfg(test)]` 感知 |
+| Go | 稳定 | 强 — goroutine/defer/convention 检测 |
+| Python | 稳定 | 良好 — 通配符导入、布尔/身份比较、格式化字符串 |
+| Ruby | 稳定 | 良好 — 全局变量、bare rescue、frozen_string_literal |
+| Java | 稳定 | 良好 — 空 catch、javadoc、字符串拼接、通配符导入 |
+| TypeScript | Beta | 基础 — `any` 类型、object type alias、enum |
+| JavaScript | Beta | 基础 — 仅通用检测器，无 JS 特有问题检测 |
+| C | Beta | 基础 — panic 检测未实现（返回 0） |
+| C++ | Beta | 基础 — panic 检测未实现，无 stream debug 检测 |
+| Swift | Beta | 最少 — 无 Swift 特有问题检测 |
+| Zig | Beta | 最少 — 语法可能变化，tree-sitter 覆盖有限 |
+
 ## 性能基准
 
 Apple Silicon (M 系列) 单文件分析性能：

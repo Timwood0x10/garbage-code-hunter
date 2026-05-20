@@ -1,8 +1,8 @@
 //! SwiftAdapter — Swift language adapter.
 
 use super::{
-    is_boolean_or_null, is_common_safe_number, is_inside_declaration, is_repeating_chars,
-    FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
+    count_dead_code_with, count_duplicate_imports_with, is_boolean_or_null, is_common_safe_number,
+    is_inside_declaration, is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -11,10 +11,10 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 const SWIFT_PATTERNS: &[&str] = &[
-    "(call_expression (simple_identifier) @pc_f (#match? @pc_f \"^(fatalError|preconditionFailure)$\"))",
+    "(call_expression (simple_identifier) @pc_f (#match? @pc_f \"^(fatalError|preconditionFailure|assert|assertionFailure|precondition)$\"))",
     "(function_declaration (simple_identifier) @ex_name) @ex_fn",
     "(property_declaration (pattern (simple_identifier) @nv_var))",
-    "(call_expression (simple_identifier) @dp_f (#match? @dp_f \"^(print|debugPrint|dump)$\"))",
+    "(call_expression (simple_identifier) @dp_f (#match? @dp_f \"^(print|debugPrint|dump|NSLog)$\"))",
     "(function_declaration) @ep_fn",
     "[(integer_literal) @mn_num (real_literal) @mn_num]",
 ];
@@ -94,6 +94,36 @@ impl LanguageAdapter for SwiftAdapter {
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return", "break", "continue"],
+            &["return ", "throw ", "fatalError(", "preconditionFailure("],
+            "//",
+        )
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["import "])
+    }
+
+    fn count_swift_issues(&self, file: &ParsedFile) -> usize {
+        let mut count = 0;
+        for line in file.content.lines() {
+            let t = line.trim();
+            if t.starts_with("//") || t.starts_with("/*") || t.starts_with("*") {
+                continue;
+            }
+            if t.contains("try!") {
+                count += 1;
+            }
+            if t.contains("as!") {
+                count += 1;
+            }
+        }
+        count
     }
 
     fn count_panic_from_batch<'a>(
@@ -351,5 +381,50 @@ func main() {
         let file = parse_swift(code);
         let adapter = SwiftAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_swift_panic_assert() {
+        let code = "func main() { assert(x > 0); precondition(y != nil) }\n";
+        let file = parse_swift(code);
+        let adapter = SwiftAdapter;
+        assert_eq!(adapter.count_panic_calls(&file), 2);
+    }
+
+    #[test]
+    fn test_swift_debug_nslog() {
+        let code = "NSLog(\"hello\")\n";
+        let file = parse_swift(code);
+        let adapter = SwiftAdapter;
+        assert_eq!(adapter.count_debug_calls(&file), 1);
+    }
+
+    #[test]
+    fn test_swift_issues_try_bang() {
+        let code = "let data = try! Data(contentsOf: url)\n";
+        let file = parse_swift(code);
+        let adapter = SwiftAdapter;
+        assert_eq!(adapter.count_swift_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_swift_issues_clean() {
+        let code = "let x = 1\nlet y = 2\n";
+        let file = parse_swift(code);
+        let adapter = SwiftAdapter;
+        assert_eq!(adapter.count_swift_issues(&file), 0);
+    }
+
+    #[test]
+    fn test_swift_dead_code_after_return() {
+        let code = r#"
+func foo() -> Int {
+    return 42
+    print("dead")
+}
+"#;
+        let file = parse_swift(code);
+        let adapter = SwiftAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
     }
 }

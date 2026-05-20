@@ -74,6 +74,20 @@ garbage-code-hunter analyze -f json
 
 Rust, Go, Python, JavaScript, TypeScript, Java, C, C++, Ruby, Swift, and Zig.
 
+| Language | Status | Coverage |
+|----------|--------|----------|
+| Rust | Stable | Full — all detectors, `#[cfg(test)]` aware |
+| Go | Stable | Strong — goroutine/defer/convention detection |
+| Python | Stable | Good — wildcard import, bool/identity comparison, format string |
+| Ruby | Stable | Good — global var, bare rescue, frozen_string_literal |
+| Java | Stable | Good — empty catch, javadoc, string concat, wildcard import |
+| TypeScript | Beta | Basic — `any` type, object type alias, enum |
+| JavaScript | Beta | Basic — generic detectors only, no JS-specific issues |
+| C | Beta | Basic — panic detection not implemented (returns 0) |
+| C++ | Beta | Basic — panic detection not implemented, no stream debug |
+| Swift | Beta | Minimal — no Swift-specific issue detection |
+| Zig | Beta | Minimal — syntax may change, limited tree-sitter coverage |
+
 ## Performance
 
 Benchmarked on Apple Silicon (M-series), single-file analysis:

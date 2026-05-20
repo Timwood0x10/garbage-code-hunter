@@ -1,9 +1,9 @@
 //! TSAdapter — TypeScript language adapter.
 
 use super::{
-    count_block_ancestors, count_nested_blocks, count_params, is_boolean_or_null,
-    is_common_safe_number, is_inside_declaration, is_repeating_chars, FunctionNode,
-    LanguageAdapter, MEANINGLESS_NAMES,
+    count_block_ancestors, count_dead_code_with, count_duplicate_imports_with, count_nested_blocks,
+    count_params, is_boolean_or_null, is_common_safe_number, is_inside_declaration,
+    is_repeating_chars, FunctionNode, LanguageAdapter, MEANINGLESS_NAMES,
 };
 use crate::language::Language;
 use crate::treesitter::engine::ParsedFile;
@@ -80,6 +80,19 @@ impl LanguageAdapter for TSAdapter {
 
     fn count_magic_numbers(&self, file: &ParsedFile) -> usize {
         self.count_magic_from_batch(file, &self.batch_captures(file))
+    }
+
+    fn count_dead_code(&self, file: &ParsedFile) -> usize {
+        count_dead_code_with(
+            file,
+            &["return;", "break;", "continue;", "throw;"],
+            &["return ", "throw ", "process.exit("],
+            "//",
+        )
+    }
+
+    fn count_duplicate_imports(&self, file: &ParsedFile) -> usize {
+        count_duplicate_imports_with(file, &["import "])
     }
 
     fn count_ts_issues(&self, file: &ParsedFile) -> usize {
@@ -227,11 +240,7 @@ impl LanguageAdapter for TSAdapter {
         count
     }
 
-    fn count_ts_from_batch<'a>(
-        &self,
-        _file: &ParsedFile,
-        batch: &[Vec<QueryCapture<'a>>],
-    ) -> usize {
+    fn count_ts_from_batch<'a>(&self, file: &ParsedFile, batch: &[Vec<QueryCapture<'a>>]) -> usize {
         let mut count = 0;
         for m in batch {
             for c in m {
@@ -244,6 +253,21 @@ impl LanguageAdapter for TSAdapter {
                     }
                     _ => {}
                 }
+            }
+        }
+        for line in file.content.lines() {
+            let t = line.trim();
+            if t.starts_with("//") {
+                if t.contains("@ts-ignore") || t.contains("@ts-expect-error") {
+                    count += 1;
+                }
+                continue;
+            }
+            if t.starts_with("/*") || t.starts_with("*") {
+                continue;
+            }
+            if t.contains("require(") || t.contains("require (") {
+                count += 1;
             }
         }
         count
@@ -348,5 +372,74 @@ function main(): void {
         let file = parse_ts(code);
         let adapter = TSAdapter;
         assert_eq!(adapter.count_magic_numbers(&file), 0);
+    }
+
+    #[test]
+    fn test_ts_issues_ts_ignore() {
+        let code = "// @ts-ignore\nconst x: number = 'hello';\n";
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_ts_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_ts_issues_ts_expect_error() {
+        let code = "// @ts-expect-error\nconst x = (null as any).foo;\n";
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_ts_issues(&file), 2);
+    }
+
+    #[test]
+    fn test_ts_issues_require() {
+        let code = "const fs = require('fs');\n";
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_ts_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_ts_issues_clean() {
+        let code = "const x: number = 42;\n";
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_ts_issues(&file), 0);
+    }
+
+    #[test]
+    fn test_ts_issues_any_type() {
+        let code = "function foo(x: any): void {}\n";
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_ts_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_ts_issues_enum() {
+        let code = "enum Color { Red, Green, Blue }\n";
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_ts_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_ts_issues_object_alias() {
+        let code = "type Point = { x: number; y: number };\n";
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_ts_issues(&file), 1);
+    }
+
+    #[test]
+    fn test_ts_dead_code_after_throw() {
+        let code = r#"
+function foo(): void {
+    throw new Error("bad");
+    console.log("dead");
+}
+"#;
+        let file = parse_ts(code);
+        let adapter = TSAdapter;
+        assert_eq!(adapter.count_dead_code(&file), 1);
     }
 }
