@@ -74,19 +74,19 @@ garbage-code-hunter analyze -f json
 
 Rust, Go, Python, JavaScript, TypeScript, Java, C, C++, Ruby, Swift, and Zig.
 
-| Language | Status | Coverage |
-|----------|--------|----------|
-| Rust | Stable | Full — all detectors, `#[cfg(test)]` aware |
-| Go | Stable | Strong — goroutine/defer/convention detection |
-| Python | Stable | Good — wildcard import, bool/identity comparison, format string |
-| Ruby | Stable | Good — global var, bare rescue, frozen_string_literal |
-| Java | Stable | Good — empty catch, javadoc, string concat, wildcard import |
-| TypeScript | Beta | Basic — `any` type, object type alias, enum |
-| JavaScript | Beta | Basic — generic detectors only, no JS-specific issues |
-| C | Beta | Basic — panic detection not implemented (returns 0) |
-| C++ | Beta | Basic — panic detection not implemented, no stream debug |
-| Swift | Beta | Minimal — no Swift-specific issue detection |
-| Zig | Beta | Minimal — syntax may change, limited tree-sitter coverage |
+| Language | Status | TP Rate | Test Projects | Key Detectors |
+|----------|--------|---------|---------------|---------------|
+| Rust | Stable | ~90% | Finance, ReChat-server | unwrap/expect, panic, assert, debug, unsafe, naming, nesting, magic, dead_code, duplicate_import, `#[cfg(test)]` aware |
+| Go | Stable | ~85% | interchange, gaia, loan, gosec | panic, debug, naming, nesting, goroutine, defer, conventions, unsafe, dead_code, duplicate_import |
+| Python | Stable | ~80% | ZK-bulletproofs | except, print, naming, nesting, magic (int+float), wildcard-import, bool-compare, dead_code, duplicate_import |
+| Ruby | Stable | ~85% | jekyll, Metric | raise, puts/p/warn, naming, nesting, magic, globals, bare-rescue, dead_code, duplicate_import |
+| Java | Stable | ~80% | TestJava.java | throw, println/printStackTrace, naming, nesting, magic, empty-catch, logging frameworks, dead_code, duplicate_import |
+| TypeScript | Beta | ~80% | zod, hono, trpc | throw, console/debugger, naming, nesting, magic, any/enum/alias, @ts-ignore, require, dead_code, duplicate_import |
+| JavaScript | Beta | ~80% | self-tested | throw, console/debugger, naming, nesting, magic, eval/with/alert/var, dead_code, duplicate_import |
+| C | Beta | ~85% | stone-prover | exit/abort/assert, printf, naming, nesting, magic, goto, sizeof, malloc, dead_code, duplicate_import |
+| C++ | Beta | ~85% | stone-prover | exit/abort/terminate/throw, cout/cerr, naming, nesting, magic, goto/new, sizeof, malloc, dead_code, duplicate_import |
+| Swift | Beta | ~80% | Alamofire, SnapKit, vapor | fatalError/assert, print/NSLog, naming, nesting, magic, try!/as!, dead_code, duplicate_import |
+| Zig | Beta | ~90% | ziglings | @panic, @compileLog/warn, naming, nesting, magic, unreachable, dead_code, duplicate_import |
 
 ## Performance
 

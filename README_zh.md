@@ -74,19 +74,19 @@ garbage-code-hunter analyze -f json
 
 Rust、Go、Python、JavaScript、TypeScript、Java、C、C++、Ruby、Swift、Zig。
 
-| 语言 | 状态 | 覆盖度 |
-|------|------|--------|
-| Rust | 稳定 | 全量 — 所有检测器，`#[cfg(test)]` 感知 |
-| Go | 稳定 | 强 — goroutine/defer/convention 检测 |
-| Python | 稳定 | 良好 — 通配符导入、布尔/身份比较、格式化字符串 |
-| Ruby | 稳定 | 良好 — 全局变量、bare rescue、frozen_string_literal |
-| Java | 稳定 | 良好 — 空 catch、javadoc、字符串拼接、通配符导入 |
-| TypeScript | Beta | 基础 — `any` 类型、object type alias、enum |
-| JavaScript | Beta | 基础 — 仅通用检测器，无 JS 特有问题检测 |
-| C | Beta | 基础 — panic 检测未实现（返回 0） |
-| C++ | Beta | 基础 — panic 检测未实现，无 stream debug 检测 |
-| Swift | Beta | 最少 — 无 Swift 特有问题检测 |
-| Zig | Beta | 最少 — 语法可能变化，tree-sitter 覆盖有限 |
+| 语言 | 状态 | TP 率 | 测试项目 | 主要检测能力 |
+|------|------|-------|----------|-------------|
+| Rust | 稳定 | ~90% | Finance, ReChat-server | unwrap/expect, panic, assert, debug, unsafe, naming, nesting, magic, dead_code, duplicate_import, `#[cfg(test)]` 感知 |
+| Go | 稳定 | ~85% | interchange, gaia, loan, gosec | panic, debug, naming, nesting, goroutine, defer, conventions, unsafe, dead_code, duplicate_import |
+| Python | 稳定 | ~80% | ZK-bulletproofs | except, print, naming, nesting, magic (int+float), 通配符导入, 布尔比较, dead_code, duplicate_import |
+| Ruby | 稳定 | ~85% | jekyll, Metric | raise, puts/p/warn, naming, nesting, magic, 全局变量, bare-rescue, dead_code, duplicate_import |
+| Java | 稳定 | ~80% | TestJava.java | throw, println/printStackTrace, naming, nesting, magic, 空catch, 日志框架, dead_code, duplicate_import |
+| TypeScript | Beta | ~80% | zod, hono, trpc | throw, console/debugger, naming, nesting, magic, any/enum/alias, @ts-ignore, require, dead_code, duplicate_import |
+| JavaScript | Beta | ~80% | 自测 | throw, console/debugger, naming, nesting, magic, eval/with/alert/var, dead_code, duplicate_import |
+| C | Beta | ~85% | stone-prover | exit/abort/assert, printf, naming, nesting, magic, goto, sizeof, malloc, dead_code, duplicate_import |
+| C++ | Beta | ~85% | stone-prover | exit/abort/terminate/throw, cout/cerr, naming, nesting, magic, goto/new, sizeof, malloc, dead_code, duplicate_import |
+| Swift | Beta | ~80% | Alamofire, SnapKit, vapor | fatalError/assert, print/NSLog, naming, nesting, magic, try!/as!, dead_code, duplicate_import |
+| Zig | Beta | ~90% | ziglings | @panic, @compileLog/warn, naming, nesting, magic, unreachable, dead_code, duplicate_import |
 
 ## 性能基准
 
